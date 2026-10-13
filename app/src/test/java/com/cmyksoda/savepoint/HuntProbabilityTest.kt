@@ -28,6 +28,16 @@ class HuntProbabilityTest {
     }
 
     @Test
+    fun encounterAdjustmentsClampAtZeroAndSaturateWithoutOverflow() {
+        assertEquals(1L, adjustedEncounterCount(0, 1))
+        assertEquals(0L, adjustedEncounterCount(1, -1))
+        assertEquals(0L, adjustedEncounterCount(0, -1))
+        assertEquals(0L, adjustedEncounterCount(100, Long.MIN_VALUE))
+        assertEquals(Long.MAX_VALUE, adjustedEncounterCount(Long.MAX_VALUE, 1))
+        assertEquals(Long.MAX_VALUE - 1, adjustedEncounterCount(Long.MAX_VALUE, -1))
+    }
+
+    @Test
     fun speciesLookupUsesTheDeclaredDefaultAndExplicitFormsStayExact() {
         val requests = mutableListOf<String>()
         val pokemon = JSONObject("{\"name\":\"shaymin-land\"}")

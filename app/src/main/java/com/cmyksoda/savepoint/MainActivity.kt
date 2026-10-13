@@ -12,10 +12,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -38,14 +41,13 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -63,6 +65,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+
+private val bottomTabRoutes = setOf("home", "backlog", "paused", "log")
 
 private val dockRoutes =
     setOf("home", "backlog", "paused", "log", "add", "catalog", "find", "collections")
@@ -86,6 +90,7 @@ fun Art(
     system: String = "",
     coverBounds: CoverSize? = null,
     transparent: Boolean = false,
+    reserveHeight: Boolean = true,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     var bitmap by remember(url) { mutableStateOf(artwork.memoryBitmap(url, sprite)) }
@@ -104,7 +109,13 @@ fun Art(
     val frame =
         coverBounds?.let {
             if (sprite) it
-            else fitCover(coverAspectRatio(system, bitmap?.width, bitmap?.height), it)
+            else
+                fitCover(
+                    bitmap?.let { cover -> cover.width.toFloat() / cover.height }
+                        ?: artwork.cachedAspectRatio(url)
+                        ?: coverAspectRatio(catalogSystemName(system), null, null),
+                    it,
+                )
         }
     val slotWidth =
         remember(url, system, coverBounds) {
@@ -156,7 +167,10 @@ fun Art(
     }
     if (coverBounds != null && !sprite) {
         Box(
-            Modifier.size((slotWidth ?: coverBounds.width).dp, coverBounds.height.dp),
+            Modifier.size(
+                (slotWidth ?: frame?.width ?: coverBounds.width).dp,
+                (if (reserveHeight) coverBounds.height else frame?.height ?: coverBounds.height).dp,
+            ),
             contentAlignment = Alignment.BottomCenter,
         ) {
             body()
@@ -297,7 +311,7 @@ fun Home(
                         Text("Bring a few games onto your shelves. The rest can stay tucked away.")
                         PinkButton(onClick = onAdd) { Text("add a game") }
                         if (games.isEmpty())
-                            TextButton(onClick = onSeed) {
+                            AeroButton(onClick = onSeed) {
                                 Text("start with the games we discussed")
                             }
                     }
@@ -383,98 +397,68 @@ fun LibraryList(
             },
             settings.sort,
         )
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Choice("sort", settings.sort.label, LibrarySort.entries.map { it.label }) { value ->
-            onSettings(settings.copy(sort = LibrarySort.entries.first { it.label == value }))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Column(Modifier.weight(1f)) {
-                Choice(
-                    "system",
-                    settings.systemFilter.ifBlank { "all systems" },
-                    listOf("all systems") + systems,
-                ) {
-                    onSettings(settings.copy(systemFilter = if (it == "all systems") "" else it))
-                }
-            }
-            Column(Modifier.weight(1f)) {
-                Choice(
-                    "collection",
-                    settings.collectionFilter.ifBlank { "all collections" },
-                    listOf("all collections") + collections,
-                ) {
+    LibraryBrowser(
+        filtered,
+        (if (place == Place.BACKLOG) "backlog" else "paused") in settings.gridViews,
+        if (place == Place.PAUSED) "Games you pause will keep their place here."
+        else "No games here yet.",
+        controls = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Choice("sort", settings.sort.label, LibrarySort.entries.map { it.label }) { value ->
                     onSettings(
-                        settings.copy(collectionFilter = if (it == "all collections") "" else it)
+                        settings.copy(sort = LibrarySort.entries.first { it.label == value })
                     )
                 }
-            }
-        }
-        TextButton(onClick = onCollections) { Text("manage collections") }
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 20.dp),
-        ) {
-            if (filtered.isEmpty())
-                item {
-                    Text(
-                        if (place == Place.PAUSED) "Games you pause will keep their place here."
-                        else "No games here yet.",
-                        modifier = Modifier.padding(vertical = 20.dp),
-                    )
-                }
-            items(filtered, key = { it.id }) { game ->
-                Glass(
-                    Modifier.fillMaxWidth()
-                        .animateItem(placementSpec = spring(stiffness = 350f))
-                        .clickable { onOpen(game.id) }
-                ) {
-                    Row(
-                        Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        Art(
-                            if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
-                            artwork,
-                            game.title,
-                            Modifier.clip(RoundedCornerShape(8.dp)),
-                            game.shelf == Shelf.HUNTS,
-                            system = game.system,
-                            coverBounds = CoverSize(54f, 72f),
-                        )
-                        Column(Modifier.weight(1f)) {
-                            Text(game.title, fontWeight = FontWeight.SemiBold)
-                            Text(game.system, style = MaterialTheme.typography.bodySmall)
-                            if (game.collection.isNotBlank())
-                                Text(game.collection, style = MaterialTheme.typography.bodySmall)
-                            if (place == Place.PAUSED && game.pauseNote.isNotBlank())
-                                Text(
-                                    game.pauseNote,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(top = 6.dp),
-                                )
-                        }
-                        if (place == Place.BACKLOG)
-                            AeroIconButton(
-                                AeroSymbol.DELETE,
-                                "delete ${game.title}",
-                                { onDelete(game.id) },
-                                compact = true,
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Choice(
+                            "system",
+                            settings.systemFilter.ifBlank { "all systems" },
+                            listOf("all systems") + systems,
+                        ) {
+                            onSettings(
+                                settings.copy(systemFilter = if (it == "all systems") "" else it)
                             )
-                        AeroIcon(
-                            AeroSymbol.NEXT,
-                            Modifier.size(16.dp),
-                            MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        }
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Choice(
+                            "collection",
+                            settings.collectionFilter.ifBlank { "all collections" },
+                            listOf("all collections") + collections,
+                        ) {
+                            onSettings(
+                                settings.copy(
+                                    collectionFilter = if (it == "all collections") "" else it
+                                )
+                            )
+                        }
                     }
                 }
+                AeroButton(onClick = onCollections) { Text("manage collections") }
             }
-        }
-    }
+        },
+        card = { game, grid, modifier ->
+            LibraryGameCard(
+                game,
+                artwork,
+                grid,
+                modifier,
+                { onOpen(game.id) },
+                onDelete = if (place == Place.BACKLOG) ({ onDelete(game.id) }) else null,
+            ) {
+                if (game.collection.isNotBlank())
+                    Text(game.collection, style = MaterialTheme.typography.bodySmall)
+                if (place == Place.PAUSED && game.pauseNote.isNotBlank())
+                    Text(
+                        game.pauseNote,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+            }
+        },
+    )
 }
 
 @Composable
@@ -506,29 +490,32 @@ fun ShelfEditor(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 PinkButton(onClick = onAdd) { Text("add a game") }
-                TextButton(onClick = onChooseBacklog) { Text("from backlog") }
+                AeroButton(onClick = onChooseBacklog) { Text("from backlog") }
             }
         }
         items(row, key = { it.id }) { game ->
             Glass(Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f))) {
-                Column(Modifier.padding(14.dp)) {
-                    TextButton(onClick = { onOpen(game.id) }) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AeroButton(onClick = { onOpen(game.id) }) {
                         Text(game.title, fontWeight = FontWeight.SemiBold)
                     }
-                    FlowRow(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        AeroButton(
                             onClick = { onMove(game.id, -1) },
                             enabled = row.first().id != game.id,
                         ) {
                             Text("↑ earlier")
                         }
-                        TextButton(
+                        AeroButton(
                             onClick = { onMove(game.id, 1) },
                             enabled = row.last().id != game.id,
                         ) {
                             Text("↓ later")
                         }
-                        TextButton(onClick = { onBacklog(game.id) }) { Text("to backlog") }
+                        AeroButton(onClick = { onBacklog(game.id) }) { Text("to backlog") }
                     }
                 }
             }
@@ -547,20 +534,18 @@ fun GameDetails(
     onPlayLog: () -> Unit,
     onMove: (Place, Boolean) -> Unit,
     onEncounter: (Long) -> Unit,
-    onUndo: () -> Unit,
-    canUndo: Boolean,
     onEditCount: () -> Unit,
     onRelocate: () -> Unit,
     onDelete: () -> Unit,
     onCover: () -> Unit,
 ) {
-    val haptics = LocalHapticFeedback.current
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        Modifier.fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         GameIdentity(game, artwork, showShelf = true, prominent = true)
-        if (game.shelf != Shelf.HUNTS) TextButton(onClick = onCover) { Text("change cover art") }
         if (game.shelf != Shelf.HUNTS && game.pauseNote.isNotBlank())
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -588,15 +573,17 @@ fun GameDetails(
                 },
             )
         }
-        if (game.place == Place.ACTIVE || game.place == Place.BACKLOG) {
-            AeroActionRow(
-                first = { AeroButton(onClick = onRelocate) { Text("move game") } },
-                second = { AeroButton(onClick = onPause) { Text("pause game") } },
-            )
-        } else
-            AeroButton(onClick = onRelocate, modifier = Modifier.fillMaxWidth()) {
-                Text("move game")
-            }
+        if (game.shelf != Shelf.HUNTS) {
+            if (game.place == Place.ACTIVE || game.place == Place.BACKLOG) {
+                AeroActionRow(
+                    first = { AeroButton(onClick = onRelocate) { Text("move game") } },
+                    second = { AeroButton(onClick = onPause) { Text("pause game") } },
+                )
+            } else
+                AeroButton(onClick = onRelocate, modifier = Modifier.fillMaxWidth()) {
+                    Text("move game")
+                }
+        }
         if (game.inPlayLog)
             AeroButton(onClick = onPlayLog, modifier = Modifier.fillMaxWidth()) {
                 Text("view play log")
@@ -613,7 +600,7 @@ fun GameDetails(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            "${game.encounters} encounters",
+                            "${game.encounters} ${if (game.encounters == 1L) "encounter" else "encounters"}",
                             fontSize = 24.sp,
                             modifier = Modifier.weight(1f),
                         )
@@ -627,19 +614,29 @@ fun GameDetails(
                     Text(odds.first?.let { "1 in $it · ${odds.second}" } ?: odds.second)
                     Text(huntVersions[game.pokemonVersion] ?: game.pokemonVersion)
                     if (game.shinyCharm) Text("shiny charm enabled")
-                    PinkButton(
-                        onClick = {
-                            if (game.encounters < Long.MAX_VALUE) {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onEncounter(1)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        minHeight = 64.dp,
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("+1 encounter", fontSize = 20.sp)
+                        AeroButton(
+                            onClick = { onEncounter(-1) },
+                            modifier = Modifier.weight(1f),
+                            enabled = game.encounters > 0,
+                            haptic = true,
+                            minHeight = 56.dp,
+                        ) {
+                            Text("−1", fontSize = 20.sp)
+                        }
+                        PinkButton(
+                            onClick = { onEncounter(1) },
+                            modifier = Modifier.weight(1f),
+                            enabled = game.encounters < Long.MAX_VALUE,
+                            haptic = true,
+                            minHeight = 56.dp,
+                        ) {
+                            Text("+1", fontSize = 20.sp)
+                        }
                     }
-                    TextButton(onClick = onUndo, enabled = canUndo) { Text("undo last count") }
                     HuntStatistics(game)
                 }
             }
@@ -674,9 +671,6 @@ fun GameDetails(
                 )
             }
         }
-        TextButton(onClick = onDelete) {
-            Text("delete game", color = MaterialTheme.colorScheme.error)
-        }
         if (game.source == "gametdb")
             Text("Title source: GameTDB", style = MaterialTheme.typography.bodySmall)
         if (game.source == "igdb")
@@ -688,6 +682,22 @@ fun GameDetails(
                 "Pokémon artwork via PokéAPI · respective owners retain artwork rights",
                 style = MaterialTheme.typography.bodySmall,
             )
+        Row(
+            Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (game.shelf != Shelf.HUNTS)
+                AeroButton(onClick = onCover, modifier = Modifier.weight(1f)) {
+                    Text("change cover art")
+                }
+            AeroIconButton(
+                AeroSymbol.DELETE,
+                "delete game",
+                onDelete,
+                tint = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }
 
@@ -786,7 +796,7 @@ fun GameForm(
             label = "release date · YYYY-MM-DD (optional)",
             modifier = Modifier.fillMaxWidth(),
         )
-        TextButton(
+        AeroButton(
             onClick = {
                 selectingSprite = false
                 imagePicker.launch("image/*")
@@ -823,7 +833,7 @@ fun GameForm(
                 odds = ""
             }
             Row {
-                TextButton(
+                AeroButton(
                     onClick = {
                         busy = true
                         error = null
@@ -841,7 +851,7 @@ fun GameForm(
                 ) {
                     Text(if (busy) "finding artwork…" else "find shiny artwork")
                 }
-                TextButton(
+                AeroButton(
                     onClick = {
                         selectingSprite = true
                         imagePicker.launch("image/*")
@@ -949,7 +959,7 @@ fun GameForm(
         ) {
             Text("save game")
         }
-        TextButton(onClick = onCancel) { Text("cancel") }
+        AeroButton(onClick = onCancel) { Text("cancel") }
     }
 }
 
@@ -1002,7 +1012,7 @@ fun AddScreen(
             ) {
                 Text(if (busy) "searching…" else "search")
             }
-            TextButton(onClick = onManual) { Text("add manually") }
+            AeroButton(onClick = onManual) { Text("add manually") }
         }
         warning?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         LazyColumn(
@@ -1110,10 +1120,10 @@ fun SettingsScreen(
                     }
                 }
                 Row {
-                    TextButton(onClick = { pickTime(true) }) {
+                    AeroButton(onClick = { pickTime(true) }) {
                         Text("from ${timeLabel(settings.startMinute)}")
                     }
-                    TextButton(onClick = { pickTime(false) }) {
+                    AeroButton(onClick = { pickTime(false) }) {
                         Text("until ${timeLabel(settings.endMinute)}")
                     }
                 }
@@ -1121,7 +1131,7 @@ fun SettingsScreen(
                     "Delivery can vary with Android battery settings. Invitations arriving after your window are discarded.",
                     style = MaterialTheme.typography.bodySmall,
                 )
-                TextButton(
+                AeroButton(
                     onClick = {
                         onChange(settings.copy(skipDate = LocalDate.now().toString(), laterAt = 0))
                     }
@@ -1147,7 +1157,7 @@ fun SettingsScreen(
                     label = "catalog service HTTPS address",
                     modifier = Modifier.fillMaxWidth(),
                 )
-                TextButton(
+                AeroButton(
                     onClick = {
                         try {
                             if (endpoint.isNotBlank())
@@ -1203,7 +1213,17 @@ fun Savepoint(openLater: Boolean) {
     val screenStates = rememberSaveableStateHolder()
     var searchCovers by remember { mutableStateOf<List<CoverCandidate>>(emptyList()) }
     var catalogResults by remember { mutableStateOf<List<CatalogResult>>(emptyList()) }
-    var route by rememberSaveable { mutableStateOf("home") }
+    val navigation =
+        rememberSaveable(
+            saver =
+                Saver<ScreenHistory, List<String>>(
+                    save = { it.savedRoutes },
+                    restore = { ScreenHistory(it) },
+                )
+        ) {
+            ScreenHistory()
+        }
+    var route by navigation
     var selected by rememberSaveable { mutableStateOf("") }
     var editingShelf by rememberSaveable { mutableStateOf(Shelf.PLAY_THROUGH) }
     var addShelf by rememberSaveable { mutableStateOf<Shelf?>(Shelf.PLAY_THROUGH) }
@@ -1236,7 +1256,6 @@ fun Savepoint(openLater: Boolean) {
     var encounterError by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf<RestoredLibrary?>(null) }
-    var undoCount by remember { mutableStateOf<Pair<String, Long>?>(null) }
     val selectedGame = games.find { it.id == selected }
 
     fun mutate(action: (List<Game>) -> List<Game>) {
@@ -1251,16 +1270,13 @@ fun Savepoint(openLater: Boolean) {
     fun changeEncounters(id: String, transform: (Long) -> Long) {
         scope.launch {
             try {
-                var previous = 0L
                 library.change { list ->
                     list.map { game ->
                         if (game.id == id) {
-                            previous = game.encounters
                             game.copy(encounters = transform(game.encounters))
                         } else game
                     }
                 }
-                undoCount = id to previous
             } catch (e: Exception) {
                 error = e.message
             }
@@ -1309,14 +1325,7 @@ fun Savepoint(openLater: Boolean) {
         form = null
         route = "add"
     }
-    fun backRoute(): String =
-        when {
-            route == "form" -> if (selectedGame != null) "details" else "add"
-            route == "catalog" -> "add"
-            route == "add" -> addReturn
-            route == "journal" -> "log"
-            else -> "home"
-        }
+    fun backRoute(): String = navigation.previous
     fun updateSettings(value: Settings) {
         val previous = settings
         scope.launch {
@@ -1437,7 +1446,8 @@ fun Savepoint(openLater: Boolean) {
                             "find" -> "search"
                             "shelf" -> editingShelf.label
                             "details" -> "your game"
-                            "catalog" -> "cover art"
+                            "catalog",
+                            "cover" -> "cover art"
                             "form" -> if (selectedGame == null) "add game" else "edit game"
                             "log",
                             "journal" -> "play log"
@@ -1454,6 +1464,21 @@ fun Savepoint(openLater: Boolean) {
                             { route = "settings" },
                             compact = true,
                         )
+                    if (route in listOf("backlog", "paused", "log"))
+                        AeroIconButton(
+                            if (route in settings.gridViews) AeroSymbol.LIST else AeroSymbol.GRID,
+                            if (route in settings.gridViews) "list view" else "grid view",
+                            {
+                                updateSettings(
+                                    settings.copy(
+                                        gridViews =
+                                            if (route in settings.gridViews)
+                                                settings.gridViews - route
+                                            else settings.gridViews + route
+                                    )
+                                )
+                            },
+                        )
                     if (route in listOf("home", "backlog", "paused", "log"))
                         AeroIconButton(AeroSymbol.SEARCH, "search your games", { route = "find" })
                 }
@@ -1463,17 +1488,41 @@ fun Savepoint(openLater: Boolean) {
                         AnimatedContent(
                             targetState = route,
                             transitionSpec = {
-                                fadeIn(tween(170, delayMillis = 40))
-                                    .togetherWith(fadeOut(tween(100)))
-                                    .using(null)
+                                if (
+                                    initialState in bottomTabRoutes &&
+                                        targetState in bottomTabRoutes
+                                ) {
+                                    val direction =
+                                        if (
+                                            bottomTabRoutes.indexOf(targetState) >
+                                                bottomTabRoutes.indexOf(initialState)
+                                        )
+                                            1
+                                        else -1
+                                    slideInHorizontally(tween(230, easing = FastOutSlowInEasing)) {
+                                            direction * it
+                                        }
+                                        .togetherWith(
+                                            slideOutHorizontally(
+                                                tween(230, easing = FastOutSlowInEasing)
+                                            ) {
+                                                -direction * it
+                                            }
+                                        )
+                                        .using(null)
+                                } else
+                                    fadeIn(tween(170, delayMillis = 40))
+                                        .togetherWith(fadeOut(tween(100)))
+                                        .using(null)
                             },
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxSize().clipToBounds(),
                             label = "screen transition",
                         ) { screen ->
                             val stateKey =
                                 when (screen) {
                                     "details",
-                                    "journal" -> "$screen:$selected"
+                                    "journal",
+                                    "cover" -> "$screen:$selected"
                                     "form",
                                     "catalog" -> "$screen:${form?.id}"
                                     "shelf" -> "$screen:${editingShelf.name}"
@@ -1572,6 +1621,7 @@ fun Savepoint(openLater: Boolean) {
                                             PlayLogList(
                                                 games,
                                                 artwork,
+                                                "log" in settings.gridViews,
                                                 {
                                                     selected = it
                                                     route = "journal"
@@ -1595,7 +1645,7 @@ fun Savepoint(openLater: Boolean) {
                                                                 first,
                                                             )
                                                         }
-                                                        route = "home"
+                                                        route = navigation.libraryReturn
                                                     },
                                                     { route = "details" },
                                                 )
@@ -1639,7 +1689,7 @@ fun Savepoint(openLater: Boolean) {
                                                                     Place.PAUSED,
                                                                 )
                                                             }
-                                                            route = "home"
+                                                            route = navigation.libraryReturn
                                                         } else {
                                                             note = game.pauseNote
                                                             dialog = "pause"
@@ -1658,7 +1708,7 @@ fun Savepoint(openLater: Boolean) {
                                                                     Place.FINISHED,
                                                                 )
                                                             }
-                                                            route = "home"
+                                                            route = navigation.libraryReturn
                                                         } else {
                                                             logEntry = Playthrough()
                                                             dialog = "finish"
@@ -1674,26 +1724,13 @@ fun Savepoint(openLater: Boolean) {
                                                                 first,
                                                             )
                                                         }
-                                                        route = "home"
+                                                        route = navigation.libraryReturn
                                                     },
                                                     { delta ->
                                                         changeEncounters(game.id) {
-                                                            increasedEncounterCount(it, delta)
+                                                            adjustedEncounterCount(it, delta)
                                                         }
                                                     },
-                                                    {
-                                                        undoCount?.let { (id, count) ->
-                                                            mutate { list ->
-                                                                list.map {
-                                                                    if (it.id == id)
-                                                                        it.copy(encounters = count)
-                                                                    else it
-                                                                }
-                                                            }
-                                                            undoCount = null
-                                                        }
-                                                    },
-                                                    undoCount?.first == game.id,
                                                     {
                                                         encounterMode = "add encounters"
                                                         encounterValue = "1"
@@ -1705,7 +1742,7 @@ fun Savepoint(openLater: Boolean) {
                                                         dialog = "destination"
                                                     },
                                                     { dialog = "delete" },
-                                                    { dialog = "cover" },
+                                                    { route = "cover" },
                                                 )
                                             }
                                         "add" ->
@@ -1738,9 +1775,34 @@ fun Savepoint(openLater: Boolean) {
                                                     route = "form"
                                                 },
                                             )
+                                        "cover" ->
+                                            selectedGame?.let { game ->
+                                                CoverSelection(
+                                                    game,
+                                                    emptyList(),
+                                                    artwork,
+                                                    catalog,
+                                                    settings.catalogUrl,
+                                                    onPick = { cover ->
+                                                        mutate { list ->
+                                                            list.map {
+                                                                if (it.id == game.id)
+                                                                    it.copy(
+                                                                        cover = cover?.url ?: "",
+                                                                        coverProvider =
+                                                                            cover?.provider ?: "",
+                                                                    )
+                                                                else it
+                                                            }
+                                                        }
+                                                        route = "details"
+                                                    },
+                                                    existing = true,
+                                                )
+                                            }
                                         "catalog" ->
                                             form?.let { game ->
-                                                CatalogCoverSelection(
+                                                CoverSelection(
                                                     game,
                                                     searchCovers,
                                                     artwork,
@@ -1776,9 +1838,14 @@ fun Savepoint(openLater: Boolean) {
                                                         }
                                                     },
                                                     {
-                                                        screenStates.removeState("form:${initial.id}")
+                                                        screenStates.removeState(
+                                                            "form:${initial.id}"
+                                                        )
                                                         if (selectedGame != null) route = "details"
-                                                        else { form = null; route = "add" }
+                                                        else {
+                                                            form = null
+                                                            route = "add"
+                                                        }
                                                     },
                                                 )
                                             }
@@ -1835,25 +1902,6 @@ fun Savepoint(openLater: Boolean) {
                         )
                 }
             }
-            if (dialog == "cover" && selectedGame != null)
-                CoverPicker(
-                    selectedGame,
-                    artwork,
-                    catalog,
-                    settings.catalogUrl,
-                    { cover ->
-                        val id = selectedGame.id
-                        mutate { list ->
-                            list.map {
-                                if (it.id == id)
-                                    it.copy(cover = cover.url, coverProvider = cover.provider)
-                                else it
-                            }
-                        }
-                        dialog = ""
-                    },
-                    { dialog = "" },
-                )
             if (dialog == "encounters" && selectedGame != null) {
                 AeroDialog(
                     onDismissRequest = { dialog = "" },
@@ -1909,7 +1957,7 @@ fun Savepoint(openLater: Boolean) {
                             )
                         }
                     },
-                    dismissButton = { TextButton(onClick = { dialog = "" }) { Text("cancel") } },
+                    dismissButton = { AeroButton(onClick = { dialog = "" }) { Text("cancel") } },
                 )
             }
             if (dialog == "delete" && selectedGame != null) {
@@ -1935,7 +1983,7 @@ fun Savepoint(openLater: Boolean) {
                             Text("delete game", color = MaterialTheme.colorScheme.error)
                         }
                     },
-                    dismissButton = { TextButton(onClick = { dialog = "" }) { Text("cancel") } },
+                    dismissButton = { AeroButton(onClick = { dialog = "" }) { Text("cancel") } },
                 )
             }
             if (dialog == "destination" && form != null) {
@@ -1951,7 +1999,7 @@ fun Savepoint(openLater: Boolean) {
                                 modifier = Modifier.padding(bottom = 10.dp),
                             )
                             Shelf.entries.forEach { destination ->
-                                TextButton(
+                                AeroButton(
                                     onClick = {
                                         val game =
                                             form!!.copy(shelf = destination, place = Place.ACTIVE)
@@ -1982,7 +2030,7 @@ fun Savepoint(openLater: Boolean) {
                             )
                             listOf(Place.BACKLOG to "backlog", Place.FINISHED to "play log")
                                 .forEach { (place, label) ->
-                                    TextButton(
+                                    AeroButton(
                                         onClick = {
                                             val game =
                                                 form!!.copy(
@@ -2018,7 +2066,7 @@ fun Savepoint(openLater: Boolean) {
                                 }
                         }
                     },
-                    confirmButton = { TextButton(onClick = { dialog = "" }) { Text("cancel") } },
+                    confirmButton = { AeroButton(onClick = { dialog = "" }) { Text("cancel") } },
                 )
             }
             if (
@@ -2075,7 +2123,7 @@ fun Savepoint(openLater: Boolean) {
                                 val id = selected
                                 if (dialog == "pause") {
                                     mutate { LibraryRules.pause(it, id, note) }
-                                    route = "home"
+                                    route = navigation.libraryReturn
                                 } else
                                     mutate { list ->
                                         list.map { if (it.id == id) it.copy(notes = note) else it }
@@ -2202,7 +2250,7 @@ fun Savepoint(openLater: Boolean) {
                 AeroDialog(
                     onDismissRequest = { error = null },
                     text = { Text(message) },
-                    confirmButton = { TextButton(onClick = { error = null }) { Text("okay") } },
+                    confirmButton = { AeroButton(onClick = { error = null }) { Text("okay") } },
                 )
             }
         }

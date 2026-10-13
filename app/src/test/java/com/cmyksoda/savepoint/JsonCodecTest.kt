@@ -43,6 +43,7 @@ class JsonCodecTest {
         val settings =
             Settings(
                 theme = "dark",
+                gridViews = setOf("backlog", "log"),
                 reminders = true,
                 days = setOf(2, 5),
                 sort = LibrarySort.SYSTEM,
@@ -53,5 +54,19 @@ class JsonCodecTest {
         )
         val invalid = JsonCodec.settings(settings).put("endMinute", settings.startMinute)
         assertThrows(IllegalArgumentException::class.java) { JsonCodec.settings(invalid) }
+    }
+
+    @Test
+    fun oldSettingsDefaultToListAndConcurrentViewChangesPreserveOtherTabs() {
+        val previous = Settings()
+        assertTrue(
+            JsonCodec.settings(JsonCodec.settings(previous).apply { remove("gridViews") })
+                .gridViews
+                .isEmpty()
+        )
+        val current = previous.copy(gridViews = setOf("paused"), reminders = true)
+        val updated = mergeSettings(current, previous, previous.copy(gridViews = setOf("backlog")))
+        assertEquals(setOf("backlog", "paused"), updated.gridViews)
+        assertTrue(updated.reminders)
     }
 }

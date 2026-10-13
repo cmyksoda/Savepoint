@@ -32,127 +32,33 @@ fun coverProvider(game: Game): String =
     }
 
 @Composable
-fun CoverPicker(
-    game: Game,
-    artwork: Artwork,
-    catalog: Catalog,
-    endpoint: String,
-    onPick: (CoverCandidate) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    var provider by remember {
-        mutableStateOf(coverProvider(game).takeIf { it in coverProviders } ?: "LaunchBox")
-    }
-    var results by remember { mutableStateOf<List<CoverCandidate>>(emptyList()) }
-    var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
-    val picker =
-        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            if (uri != null)
-                scope.launch {
-                    try {
-                        onPick(
-                            CoverCandidate(artwork.select(uri), "Selected image", "Selected image")
-                        )
-                    } catch (e: Exception) {
-                        message = e.message
-                    }
-                }
-        }
-    AeroDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("cover art") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("${game.title} · ${game.system}", style = MaterialTheme.typography.bodySmall)
-                Choice("provider", provider, coverProviders) {
-                    provider = it
-                    results = emptyList()
-                    message = null
-                }
-                PinkButton(
-                    onClick = {
-                        busy = true
-                        message = null
-                        scope.launch {
-                            try {
-                                results =
-                                    catalog.covers(game.title, game.system, provider, endpoint)
-                                if (results.isEmpty())
-                                    message =
-                                        "No matching front covers found for this game and system."
-                            } catch (e: Exception) {
-                                message = e.message ?: "Cover search unavailable."
-                            } finally {
-                                busy = false
-                            }
-                        }
-                    },
-                    enabled = !busy && game.title.isNotBlank(),
-                ) {
-                    Text(if (busy) "finding covers…" else "find covers")
-                }
-                message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                if (results.isNotEmpty())
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(results, key = { it.url }) { cover ->
-                            Column(
-                                Modifier.width(116.dp).clickable { onPick(cover) },
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                Art(
-                                    cover.url,
-                                    artwork,
-                                    cover.label,
-                                    system = game.system,
-                                    coverBounds = CoverSize(116f, 156f),
-                                )
-                                Text(
-                                    if (cover.provider == "LaunchBox")
-                                        Regex("\\(([^()]*)\\)$")
-                                            .find(cover.label)
-                                            ?.groupValues
-                                            ?.get(1) ?: "front cover"
-                                    else cover.provider,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        }
-                    }
-                AeroButton(
-                    onClick = { picker.launch("image/*") },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("choose image from phone")
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("done") } },
-    )
-}
-
-@Composable
-fun CatalogCoverSelection(
+fun CoverSelection(
     game: Game,
     initial: List<CoverCandidate>,
     artwork: Artwork,
     catalog: Catalog,
     endpoint: String,
     onPick: (CoverCandidate?) -> Unit,
+    existing: Boolean = false,
 ) {
     var choices by
         remember(game.id) {
             mutableStateOf(
-                initial.ifEmpty {
-                    if (game.cover.isBlank()) emptyList()
-                    else
-                        listOf(CoverCandidate(game.cover, coverProvider(game), coverProvider(game)))
-                }
+                if (existing) emptyList()
+                else
+                    initial.ifEmpty {
+                        if (game.cover.isBlank()) emptyList()
+                        else
+                            listOf(
+                                CoverCandidate(game.cover, coverProvider(game), coverProvider(game))
+                            )
+                    }
             )
         }
     var loading by remember(game.id) { mutableStateOf(emptySet<String>()) }
     var unavailable by remember(game.id) { mutableStateOf(emptySet<String>()) }
+    var failed by remember(game.id) { mutableStateOf(emptySet<String>()) }
+    var attempt by remember(game.id) { mutableStateOf(0) }
     var imageError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val picker =
@@ -166,10 +72,14 @@ fun CatalogCoverSelection(
                         .onFailure { imageError = it.message ?: "Could not open this image" }
                 }
         }
-    LaunchedEffect(game.id, endpoint) {
+    LaunchedEffect(game.id, game.system, endpoint, attempt) {
+        unavailable = emptySet()
+        failed = emptySet()
         kotlinx.coroutines.coroutineScope {
             coverProviders
-                .filter { provider -> choices.none { it.provider == provider } }
+                .filter { provider ->
+                    attempt > 0 || existing || choices.none { it.provider == provider }
+                }
                 .filter { endpoint.isNotBlank() || it == "GameTDB" }
                 .forEach { provider ->
                     launch {
@@ -178,8 +88,10 @@ fun CatalogCoverSelection(
                             val found = catalog.covers(game.title, game.system, provider, endpoint)
                             choices = (choices + found).distinctBy { it.url }
                             if (found.isEmpty()) unavailable = unavailable + provider
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
                         } catch (e: Exception) {
-                            unavailable = unavailable + provider
+                            failed = failed + provider
                         } finally {
                             loading = loading - provider
                         }
@@ -201,6 +113,27 @@ fun CatalogCoverSelection(
                 style = MaterialTheme.typography.labelLarge,
             )
         }
+        if (existing && game.cover.isNotBlank())
+            item {
+                Glass(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            "current cover · ${coverProvider(game)}",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Art(
+                            game.cover,
+                            artwork,
+                            "current cover",
+                            system = game.system,
+                            coverBounds = CoverSize(116f, 146f),
+                        )
+                    }
+                }
+            }
         (coverProviders + choices.map { it.provider }).distinct().forEach { provider ->
             val options = choices.filter { it.provider == provider }
             if (options.isNotEmpty() || provider in loading)
@@ -254,7 +187,17 @@ fun CatalogCoverSelection(
         item {
             if (unavailable.isNotEmpty() && loading.isEmpty())
                 Text(
-                    "No matching cover from ${unavailable.joinToString()}. You can choose another cover or your own image.",
+                    "No matching cover from ${providerAlternatives(coverProviders.filter { it in unavailable })}. You can choose another cover or your own image.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            if (failed.isNotEmpty() && loading.isEmpty())
+                Text(
+                    "Couldn't reach ${providerAlternatives(coverProviders.filter { it in failed })}. Retry, or choose an image from your phone.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            if (endpoint.isBlank())
+                Text(
+                    "Set a catalog service address in settings to search LaunchBox or IGDB.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             imageError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -262,14 +205,30 @@ fun CatalogCoverSelection(
                 Modifier.fillMaxWidth().padding(top = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                AeroButton(
+                    onClick = { attempt++ },
+                    enabled = loading.isEmpty(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (loading.isEmpty()) "retry cover search" else "finding covers…")
+                }
                 PinkButton(
                     onClick = { picker.launch("image/*") },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("choose image from phone")
                 }
-                AeroButton(onClick = { onPick(null) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("add without a cover")
+                AeroButton(
+                    onClick = {
+                        onPick(
+                            if (existing && game.cover.isNotBlank())
+                                CoverCandidate(game.cover, coverProvider(game), "current cover")
+                            else null
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (existing) "keep current cover" else "add without a cover")
                 }
             }
         }

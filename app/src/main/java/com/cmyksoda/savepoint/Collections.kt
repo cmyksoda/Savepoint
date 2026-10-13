@@ -108,7 +108,7 @@ fun CollectionsScreen(
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(selected, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                TextButton(onClick = { selected = "" }) { Text("all collections") }
+                AeroButton(onClick = { selected = "" }) { Text("all collections") }
             }
             PinkButton(
                 onClick = {
@@ -150,20 +150,23 @@ fun CollectionsScreen(
                                     Text(game.system, style = MaterialTheme.typography.bodySmall)
                                 }
                             }
-                            Row {
-                                TextButton(
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                AeroButton(
                                     onClick = { onReorder(selected, game.id, -1) },
                                     enabled = row.first().id != game.id,
                                 ) {
                                     Text("↑ earlier")
                                 }
-                                TextButton(
+                                AeroButton(
                                     onClick = { onReorder(selected, game.id, 1) },
                                     enabled = row.last().id != game.id,
                                 ) {
                                     Text("↓ later")
                                 }
-                                TextButton(
+                                AeroButton(
                                     onClick = {
                                         onMembers(
                                             selected,
@@ -207,7 +210,7 @@ fun CollectionsScreen(
                     Text("create")
                 }
             },
-            dismissButton = { TextButton(onClick = { creating = false }) { Text("cancel") } },
+            dismissButton = { AeroButton(onClick = { creating = false }) { Text("cancel") } },
         )
     if (picking)
         AeroDialog(
@@ -265,7 +268,7 @@ fun CollectionsScreen(
                     Text("save collection")
                 }
             },
-            dismissButton = { TextButton(onClick = { picking = false }) { Text("cancel") } },
+            dismissButton = { AeroButton(onClick = { picking = false }) { Text("cancel") } },
         )
 }
 
@@ -292,7 +295,7 @@ fun FindGames(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
-        TextButton(onClick = onCollections) { Text("manage collections") }
+        AeroButton(onClick = onCollections) { Text("manage collections") }
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(bottom = 20.dp),

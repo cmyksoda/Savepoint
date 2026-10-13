@@ -306,7 +306,7 @@ class Catalog(private val context: Context) {
     ): List<CoverCandidate> =
         withContext(Dispatchers.IO) {
             if (provider == "GameTDB") {
-                return@withContext search(title, system, "")
+                return@withContext search(title, catalogSystemName(system), "")
                     .first
                     .filter {
                         it.source == "gametdb" &&
@@ -323,19 +323,23 @@ class Catalog(private val context: Context) {
                 JSONObject(
                         String(
                             fetchBytes(
-                                "${endpoint.trimEnd('/')}/covers?q=${encoded(title)}&system=${encoded(system)}&provider=${encoded(provider)}"
+                                "${endpoint.trimEnd('/')}/covers?q=${encoded(title)}&system=${encoded(catalogSystemName(system))}&provider=${encoded(provider)}"
                             )
                         )
                     )
                     .getJSONArray("results")
-            (0 until data.length()).map { index ->
-                val item = data.getJSONObject(index)
-                CoverCandidate(
-                    item.getString("url"),
-                    item.getString("provider"),
-                    item.getString("label"),
-                )
-            }
+            (0 until data.length())
+                .map { index ->
+                    val item = data.getJSONObject(index)
+                    CoverCandidate(
+                        item.getString("url"),
+                        item.getString("provider"),
+                        item.getString("label"),
+                    )
+                }
+                .filter { candidate ->
+                    provider != "IGDB" || catalogTitleKey(candidate.label) == catalogTitleKey(title)
+                }
         }
 
     suspend fun shinySprite(pokemon: String, version: String): String =

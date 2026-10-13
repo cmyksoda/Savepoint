@@ -69,4 +69,24 @@ class CatalogResultsTest {
                 .size,
         )
     }
+
+    @Test
+    fun savedPlatformNamesResolveToTheSameCatalogPlatformAsNewSearchResults() {
+        assertEquals("SNES", catalogSystemName("Super Nintendo Entertainment System"))
+        assertEquals("NES", catalogSystemName("Nintendo Entertainment System"))
+        assertEquals("GameCube", catalogSystemName("Nintendo GameCube"))
+        assertEquals("SNES", catalogSystemName("SNES"))
+        assertEquals("Nintendo Switch", catalogSystemName("Nintendo Switch"))
+        assertEquals("Unknown platform", catalogSystemName("Unknown platform"))
+    }
+
+    @Test
+    fun providerMessagesUseOrForTwoAndThreeAlternatives() {
+        assertEquals("IGDB", providerAlternatives(listOf("IGDB")))
+        assertEquals("IGDB or LaunchBox", providerAlternatives(listOf("IGDB", "LaunchBox")))
+        assertEquals(
+            "GameTDB, IGDB, or LaunchBox",
+            providerAlternatives(listOf("GameTDB", "IGDB", "LaunchBox")),
+        )
+    }
 }

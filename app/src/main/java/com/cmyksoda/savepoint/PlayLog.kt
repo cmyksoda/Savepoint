@@ -1,10 +1,7 @@
 package com.cmyksoda.savepoint
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -13,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -88,7 +84,7 @@ fun LogExtras(game: Game) {
 }
 
 @Composable
-fun PlayLogList(games: List<Game>, artwork: Artwork, onOpen: (String) -> Unit) {
+fun PlayLogList(games: List<Game>, artwork: Artwork, grid: Boolean, onOpen: (String) -> Unit) {
     var sort by rememberSaveable { mutableStateOf("recently finished") }
     val filtered = games.filter { it.inPlayLog }
     val ordered =
@@ -102,57 +98,29 @@ fun PlayLogList(games: List<Game>, artwork: Artwork, onOpen: (String) -> Unit) {
                         .thenBy { it.title.lowercase() }
                 )
         }
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Choice("sort", sort, listOf("recently finished", "title · A–Z", "title · Z–A")) {
-            sort = it
-        }
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 20.dp),
-        ) {
-            if (ordered.isEmpty())
-                item {
-                    Text(
-                        "Games you finish will stay here, along with any thoughts you leave.",
-                        Modifier.padding(vertical = 16.dp),
-                    )
-                }
-            items(ordered, key = { it.id }) { game ->
-                Glass(Modifier.fillMaxWidth().clickable { onOpen(game.id) }) {
-                    Row(
-                        Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        Art(
-                            if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
-                            artwork,
-                            game.title,
-                            Modifier.clip(RoundedCornerShape(12.dp)),
-                            game.shelf == Shelf.HUNTS,
-                            system = game.system,
-                            coverBounds = CoverSize(70f, 94f),
-                        )
-                        Column(
-                            Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(7.dp),
-                        ) {
-                            Text(game.title, fontWeight = FontWeight.SemiBold)
-                            PlaythroughContent(game.playthroughs.lastOrNull())
-                            LogExtras(game)
-                        }
-                        AeroIcon(
-                            AeroSymbol.NEXT,
-                            Modifier.size(16.dp),
-                            MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+    LibraryBrowser(
+        ordered,
+        grid,
+        "Games you finish will stay here, along with any thoughts you leave.",
+        controls = {
+            Choice("sort", sort, listOf("recently finished", "title · A–Z", "title · Z–A")) {
+                sort = it
             }
-        }
-    }
+        },
+        card = { game, isGrid, modifier ->
+            LibraryGameCard(
+                game,
+                artwork,
+                isGrid,
+                modifier,
+                { onOpen(game.id) },
+                showSystem = false,
+            ) {
+                PlaythroughContent(game.playthroughs.lastOrNull())
+                LogExtras(game)
+            }
+        },
+    )
 }
 
 @Composable
@@ -194,10 +162,7 @@ fun GameJournal(
             }
         }
         if (game.playthroughs.size > 1) {
-            TextButton(
-                onClick = { showHistory = !showHistory },
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            ) {
+            AeroButton(onClick = { showHistory = !showHistory }) {
                 Text(if (showHistory) "hide earlier playthroughs" else "earlier playthroughs")
             }
             if (showHistory)
@@ -328,7 +293,7 @@ fun PlaythroughEditor(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (!showExtras)
-                    TextButton(
+                    AeroButton(
                         onClick = { showExtras = true },
                         modifier =
                             Modifier.semantics { contentDescription = "add optional details" },

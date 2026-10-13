@@ -30,6 +30,9 @@ fun mergeSettings(current: Settings, previous: Settings, changed: Settings) =
         collectionNames =
             if (changed.collectionNames != previous.collectionNames) changed.collectionNames
             else current.collectionNames,
+        gridViews =
+            (current.gridViews - (previous.gridViews - changed.gridViews)) +
+                (changed.gridViews - previous.gridViews),
         catalogUrl =
             if (changed.catalogUrl != previous.catalogUrl) changed.catalogUrl
             else current.catalogUrl,
@@ -234,6 +237,12 @@ val huntVersions =
         "legends-z-a" to "Legends: Z-A",
         "other" to "Other (choose artwork manually)",
     )
+
+fun adjustedEncounterCount(current: Long, delta: Long): Long {
+    require(current >= 0) { "Encounters cannot be negative" }
+    return if (delta >= 0) increasedEncounterCount(current, delta)
+    else if (delta < -current) 0 else current + delta
+}
 
 fun increasedEncounterCount(current: Long, amount: Long): Long {
     require(current >= 0 && amount >= 0) { "Encounters cannot be negative" }

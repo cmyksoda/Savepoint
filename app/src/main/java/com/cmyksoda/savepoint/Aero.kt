@@ -1,6 +1,7 @@
 package com.cmyksoda.savepoint
 
 import android.os.Build
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -11,6 +12,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -21,6 +23,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -264,7 +267,7 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
 
 fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
     val x = 0f
-    val height = 6.dp.toPx()
+    val height = 2.5.dp.toPx()
     val y = size.height - 10.dp.toPx()
     val width = size.width - x * 2
     val shadowHeight = 34.dp.toPx()
@@ -280,14 +283,35 @@ fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
         drawIntoCanvas { canvas ->
             val paint =
                 Paint().apply {
-                    color = Color(0xFF19132C).copy(alpha = if (dark) .23f else .14f)
+                    color = Color(0xFF19132C).copy(alpha = if (dark) .12f else .08f)
                     isAntiAlias = true
                     asFrameworkPaint().maskFilter =
                         android.graphics.BlurMaskFilter(
-                            6.dp.toPx() * scale,
+                            10.dp.toPx() * scale,
                             android.graphics.BlurMaskFilter.Blur.NORMAL,
                         )
                 }
+            val glow =
+                Paint().apply {
+                    color =
+                        if (dark) Color(0xFFFFC9E3).copy(alpha = .18f)
+                        else Color.White.copy(alpha = .4f)
+                    isAntiAlias = true
+                    asFrameworkPaint().maskFilter =
+                        android.graphics.BlurMaskFilter(
+                            5.dp.toPx() * scale,
+                            android.graphics.BlurMaskFilter.Blur.NORMAL,
+                        )
+                }
+            canvas.drawRoundRect(
+                x * scale,
+                6.dp.toPx() * scale,
+                (size.width - x) * scale,
+                11.dp.toPx() * scale,
+                5.dp.toPx() * scale,
+                5.dp.toPx() * scale,
+                glow,
+            )
             canvas.drawRoundRect(
                 x * scale,
                 12.dp.toPx() * scale,
@@ -321,7 +345,7 @@ fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
             Color.White.copy(alpha = if (dark) .55f else .95f),
             Offset(x, y),
             Offset(size.width - x, y),
-            strokeWidth = 1.dp.toPx(),
+            strokeWidth = .65.dp.toPx(),
         )
     }
 }
@@ -410,10 +434,12 @@ private fun AeroControl(
     modifier: Modifier,
     enabled: Boolean,
     primary: Boolean,
+    haptic: Boolean,
     minHeight: Dp = 44.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
     val dark = LocalAeroDark.current
+    val feedback = rememberActionFeedback()
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val shape = RoundedCornerShape(12.dp)
@@ -429,7 +455,10 @@ private fun AeroControl(
                 indication = null,
                 enabled = enabled,
                 role = Role.Button,
-                onClick = onClick,
+                onClick = {
+                    if (haptic) feedback(true)
+                    onClick()
+                },
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -476,6 +505,7 @@ fun PinkButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    haptic: Boolean = false,
     minHeight: Dp = 44.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
@@ -484,6 +514,7 @@ fun PinkButton(
         modifier,
         enabled,
         primary = true,
+        haptic = haptic,
         minHeight = minHeight,
         content = content,
     )
@@ -494,9 +525,19 @@ fun AeroButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    haptic: Boolean = false,
+    minHeight: Dp = 44.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
-    AeroControl(onClick, modifier, enabled, primary = false, content = content)
+    AeroControl(
+        onClick,
+        modifier,
+        enabled,
+        primary = false,
+        haptic = haptic,
+        minHeight = minHeight,
+        content = content,
+    )
 }
 
 @Composable
@@ -575,6 +616,8 @@ fun Choice(label: String, value: String, options: List<String>, onSelect: (Strin
 }
 
 enum class AeroSymbol {
+    GRID,
+    LIST,
     BACK,
     NEXT,
     DOWN,
@@ -769,6 +812,21 @@ fun AeroIcon(
                     drawArc(tint, 30f, 290f, false, Offset(3f, 3f), Size(18f, 18f), style = stroke)
                     path(17f, 3f, 20f, 7f, 15f, 8f)
                 }
+                AeroSymbol.GRID -> {
+                    for (x in listOf(3f, 13f)) for (y in listOf(3f, 13f)) drawRoundRect(
+                        tint,
+                        Offset(x, y),
+                        Size(8f, 8f),
+                        CornerRadius(1.5f),
+                        style = stroke,
+                    )
+                }
+                AeroSymbol.LIST -> {
+                    for (y in listOf(5f, 12f, 19f)) {
+                        drawCircle(tint, 1.2f, Offset(4f, y))
+                        path(9f, y, 21f, y)
+                    }
+                }
                 AeroSymbol.SETTINGS -> {
                     drawCircle(tint, 3f, Offset(12f, 12f), style = stroke)
                     drawCircle(tint, 7f, Offset(12f, 12f), style = stroke)
@@ -786,6 +844,7 @@ fun AeroIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    tint: Color? = null,
 ) {
     Box(
         modifier
@@ -800,7 +859,11 @@ fun AeroIconButton(
                 .glassMaterial(LocalAeroDark.current, if (compact) 10 else 20),
             contentAlignment = Alignment.Center,
         ) {
-            AeroIcon(symbol, Modifier.size(if (compact) 17.dp else 22.dp))
+            AeroIcon(
+                symbol,
+                Modifier.size(if (compact) 17.dp else 22.dp),
+                tint ?: MaterialTheme.colorScheme.onSurface,
+            )
         }
     }
 }
@@ -812,6 +875,11 @@ fun AeroDock(
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val dark = LocalAeroDark.current
+    val feedback = rememberActionFeedback()
+    val addInteraction = remember { MutableInteractionSource() }
+    val addPressed by addInteraction.collectIsPressedAsState()
+    val addScale by animateFloatAsState(if (addPressed) .94f else 1f, label = "add press")
     Glass(modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth()) {
         Row(Modifier.padding(6.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             listOf(
@@ -836,7 +904,12 @@ fun AeroDock(
                                     )
                                 else Modifier
                             )
-                            .clickable(role = Role.Tab) { onNavigate(destination) }
+                            .clickable(role = Role.Tab) {
+                                if (!active) {
+                                    feedback(false)
+                                    onNavigate(destination)
+                                }
+                            }
                             .semantics { selected = active }
                             .padding(vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -859,21 +932,50 @@ fun AeroDock(
                         )
                     }
                 }
+            Spacer(Modifier.width(12.dp))
             Box(
-                Modifier.padding(start = 6.dp)
-                    .size(48.dp)
-                    .glassMaterial(LocalAeroDark.current, 24)
+                Modifier.size(48.dp)
+                    .clickable(
+                        interactionSource = addInteraction,
+                        indication = null,
+                        role = Role.Button,
+                    ) {
+                        feedback(true)
+                        onAdd()
+                    }
+                    .semantics { contentDescription = "+ add" }
+                    .scale(addScale)
+                    .clip(CircleShape)
+                    .glassMaterial(dark, 24)
                     .background(
-                        Brush.verticalGradient(listOf(Color(0x88FFE8F5), Color(0x88D675AB)))
+                        Brush.verticalGradient(
+                            if (dark) {
+                                if (addPressed)
+                                    listOf(Color(0xFFFFD6F1), Color(0xFFEA84BE), Color(0xFFC756A0))
+                                else listOf(Color(0xFFFFEAF5), Color(0xFFF9BADF), Color(0xFFE894C6))
+                            } else {
+                                if (addPressed) listOf(Color(0xDDFFE8F5), Color(0xCCDC88B8))
+                                else listOf(Color(0x88FFE8F5), Color(0x88D675AB))
+                            }
+                        )
                     )
-                    .clickable(role = Role.Button, onClick = onAdd)
-                    .semantics { contentDescription = "+ add" },
+                    .drawWithContent {
+                        drawContent()
+                        drawOval(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = if (addPressed) .16f else .35f),
+                                    Color.Transparent,
+                                )
+                            ),
+                            topLeft = Offset(size.width * .12f, size.height * .05f),
+                            size = Size(size.width * .76f, size.height * .38f),
+                        )
+                    }
+                    .border(1.dp, Color.White.copy(alpha = if (dark) .6f else .45f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                AeroIcon(
-                    AeroSymbol.ADD,
-                    tint = if (LocalAeroDark.current) Color(0xFF38273F) else Color(0xFF743352),
-                )
+                AeroIcon(AeroSymbol.ADD, tint = if (dark) Color(0xFF4C2040) else Color(0xFF743352))
             }
         }
     }
@@ -892,16 +994,7 @@ fun AeroActionRow(first: @Composable () -> Unit, second: @Composable () -> Unit)
 
 @Composable
 fun QuietAction(onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
-    TextButton(
-        onClick,
-        modifier = Modifier.heightIn(min = 48.dp),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-        colors =
-            ButtonDefaults.textButtonColors(
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-            ),
-        content = content,
-    )
+    AeroButton(onClick = onClick, content = content)
 }
 
 @Composable
