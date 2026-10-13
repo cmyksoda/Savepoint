@@ -5,6 +5,64 @@ import org.junit.Test
 
 class CollectionTest {
     @Test
+    fun renamingKeepsMembershipOrderAndPersonalHistoryAndUpdatesTheFilter() {
+        val game =
+            Game(
+                title = "A",
+                collection = "series",
+                collectionOrder = 4,
+                position = 8,
+                place = Place.PAUSED,
+                notes = "where I left off",
+                pauseNote = "return here",
+                playthroughs = listOf(Playthrough(thoughts = "loved this")),
+            )
+        val other = Game(title = "B", collection = "other")
+        val settings =
+            Settings(collectionNames = setOf("series", "other"), collectionFilter = "series")
+        val renamed = renameCollection(listOf(game, other), settings, "series", "  favorites  ")
+        assertEquals(listOf(game.copy(collection = "favorites"), other), renamed.games)
+        assertEquals(setOf("favorites", "other"), renamed.settings.collectionNames)
+        assertEquals("favorites", renamed.settings.collectionFilter)
+        assertEquals(
+            settings,
+            renamed.settings.copy(
+                collectionNames = settings.collectionNames,
+                collectionFilter = settings.collectionFilter,
+            ),
+        )
+        assertEquals(renamed.settings, JsonCodec.settings(JsonCodec.settings(renamed.settings)))
+        assertEquals(renamed.games, renamed.games.map { JsonCodec.game(JsonCodec.game(it)) })
+    }
+
+    @Test
+    fun emptyCollectionsAndCapitalizationCanBeRenamedWithoutChangingAnotherFilter() {
+        val settings =
+            Settings(collectionNames = setOf("empty", "other"), collectionFilter = "other")
+        val renamed = renameCollection(emptyList(), settings, "empty", "Empty")
+        assertTrue(renamed.games.isEmpty())
+        assertEquals(setOf("Empty", "other"), renamed.settings.collectionNames)
+        assertEquals("other", renamed.settings.collectionFilter)
+    }
+
+    @Test
+    fun renameRejectsBlankAndDuplicateNamesInsteadOfMergingCollections() {
+        val games =
+            listOf(
+                Game(title = "A", collection = "series"),
+                Game(title = "B", collection = "other"),
+            )
+        for (name in listOf(" ", "OTHER")) {
+            try {
+                renameCollection(games, Settings(), "series", name)
+                fail("Accepted invalid name: $name")
+            } catch (_: IllegalArgumentException) {
+                assertEquals(listOf("series", "other"), games.map { it.collection })
+            }
+        }
+    }
+
+    @Test
     fun addingAndRemovingMembersPreservesTheirShelfAndPersonalData() {
         val a =
             Game(

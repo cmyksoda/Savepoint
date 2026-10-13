@@ -63,6 +63,7 @@ import java.net.URI
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -236,6 +237,7 @@ fun GameCover(
                     contentDescription = "${game.title}${if (focus) ", playing now" else ""}"
                 },
             sprite = hunt,
+            reserveHeight = false,
             system = game.system,
             coverBounds =
                 when {
@@ -341,37 +343,68 @@ fun Home(
                                 compact = true,
                             )
                         }
-                        LazyRow(
-                            modifier =
+                        val height =
+                            (if (shelf == Shelf.PLAY_THROUGH) 264
+                                else if (shelf == Shelf.HUNTS) 148 else 196)
+                                .dp
+                        if (shelf == Shelf.HUNTS) {
+                            ShelfGames(
+                                row,
+                                shelf,
+                                artwork,
+                                onOpen,
                                 Modifier.fillMaxWidth()
-                                    .height(
-                                        (if (shelf == Shelf.PLAY_THROUGH) 264
-                                            else if (shelf == Shelf.HUNTS) 148 else 196)
-                                            .dp
-                                    )
+                                    .height(height)
                                     .glassShelf(LocalAeroDark.current),
-                            contentPadding =
-                                PaddingValues(
-                                    start = 20.dp,
-                                    end = 20.dp,
-                                    bottom = if (shelf == Shelf.HUNTS) 18.dp else ShelfSurfaceInset,
-                                ),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.Bottom,
-                        ) {
-                            items(row, key = { it.id }) { game ->
-                                GameCover(
-                                    game,
+                                PaddingValues(start = 20.dp, end = 20.dp, bottom = 18.dp),
+                            )
+                        } else {
+                            Column(Modifier.fillMaxWidth().height(height)) {
+                                ShelfGames(
+                                    row,
+                                    shelf,
                                     artwork,
-                                    shelf == Shelf.PLAY_THROUGH && row.first().id == game.id,
-                                    Modifier.animateItem(placementSpec = spring(stiffness = 350f)),
-                                ) {
-                                    onOpen(game.id)
-                                }
+                                    onOpen,
+                                    Modifier.fillMaxWidth().weight(1f),
+                                    PaddingValues(horizontal = 20.dp),
+                                )
+                                Spacer(
+                                    Modifier.fillMaxWidth()
+                                        .height(ShelfSurfaceInset)
+                                        .glassShelf(LocalAeroDark.current)
+                                )
                             }
                         }
                     }
                 }
+        }
+    }
+}
+
+@Composable
+private fun ShelfGames(
+    games: List<Game>,
+    shelf: Shelf,
+    artwork: Artwork,
+    onOpen: (String) -> Unit,
+    modifier: Modifier,
+    padding: PaddingValues,
+) {
+    LazyRow(
+        modifier,
+        contentPadding = padding,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        items(games, key = { it.id }) { game ->
+            GameCover(
+                game,
+                artwork,
+                shelf == Shelf.PLAY_THROUGH && games.first().id == game.id,
+                Modifier.animateItem(placementSpec = spring(stiffness = 350f)),
+            ) {
+                onOpen(game.id)
+            }
         }
     }
 }
@@ -1337,6 +1370,34 @@ fun Savepoint(openLater: Boolean) {
             }
         }
     }
+    fun renameSavedCollection(previous: String, name: String, completed: (String?) -> Unit) {
+        scope.launch {
+            var members = emptySet<String>()
+            try {
+                val savedSettings = settingsStore.read()
+                library.change { current ->
+                    val renamed = renameCollection(current, savedSettings, previous, name)
+                    members = current.filter { it.collection == previous }.map { it.id }.toSet()
+                    renamed.games
+                }
+                settings = settingsStore.change { collectionRenameSettings(it, previous, name) }
+                completed(null)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                if (members.isNotEmpty())
+                    runCatching {
+                        library.change { current ->
+                            current.map {
+                                if (it.id in members && it.collection == name)
+                                    it.copy(collection = previous)
+                                else it
+                            }
+                        }
+                    }
+                completed(e.message ?: "Could not rename this collection")
+            }
+        }
+    }
     val notificationPermission =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) updateSettings(settings.copy(reminders = true))
@@ -1584,6 +1645,7 @@ fun Savepoint(openLater: Boolean) {
                                                         )
                                                     )
                                                 },
+                                                ::renameSavedCollection,
                                                 { name, ids ->
                                                     updateSettings(
                                                         settings.copy(

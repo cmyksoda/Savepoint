@@ -48,12 +48,41 @@ fun reorderCollection(games: List<Game>, name: String, id: String, direction: In
     return games.map { game -> orders[game.id]?.let { game.copy(collectionOrder = it) } ?: game }
 }
 
+data class CollectionRename(val games: List<Game>, val settings: Settings)
+
+fun collectionRenameSettings(settings: Settings, previous: String, name: String): Settings =
+    settings.copy(
+        collectionNames = (settings.collectionNames - previous) + name,
+        collectionFilter =
+            if (settings.collectionFilter == previous) name else settings.collectionFilter,
+    )
+
+fun renameCollection(
+    games: List<Game>,
+    settings: Settings,
+    previous: String,
+    entered: String,
+): CollectionRename {
+    val name = entered.trim()
+    val names = collectionNames(games, settings)
+    require(previous in names) { "This collection no longer exists" }
+    require(name.isNotBlank()) { "Enter a collection name" }
+    require(names.none { it != previous && it.equals(name, true) }) {
+        "A collection already has that name"
+    }
+    return CollectionRename(
+        games.map { if (it.collection == previous) it.copy(collection = name) else it },
+        collectionRenameSettings(settings, previous, name),
+    )
+}
+
 @Composable
 fun CollectionsScreen(
     games: List<Game>,
     settings: Settings,
     artwork: Artwork,
     onCreate: (String) -> Unit,
+    onRename: (String, String, (String?) -> Unit) -> Unit,
     onMembers: (String, Set<String>) -> Unit,
     onReorder: (String, String, Int) -> Unit,
     onOpen: (String) -> Unit,
@@ -61,6 +90,9 @@ fun CollectionsScreen(
     val names = collectionNames(games, settings)
     var selected by rememberSaveable { mutableStateOf("") }
     var creating by rememberSaveable { mutableStateOf(false) }
+    var renaming by rememberSaveable { mutableStateOf(false) }
+    var renameBusy by remember { mutableStateOf(false) }
+    var renameError by remember { mutableStateOf<String?>(null) }
     var name by rememberSaveable { mutableStateOf("") }
     var picking by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -108,16 +140,31 @@ fun CollectionsScreen(
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(selected, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                AeroButton(onClick = { selected = "" }) { Text("all collections") }
+                AeroIconButton(
+                    AeroSymbol.EDIT,
+                    "rename collection",
+                    {
+                        name = selected
+                        renameError = null
+                        renaming = true
+                    },
+                    compact = true,
+                )
             }
-            PinkButton(
-                onClick = {
-                    checked = row.map { it.id }.toSet()
-                    query = ""
-                    picking = true
-                }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text("choose games")
+                PinkButton(
+                    onClick = {
+                        checked = row.map { it.id }.toSet()
+                        query = ""
+                        picking = true
+                    }
+                ) {
+                    Text("choose games")
+                }
+                AeroButton(onClick = { selected = "" }) { Text("all collections") }
             }
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -211,6 +258,47 @@ fun CollectionsScreen(
                 }
             },
             dismissButton = { AeroButton(onClick = { creating = false }) { Text("cancel") } },
+        )
+    if (renaming)
+        AeroDialog(
+            onDismissRequest = { if (!renameBusy) renaming = false },
+            title = { Text("rename collection") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AeroTextField(
+                        name,
+                        {
+                            name = it
+                            renameError = null
+                        },
+                        label = "collection name",
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    renameError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                PinkButton(
+                    onClick = {
+                        val entered = name.trim()
+                        renameBusy = true
+                        onRename(selected, entered) { failure ->
+                            renameBusy = false
+                            if (failure == null) {
+                                selected = entered
+                                renaming = false
+                            } else renameError = failure
+                        }
+                    },
+                    enabled = name.isNotBlank() && !renameBusy,
+                ) {
+                    Text(if (renameBusy) "saving…" else "save")
+                }
+            },
+            dismissButton = {
+                AeroButton(onClick = { renaming = false }, enabled = !renameBusy) { Text("cancel") }
+            },
         )
     if (picking)
         AeroDialog(

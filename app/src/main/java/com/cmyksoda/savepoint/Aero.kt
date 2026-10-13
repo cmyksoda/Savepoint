@@ -268,8 +268,8 @@ val ShelfSurfaceInset = 14.dp
 
 fun Modifier.glassShelf(dark: Boolean): Modifier {
     return drawWithCache {
-        val height = 6.dp.toPx()
-        val y = size.height - ShelfSurfaceInset.toPx()
+        val height = 3.dp.toPx()
+        val y = size.height - ShelfSurfaceInset.roundToPx()
         val bottom = y + height
         onDrawBehind {
             drawRect(
@@ -280,10 +280,10 @@ fun Modifier.glassShelf(dark: Boolean): Modifier {
                         Color.Transparent,
                     ),
                     startY = bottom,
-                    endY = bottom + 16.dp.toPx(),
+                    endY = bottom + 10.dp.toPx(),
                 ),
                 topLeft = Offset(0f, bottom),
-                size = Size(size.width, 16.dp.toPx()),
+                size = Size(size.width, 10.dp.toPx()),
             )
             drawRect(
                 Brush.verticalGradient(
