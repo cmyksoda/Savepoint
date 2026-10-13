@@ -11,9 +11,12 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLEncoder
 import java.security.MessageDigest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+
+data class CatalogPage(val games: List<Game>, val warning: String?, val nextOffset: Int?)
 
 class SourceUnavailable(val status: Int) : IOException("Source unavailable ($status)")
 
@@ -235,14 +238,30 @@ class Catalog(private val context: Context) {
         )
 
     suspend fun search(query: String, system: String, endpoint: String): Pair<List<Game>, String?> =
+        searchPage(query, system, endpoint).let { it.games to it.warning }
+
+    suspend fun searchPage(
+        query: String,
+        system: String,
+        endpoint: String,
+        offset: Int = 0,
+    ): CatalogPage =
         withContext(Dispatchers.IO) {
             val found = mutableListOf<Game>()
             var warning: String? = null
+            var nextOffset: Int? = null
             if (endpoint.isNotBlank()) {
                 try {
                     val encoded = URLEncoder.encode(query, "UTF-8")
                     val data =
-                        JSONObject(String(fetchBytes("${endpoint.trimEnd('/')}/search?q=$encoded")))
+                        JSONObject(
+                            String(
+                                fetchBytes(
+                                    "${endpoint.trimEnd('/')}/search?q=$encoded&offset=$offset"
+                                )
+                            )
+                        )
+                    nextOffset = data.optInt("nextOffset", -1).takeIf { it > offset }
                     val results = data.getJSONArray("results")
                     for (index in 0 until results.length()) {
                         val item = results.getJSONObject(index)
@@ -259,6 +278,7 @@ class Catalog(private val context: Context) {
                             )
                     }
                 } catch (e: Exception) {
+                    if (e is CancellationException || offset > 0) throw e
                     warning =
                         "Broad catalog unavailable. GameTDB and manual entry are still available."
                 }
@@ -266,7 +286,8 @@ class Catalog(private val context: Context) {
                 warning =
                     "GameTDB search is available. Configure the catalog service for PC and other Nintendo systems."
             val requested =
-                if (system.isNotEmpty()) sources.filterKeys { it == system } else sources
+                if (offset > 0) emptyMap()
+                else if (system.isNotEmpty()) sources.filterKeys { it == system } else sources
             for ((platform, slug) in requested) {
                 try {
                     val cache = File(context.cacheDir, "$slug-titles.txt")
@@ -305,12 +326,14 @@ class Catalog(private val context: Context) {
                         "Some catalog sources are unavailable. You can still add a game manually."
                 }
             }
-            found
-                .map(::preferPublisherCover)
-                .distinctBy { Triple(it.title.lowercase(), it.system, it.source) }
-                .sortedWith(
-                    compareBy<Game> { !it.title.equals(query, true) }.thenBy { it.title.length }
-                ) to warning
+            val games =
+                found
+                    .map(::preferPublisherCover)
+                    .distinctBy { Triple(it.title.lowercase(), it.system, it.source) }
+                    .sortedWith(
+                        compareBy<Game> { !it.title.equals(query, true) }.thenBy { it.title.length }
+                    )
+            CatalogPage(games, warning, nextOffset)
         }
 
     suspend fun covers(

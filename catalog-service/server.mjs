@@ -10,11 +10,21 @@ const platformNames = new Map([
   [51, 'Famicom Disk System'], [166, 'Pokémon mini'],
 ]);
 
+const searchPageSize = 50;
+const gameFields = 'name,game_type,cover.image_id,platforms.name,release_dates.date,release_dates.platform';
+
+export function catalogSearchQuery(query, offset = 0, exact = false) {
+  const safeQuery = query.replace(/[\\"\r\n]/g, ' ');
+  const match = exact ? `where name ~ "${safeQuery}" & game_type != 14;` : `search "${safeQuery}"; where game_type != 14;`;
+  return `${match} fields ${gameFields}; limit ${searchPageSize}; offset ${offset};`;
+}
+
 export function normalize(games) {
   const results = [];
   const retroNintendo = new Set([18, 51, 58, 4, 33, 22, 24, 20, 21]);
   const virtualConsoleHosts = new Set([5, 41, 37, 130]);
   for (const game of games) {
+    if (game.game_type === 14) continue;
     const dated = (game.release_dates ?? []).filter(date => Number.isFinite(date.date) && date.platform);
     const earliest = dated.length ? Math.min(...dated.map(date => date.date)) : null;
     const originalIds = new Set(dated.filter(date => date.date === earliest).map(date => date.platform));
@@ -74,10 +84,13 @@ export const server = createServer(async (request, response) => {
   if (!['/search', '/covers'].includes(url.pathname)) return send(404, { error: 'Not found' });
   const query = url.searchParams.get('q')?.trim();
   if (!query || query.length > 120) return send(400, { error: 'Enter a title of 1–120 characters' });
+  const enteredOffset = url.searchParams.get('offset') ?? '0';
+  const offset = Number(enteredOffset);
+  if (!/^\d+$/.test(enteredOffset) || !Number.isSafeInteger(offset)) return send(400, { error: 'Invalid result page' });
   const provider = url.pathname === '/covers' ? url.searchParams.get('provider') : null;
   const system = url.searchParams.get('system')?.trim() ?? '';
   if (provider && !['LaunchBox', 'IGDB'].includes(provider)) return send(400, { error: 'Unknown cover provider' });
-  const key = `${url.pathname}:${provider}:${system}:${query.toLowerCase()}`;
+  const key = `${url.pathname}:${provider}:${system}:${query.toLowerCase()}:${offset}`;
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return send(200, cached.body);
   requests = requests.filter(time => time > Date.now() - 1000);
@@ -90,17 +103,25 @@ export const server = createServer(async (request, response) => {
       return send(200, body);
     }
     const accessToken = await credentials();
-    const safeQuery = query.replace(/[\\"\r\n]/g, ' ');
-    const upstream = await fetch('https://api.igdb.com/v4/games', {
-      method: 'POST',
-      headers: { 'Client-ID': process.env.TWITCH_CLIENT_ID, Authorization: `Bearer ${accessToken}` },
-      body: `search "${safeQuery}"; fields name,cover.image_id,platforms.name,release_dates.date,release_dates.platform; limit 30;`,
-      signal: AbortSignal.timeout(15000),
-    });
-    if (upstream.status === 401) tokenExpires = 0;
-    if (!upstream.ok) throw new Error('Catalog search unavailable');
-    const games = normalize(await upstream.json());
-    const body = { results: provider === 'IGDB' ? games.filter(game => game.system === system && game.cover).map(game => ({ url: game.cover, title: game.title, system: game.system, label: game.title, provider: 'IGDB', sourceId: game.sourceId, attribution: 'Cover via IGDB' })) : games, attribution: 'Game data provided by IGDB' };
+    async function igdbGames(exact = false) {
+      const upstream = await fetch('https://api.igdb.com/v4/games', {
+        method: 'POST',
+        headers: { 'Client-ID': process.env.TWITCH_CLIENT_ID, Authorization: `Bearer ${accessToken}` },
+        body: catalogSearchQuery(query, exact ? 0 : offset, exact),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (upstream.status === 401) tokenExpires = 0;
+      if (!upstream.ok) throw new Error('Catalog search unavailable');
+      return upstream.json();
+    }
+    const [page, exact] = await Promise.all([igdbGames(), offset === 0 ? igdbGames(true) : []]);
+    const entries = new Map([...exact, ...page].map(game => [game.id, game]));
+    const games = normalize([...entries.values()]);
+    const body = {
+      results: provider === 'IGDB' ? games.filter(game => game.system === system && game.cover).map(game => ({ url: game.cover, title: game.title, system: game.system, label: game.title, provider: 'IGDB', sourceId: game.sourceId, attribution: 'Cover via IGDB' })) : games,
+      nextOffset: page.length === searchPageSize ? offset + searchPageSize : null,
+      attribution: 'Game data provided by IGDB',
+    };
     for (const [key, entry] of cache) if (entry.expires <= Date.now()) cache.delete(key);
     cache.set(key, { expires: Date.now() + 300000, body });
     send(200, body);

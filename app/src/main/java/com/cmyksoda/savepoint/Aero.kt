@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
@@ -36,6 +35,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -47,14 +47,18 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 val LocalAeroDark = staticCompositionLocalOf { false }
 
@@ -102,10 +106,57 @@ val AeroTypography =
         titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium, lineHeight = 26.sp),
     )
 
-fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
-    if (size.width <= 0f || size.height <= 0f) return@drawWithCache onDrawBehind {}
-    val renderWidth = minOf(size.width.toInt(), 720).coerceAtLeast(1)
-    val renderHeight = (size.height * renderWidth / size.width).toInt().coerceAtLeast(1)
+@Composable
+fun rememberAeroBackdrop(dark: Boolean): Modifier {
+    val viewport = LocalWindowInfo.current.containerSize
+    val context = LocalContext.current
+    val bounds =
+        remember(viewport, context) {
+            if (Build.VERSION.SDK_INT >= 30) {
+                val window =
+                    context
+                        .getSystemService(android.view.WindowManager::class.java)
+                        .currentWindowMetrics
+                        .bounds
+                IntSize(window.width(), window.height())
+            } else viewport
+        }
+    var backgrounds by remember(bounds) { mutableStateOf<Pair<ImageBitmap, ImageBitmap>?>(null) }
+    LaunchedEffect(bounds) {
+        if (bounds.width <= 0 || bounds.height <= 0) return@LaunchedEffect
+        val width = minOf(bounds.width, 720)
+        val height = (bounds.height.toFloat() * width / bounds.width).toInt().coerceAtLeast(1)
+        backgrounds =
+            withContext(Dispatchers.Default) {
+                renderAeroBackdrop(width, height, false) to renderAeroBackdrop(width, height, true)
+            }
+    }
+    val bitmap = if (dark) backgrounds?.second else backgrounds?.first
+    return remember(bitmap, bounds, dark) {
+        Modifier.drawWithCache {
+            val base =
+                Brush.verticalGradient(
+                    if (dark) listOf(Color(0xFF172D43), Color(0xFF221C3A), Color(0xFF121A33))
+                    else listOf(Color(0xFFEDF7FB), Color(0xFFF9D6E9), Color(0xFFE4DDF5))
+                )
+            onDrawBehind {
+                if (bitmap == null) drawRect(base)
+                else
+                    drawImage(
+                        bitmap,
+                        dstSize =
+                            IntSize(
+                                size.width.toInt(),
+                                (bounds.height * size.width / bounds.width.coerceAtLeast(1)).toInt(),
+                            ),
+                        filterQuality = FilterQuality.High,
+                    )
+            }
+        }
+    }
+}
+
+internal fun renderAeroBackdrop(renderWidth: Int, renderHeight: Int, dark: Boolean): ImageBitmap {
     val bitmap = ImageBitmap(renderWidth, renderHeight)
     val w = renderWidth.toFloat()
     val h = renderHeight.toFloat()
@@ -228,8 +279,8 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
             endX = w * 1.2f,
         )
     CanvasDrawScope().draw(
-        this,
-        layoutDirection,
+        Density(1f),
+        LayoutDirection.Ltr,
         androidx.compose.ui.graphics.Canvas(bitmap),
         Size(w, h),
     ) {
@@ -264,13 +315,7 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
             if (!dark && index in 2..8 && index % 2 == 0) glow(path, glint, h * .0015f, h * .0018f)
         }
     }
-    onDrawBehind {
-        drawImage(
-            bitmap,
-            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
-            filterQuality = FilterQuality.High,
-        )
-    }
+    return bitmap
 }
 
 val ShelfSurfaceInset = 14.dp
@@ -330,16 +375,7 @@ fun Modifier.glassMaterial(
             if (strong) listOf(Color(0xFFFFFFFF), Color(0xFFFFEFF9), Color(0xFFF1E1ED))
             else listOf(Color(0xF9FFFFFF), Color(0xDFFBEAF4), Color(0xECEDDFEC))
         }
-    return then(
-            if (elevated)
-                Modifier.shadow(
-                    elevation,
-                    shape,
-                    ambientColor = Color(0xFF261932),
-                    spotColor = Color(0xFF181C34),
-                )
-            else Modifier
-        )
+    return then(if (elevated) Modifier.softGlassShadow(radius.dp, elevation) else Modifier)
         .clip(shape)
         .background(Brush.verticalGradient(colors))
         .background(
@@ -393,38 +429,50 @@ fun Glass(
     Column(modifier.glassMaterial(LocalAeroDark.current, strong = strong), content = content)
 }
 
-private fun Modifier.controlShadow(radius: Dp, visible: Boolean = true): Modifier = drawWithCache {
-    if (!visible || size.width <= 0f || size.height <= 0f) {
-        return@drawWithCache onDrawBehind {}
+private val glassShadows =
+    object : android.util.LruCache<String, ImageBitmap>(16 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ImageBitmap) =
+            value.asAndroidBitmap().allocationByteCount
     }
-    val margin = 10.dp.toPx()
-    val shadow =
-        ImageBitmap(
-            (size.width + margin * 2).toInt().coerceAtLeast(1),
-            (size.height + margin * 2).toInt().coerceAtLeast(1),
-        )
-    val paint =
-        android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.argb(45, 38, 25, 50)
-            maskFilter =
-                android.graphics.BlurMaskFilter(
-                    3.dp.toPx(),
-                    android.graphics.BlurMaskFilter.Blur.NORMAL,
-                )
-        }
-    android.graphics
-        .Canvas(shadow.asAndroidBitmap())
-        .drawRoundRect(
-            margin,
-            margin + 2.dp.toPx(),
-            margin + size.width,
-            margin + size.height + 2.dp.toPx(),
-            radius.toPx(),
-            radius.toPx(),
-            paint,
-        )
-    onDrawBehind { drawImage(shadow, Offset(-margin, -margin)) }
-}
+
+fun Modifier.softGlassShadow(radius: Dp, elevation: Dp = 3.dp, visible: Boolean = true): Modifier =
+    drawWithCache {
+        if (!visible || size.width <= 0f || size.height <= 0f) return@drawWithCache onDrawBehind {}
+        val blur = maxOf(2.dp.toPx(), elevation.toPx() * .65f)
+        val offset = elevation.toPx() * .5f
+        val margin = blur * 3 + offset
+        val key = "$size:${radius.toPx()}:$blur:$offset"
+        val shadow =
+            glassShadows.get(key)
+                ?: ImageBitmap(
+                        (size.width + margin * 2).toInt().coerceAtLeast(1),
+                        (size.height + margin * 2).toInt().coerceAtLeast(1),
+                    )
+                    .also { bitmap ->
+                        val paint =
+                            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                                color = android.graphics.Color.argb(45, 38, 25, 50)
+                                maskFilter =
+                                    android.graphics.BlurMaskFilter(
+                                        blur,
+                                        android.graphics.BlurMaskFilter.Blur.NORMAL,
+                                    )
+                            }
+                        android.graphics
+                            .Canvas(bitmap.asAndroidBitmap())
+                            .drawRoundRect(
+                                margin,
+                                margin + offset,
+                                margin + size.width,
+                                margin + size.height + offset,
+                                radius.toPx(),
+                                radius.toPx(),
+                                paint,
+                            )
+                        glassShadows.put(key, bitmap)
+                    }
+        onDrawBehind { drawImage(shadow, Offset(-margin, -margin)) }
+    }
 
 @Composable
 private fun AeroControl(
@@ -487,7 +535,7 @@ private fun AeroControl(
                         alpha = if (!enabled) .5f else if (pressed) .94f else 1f
                         compositingStrategy = CompositingStrategy.ModulateAlpha
                     }
-                    .controlShadow(12.dp, !pressed)
+                    .softGlassShadow(12.dp, visible = !pressed)
                     .clip(shape)
                     .then(material)
             )
@@ -650,6 +698,8 @@ fun Choice(
                 modifier =
                     Modifier.width(with(density) { anchorWidth.toDp() }).heightIn(max = 360.dp),
                 shape = RoundedCornerShape(16.dp),
+                shadowElevation = 0.dp,
+                tonalElevation = 0.dp,
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
                 menuAction?.let { (title, action) ->
@@ -945,7 +995,7 @@ fun AeroIconButton(
                     alpha = if (pressed) .9f else 1f
                     compositingStrategy = CompositingStrategy.ModulateAlpha
                 }
-                .controlShadow(if (compact) 10.dp else 20.dp, !pressed)
+                .softGlassShadow(if (compact) 10.dp else 20.dp, visible = !pressed)
                 .glassMaterial(LocalAeroDark.current, if (compact) 10 else 20, elevated = false),
             contentAlignment = Alignment.Center,
         ) {
@@ -1177,7 +1227,7 @@ fun GameIdentity(
                 game.title,
                 if (hunt) Modifier.size(if (prominent) 112.dp else 84.dp)
                 else
-                    Modifier.shadow(10.dp, RoundedCornerShape(16.dp))
+                    Modifier.softGlassShadow(16.dp, 10.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .border(1.dp, Color.White.copy(alpha = .6f), RoundedCornerShape(16.dp)),
                 sprite = hunt,
@@ -1216,7 +1266,7 @@ fun GameIdentity(
                 if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
                 artwork,
                 game.title,
-                Modifier.shadow(6.dp, RoundedCornerShape(12.dp))
+                Modifier.softGlassShadow(12.dp, 6.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .border(1.dp, Color.White.copy(alpha = .5f), RoundedCornerShape(12.dp)),
                 game.shelf == Shelf.HUNTS,

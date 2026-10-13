@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,18 +43,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -230,7 +233,7 @@ fun GameCover(
             if (hunt) game.sprite else game.cover,
             artwork,
             if (hunt) game.pokemon.ifBlank { game.title } else game.title,
-            Modifier.shadow(8.dp, RoundedCornerShape(10.dp))
+            Modifier.softGlassShadow(10.dp, 8.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .border(1.dp, Color.White.copy(alpha = .65f), RoundedCornerShape(10.dp))
                 .clickable(onClick = onOpen)
@@ -863,7 +866,10 @@ fun GameForm(
                 sprite = ""
                 odds = ""
             }
-            Row {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 AeroButton(
                     onClick = {
                         busy = true
@@ -1004,17 +1010,55 @@ fun AddScreen(
     onManual: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
+    val listState = rememberLazyListState()
     var query by rememberSaveable { mutableStateOf("") }
     var system by rememberSaveable { mutableStateOf("") }
     var warning by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var nextOffset by rememberSaveable { mutableStateOf<Int?>(null) }
+    var loadingMore by remember { mutableStateOf(false) }
+    fun search(offset: Int = 0) {
+        if (busy) return
+        focus.clearFocus()
+        keyboard?.hide()
+        val submittedQuery = query.trim()
+        val anchorIndex = listState.firstVisibleItemIndex
+        val anchorOffset = listState.firstVisibleItemScrollOffset
+        val submittedSystem = system
+        busy = true
+        loadingMore = offset > 0
+        warning = null
+        scope.launch {
+            try {
+                val answer = catalog.searchPage(submittedQuery, submittedSystem, endpoint, offset)
+                if (query.trim() != submittedQuery || system != submittedSystem) return@launch
+                val page = groupCatalogResults(answer.games)
+                onResults(if (offset == 0) page else mergeCatalogResults(results, page))
+                nextOffset = answer.nextOffset
+                warning = answer.warning
+                if (offset == 0) listState.requestScrollToItem(0)
+                else listState.requestScrollToItem(anchorIndex, anchorOffset)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                warning = "Search unavailable. You can try again or add a game manually."
+            } finally {
+                busy = false
+                loadingMore = false
+            }
+        }
+    }
     Column(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         AeroTextField(
             query,
-            { query = it },
+            {
+                query = it
+                nextOffset = null
+            },
             label = "game title",
             autoFocus = true,
             modifier = Modifier.fillMaxWidth(),
@@ -1022,32 +1066,18 @@ fun AddScreen(
         )
         Choice("system", system.ifBlank { "all systems" }, listOf("all systems") + systems) {
             system = if (it == "all systems") "" else it
+            nextOffset = null
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            PinkButton(
-                onClick = {
-                    busy = true
-                    warning = null
-                    scope.launch {
-                        try {
-                            val answer = catalog.search(query.trim(), system, endpoint)
-                            onResults(groupCatalogResults(answer.first))
-                            warning = answer.second
-                        } catch (e: Exception) {
-                            warning = "Search unavailable. You can add a game manually."
-                        } finally {
-                            busy = false
-                        }
-                    }
-                },
-                enabled = !busy && query.isNotBlank(),
-            ) {
-                Text(if (busy) "searching…" else "search")
+            PinkButton(onClick = { search() }, enabled = !busy && query.isNotBlank()) {
+                Text(if (busy && !loadingMore) "searching…" else "search")
             }
             AeroButton(onClick = onManual) { Text("add manually") }
         }
         warning?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         LazyColumn(
+            modifier = Modifier.weight(1f),
+            state = listState,
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(bottom = 20.dp),
         ) {
@@ -1058,6 +1088,17 @@ fun AddScreen(
                     Column(Modifier.padding(14.dp)) {
                         Text(game.title, fontWeight = FontWeight.SemiBold)
                         Text(game.system, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            nextOffset?.let { offset ->
+                item(key = "next catalog page") {
+                    AeroButton(
+                        onClick = { search(offset) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !busy,
+                    ) {
+                        Text(if (loadingMore) "loading…" else "load more games")
                     }
                 }
             }
@@ -1151,12 +1192,27 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Row {
-                    AeroButton(onClick = { pickTime(true) }) {
-                        Text("from ${timeLabel(settings.startMinute)}")
-                    }
-                    AeroButton(onClick = { pickTime(false) }) {
-                        Text("until ${timeLabel(settings.endMinute)}")
+                Glass(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "from ${timeLabel(settings.startMinute)}",
+                            Modifier.weight(1f)
+                                .clickable(role = Role.Button) { pickTime(true) }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        VerticalDivider(
+                            Modifier.height(22.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = .3f),
+                        )
+                        Text(
+                            "to ${timeLabel(settings.endMinute)}",
+                            Modifier.weight(1f)
+                                .clickable(role = Role.Button) { pickTime(false) }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            textAlign = TextAlign.End,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
                     }
                 }
                 Text(
@@ -1363,11 +1419,18 @@ fun Savepoint(openLater: Boolean) {
         val previous = settings
         scope.launch {
             try {
+                var reschedule = false
                 settings =
-                    settingsStore.change { current -> mergeSettings(current, previous, value) }
-                Reminders.schedule(context, settings)
-                if (!settings.reminders || settings.skipDate == LocalDate.now().toString())
-                    Reminders.clear(context)
+                    settingsStore.change { current ->
+                        mergeSettings(current, previous, value).also { changed ->
+                            reschedule = reminderSettingsChanged(current, changed)
+                        }
+                    }
+                if (reschedule) {
+                    Reminders.schedule(context, settings)
+                    if (!settings.reminders || settings.skipDate == LocalDate.now().toString())
+                        Reminders.clear(context)
+                }
             } catch (e: Exception) {
                 error = e.message
             }
@@ -1482,7 +1545,7 @@ fun Savepoint(openLater: Boolean) {
             if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
         }
     }
-    val backdrop = remember(dark) { Modifier.aeroBackdrop(dark) }
+    val backdrop = rememberAeroBackdrop(dark)
     val colors = aeroColors(dark)
     MaterialTheme(colorScheme = colors, typography = AeroTypography) {
         CompositionLocalProvider(
@@ -1569,7 +1632,7 @@ fun Savepoint(openLater: Boolean) {
                                         )
                                         .using(null)
                                 } else
-                                    fadeIn(tween(110)).togetherWith(fadeOut(tween(80))).using(null)
+                                    fadeIn(tween(110)).togetherWith(fadeOut(tween(0))).using(null)
                             },
                             modifier = Modifier.fillMaxSize().clipToBounds(),
                             label = "screen transition",
@@ -2070,7 +2133,7 @@ fun Savepoint(openLater: Boolean) {
                     onDismissRequest = { dialog = "" },
                     title = { Text("where should it go?") },
                     text = {
-                        Column {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 form!!.title,
                                 style = MaterialTheme.typography.bodySmall,

@@ -74,3 +74,25 @@ fun providerAlternatives(providers: Collection<String>): String =
         2 -> providers.joinToString(" or ")
         else -> providers.toList().dropLast(1).joinToString(", ") + ", or " + providers.last()
     }
+
+fun mergeCatalogResults(
+    current: List<CatalogResult>,
+    page: List<CatalogResult>,
+): List<CatalogResult> {
+    val merged =
+        current.associateBy { catalogTitleKey(it.game.title) to it.game.system }.toMutableMap()
+    for (incoming in page) {
+        val key = catalogTitleKey(incoming.game.title) to incoming.game.system
+        val previous = merged[key]
+        merged[key] =
+            if (previous == null) incoming
+            else
+                CatalogResult(
+                    if (previous.game.source == "igdb" || incoming.game.source != "igdb")
+                        previous.game
+                    else incoming.game,
+                    (previous.covers + incoming.covers).distinctBy { it.url },
+                )
+    }
+    return merged.values.toList()
+}

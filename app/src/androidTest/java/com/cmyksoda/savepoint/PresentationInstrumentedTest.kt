@@ -2,10 +2,13 @@ package com.cmyksoda.savepoint
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.core.content.ContextCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -96,6 +99,21 @@ class PresentationInstrumentedTest {
             } finally {
                 manager.cancel(Reminders.NOTIFICATION)
                 command("cmd statusbar collapse")
+            }
+        }
+    }
+
+    @Test
+    fun bothThemeBackgroundsCanBePreparedOffTheUiThread() = runBlocking {
+        withContext(Dispatchers.Default) {
+            val light = renderAeroBackdrop(120, 240, false).asAndroidBitmap()
+            val dark = renderAeroBackdrop(120, 240, true).asAndroidBitmap()
+            assertEquals(120, light.width)
+            assertEquals(240, dark.height)
+            assertNotEquals(light.getPixel(30, 100), dark.getPixel(30, 100))
+            for (bitmap in listOf(light, dark)) {
+                assertEquals(255, bitmap.getPixel(0, 0) ushr 24)
+                assertEquals(255, bitmap.getPixel(119, 239) ushr 24)
             }
         }
     }

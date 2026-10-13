@@ -89,4 +89,25 @@ class CatalogResultsTest {
             providerAlternatives(listOf("GameTDB", "IGDB", "LaunchBox")),
         )
     }
+
+    @Test
+    fun subsequentPagesKeepEarlierGamesAndMergeDuplicateArtwork() {
+        val first =
+            Game(
+                title = "Genshin Impact",
+                system = "PC",
+                source = "igdb",
+                cover = "https://a/cover",
+            )
+        val duplicate = first.copy(id = "another result id", cover = "https://a/alternate")
+        val second = Game(title = "Another game", system = "PC", source = "igdb")
+        val merged =
+            mergeCatalogResults(
+                groupCatalogResults(listOf(first)),
+                groupCatalogResults(listOf(duplicate, second)),
+            )
+        assertEquals(listOf(first, second), merged.map { it.game })
+        assertEquals(2, merged.first().covers.size)
+        assertEquals(merged, mergeCatalogResults(merged, groupCatalogResults(listOf(duplicate))))
+    }
 }

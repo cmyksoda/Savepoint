@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, server } from './server.mjs';
+import { normalize, server, catalogSearchQuery } from './server.mjs';
 
 test('release dates follow the chosen system rather than the earliest unrelated release', () => {
   const results = normalize([{
@@ -47,4 +47,20 @@ test('Persona on Switch and enhanced Nintendo editions remain available', () => 
 test('modern native ports and remakes are not treated as Virtual Console', () => {
   const results = normalize([{ id: 13, name: 'A modern game', platforms: [{ id: 41 }, { id: 130 }], release_dates: [{ platform: 41, date: 100 }, { platform: 130, date: 1000 }] }]);
   assert.deepEqual(results.map(game => game.system), ['Wii U', 'Nintendo Switch']);
+});
+
+test('live-service updates do not crowd out a base game or a real remake', () => {
+  const results = normalize([
+    { id: 119277, name: 'Genshin Impact', game_type: 0, platforms: [{ id: 6 }] },
+    { id: 288670, name: 'Genshin Impact: An update', game_type: 14, parent_game: 119277, platforms: [{ id: 6 }] },
+    { id: 3, name: 'A remake', game_type: 8, platforms: [{ id: 130 }] },
+  ]);
+  assert.deepEqual(results.map(game => game.title), ['Genshin Impact', 'A remake']);
+});
+
+test('search pages exclude updates and exact matches use a separate lookup', () => {
+  assert.match(catalogSearchQuery('genshin impact', 50), /search "genshin impact"; where game_type != 14;/);
+  assert.match(catalogSearchQuery('genshin impact', 50), /offset 50;/);
+  assert.match(catalogSearchQuery('genshin impact', 0, true), /where name ~ "genshin impact" & game_type != 14;/);
+  assert.doesNotMatch(catalogSearchQuery('bad"\nquery'), /bad"\nquery/);
 });

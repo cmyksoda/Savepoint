@@ -18,6 +18,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+fun reminderSettingsChanged(previous: Settings, updated: Settings): Boolean =
+    previous.reminders != updated.reminders ||
+        previous.days != updated.days ||
+        previous.startMinute != updated.startMinute ||
+        previous.endMinute != updated.endMinute ||
+        previous.skipDate != updated.skipDate ||
+        previous.sentDate != updated.sentDate ||
+        previous.followupDate != updated.followupDate ||
+        previous.laterAt != updated.laterAt
+
 data class Invitation(val at: Long, val expires: Long, val followup: Boolean)
 
 fun canDeliver(settings: Settings, invitation: Invitation, now: Long, zone: ZoneId): Boolean {
