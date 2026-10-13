@@ -53,7 +53,74 @@ class Artwork(private val context: Context) {
                 (value.allocationByteCount + 1023) / 1024
         }
 
-    fun memoryBitmap(url: String): Bitmap? = decoded.get(preferredCoverUrl(url)) ?: decoded.get(url)
+    private val ratios = java.util.concurrent.ConcurrentHashMap<String, Float>()
+
+    fun cachedAspectRatio(url: String): Float? = ratios[preferredCoverUrl(url)] ?: ratios[url]
+
+    suspend fun prepareLibraryGeometry(games: List<Game>) =
+        withContext(Dispatchers.IO) {
+            for (game in games) {
+                if (game.shelf == Shelf.HUNTS) {
+                    if (game.sprite.isNotBlank() && fileFor(game.sprite).isFile)
+                        spriteBitmap(game.sprite)
+                    continue
+                }
+                if (game.cover.isBlank()) continue
+                for (url in listOf(preferredCoverUrl(game.cover), game.cover).distinct()) {
+                    val file = fileFor(url)
+                    if (!file.isFile) continue
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(file.path, bounds)
+                    if (bounds.outWidth > 0 && bounds.outHeight > 0)
+                        ratios[url] = bounds.outWidth.toFloat() / bounds.outHeight
+                }
+            }
+        }
+
+    fun memoryBitmap(url: String, sprite: Boolean = false): Bitmap? =
+        if (sprite) decoded.get("sprite:$url")
+        else decoded.get(preferredCoverUrl(url)) ?: decoded.get(url)
+
+    suspend fun spriteBitmap(url: String): Bitmap? =
+        withContext(Dispatchers.IO) {
+            memoryBitmap(url, true)
+                ?: bitmap(url)?.let { original ->
+                    var left = original.width
+                    var top = original.height
+                    var right = -1
+                    var bottom = -1
+                    val pixels = IntArray(original.width * original.height)
+                    original.getPixels(
+                        pixels,
+                        0,
+                        original.width,
+                        0,
+                        0,
+                        original.width,
+                        original.height,
+                    )
+                    for (y in 0 until original.height) for (x in 0 until original.width) {
+                        if ((pixels[y * original.width + x] ushr 24) != 0) {
+                            left = minOf(left, x)
+                            top = minOf(top, y)
+                            right = maxOf(right, x)
+                            bottom = maxOf(bottom, y)
+                        }
+                    }
+                    val trimmed =
+                        if (right < left) original
+                        else
+                            Bitmap.createBitmap(
+                                original,
+                                left,
+                                top,
+                                right - left + 1,
+                                bottom - top + 1,
+                            )
+                    decoded.put("sprite:$url", trimmed)
+                    trimmed
+                }
+        }
 
     private fun decode(url: String): Bitmap? {
         memoryBitmap(url)?.let {
@@ -62,6 +129,8 @@ class Artwork(private val context: Context) {
         val file = fileFor(url)
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, bounds)
+        if (bounds.outWidth > 0 && bounds.outHeight > 0)
+            ratios[url] = bounds.outWidth.toFloat() / bounds.outHeight
         var sample = 1
         while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 720) sample *= 2
         return BitmapFactory.decodeFile(
@@ -201,6 +270,7 @@ class Catalog(private val context: Context) {
                                         platform == "Wii" && gameCube
                                 )
                                     return@forEach
+                                if (isVirtualConsoleId(platform, id)) return@forEach
                                 if (!title.contains(query, ignoreCase = true)) return@forEach
                                 val artworkSlug = if (slug == "3ds") "3ds" else slug
                                 val extension = if (slug == "wii") "png" else "jpg"
@@ -238,7 +308,11 @@ class Catalog(private val context: Context) {
             if (provider == "GameTDB") {
                 return@withContext search(title, system, "")
                     .first
-                    .filter { it.source == "gametdb" && it.cover.isNotBlank() }
+                    .filter {
+                        it.source == "gametdb" &&
+                            it.cover.isNotBlank() &&
+                            catalogTitleKey(it.title) == catalogTitleKey(title)
+                    }
                     .map { CoverCandidate(it.cover, "GameTDB", it.title) }
             }
             require(endpoint.isNotBlank()) {

@@ -263,7 +263,7 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
 }
 
 fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
-    val x = 12.dp.toPx()
+    val x = 0f
     val height = 6.dp.toPx()
     val y = size.height - 10.dp.toPx()
     val width = size.width - x * 2
@@ -291,7 +291,7 @@ fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
             canvas.drawRoundRect(
                 x * scale,
                 12.dp.toPx() * scale,
-                (size.width / scale - x) * scale,
+                (size.width - x) * scale,
                 20.dp.toPx() * scale,
                 5.dp.toPx() * scale,
                 5.dp.toPx() * scale,
@@ -315,12 +315,12 @@ fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
             ),
             Offset(x, y),
             Size(width, height),
-            CornerRadius(5.dp.toPx()),
+            CornerRadius.Zero,
         )
         drawLine(
             Color.White.copy(alpha = if (dark) .55f else .95f),
-            Offset(x + 5.dp.toPx(), y),
-            Offset(size.width - x - 5.dp.toPx(), y),
+            Offset(x, y),
+            Offset(size.width - x, y),
             strokeWidth = 1.dp.toPx(),
         )
     }
@@ -806,8 +806,13 @@ fun AeroIconButton(
 }
 
 @Composable
-fun AeroDock(route: String, onNavigate: (String) -> Unit, onAdd: () -> Unit) {
-    Glass(Modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth()) {
+fun AeroDock(
+    route: String,
+    onNavigate: (String) -> Unit,
+    onAdd: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Glass(modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth()) {
         Row(Modifier.padding(6.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             listOf(
                     Triple("home", "shelves", AeroSymbol.SHELVES),
@@ -856,7 +861,6 @@ fun AeroDock(route: String, onNavigate: (String) -> Unit, onAdd: () -> Unit) {
                 }
             Box(
                 Modifier.padding(start = 6.dp)
-                    .offset(y = (-5).dp)
                     .size(48.dp)
                     .glassMaterial(LocalAeroDark.current, 24)
                     .background(
@@ -985,7 +989,7 @@ fun GameIdentity(
                 if (hunt) game.sprite else game.cover,
                 artwork,
                 game.title,
-                if (hunt) Modifier.size(if (prominent) 152.dp else 104.dp)
+                if (hunt) Modifier.size(if (prominent) 112.dp else 84.dp)
                 else
                     Modifier.shadow(10.dp, RoundedCornerShape(16.dp))
                         .clip(RoundedCornerShape(16.dp))

@@ -120,11 +120,158 @@ fun CoverPicker(
                             }
                         }
                     }
-                TextButton(onClick = { picker.launch("image/*") }) {
+                AeroButton(
+                    onClick = { picker.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text("choose image from phone")
                 }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("done") } },
     )
+}
+
+@Composable
+fun CatalogCoverSelection(
+    game: Game,
+    initial: List<CoverCandidate>,
+    artwork: Artwork,
+    catalog: Catalog,
+    endpoint: String,
+    onPick: (CoverCandidate?) -> Unit,
+) {
+    var choices by
+        remember(game.id) {
+            mutableStateOf(
+                initial.ifEmpty {
+                    if (game.cover.isBlank()) emptyList()
+                    else
+                        listOf(CoverCandidate(game.cover, coverProvider(game), coverProvider(game)))
+                }
+            )
+        }
+    var loading by remember(game.id) { mutableStateOf(emptySet<String>()) }
+    var unavailable by remember(game.id) { mutableStateOf(emptySet<String>()) }
+    var imageError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val picker =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null)
+                scope.launch {
+                    runCatching { artwork.select(uri) }
+                        .onSuccess {
+                            onPick(CoverCandidate(it, "Selected image", "Selected image"))
+                        }
+                        .onFailure { imageError = it.message ?: "Could not open this image" }
+                }
+        }
+    LaunchedEffect(game.id, endpoint) {
+        kotlinx.coroutines.coroutineScope {
+            coverProviders
+                .filter { provider -> choices.none { it.provider == provider } }
+                .filter { endpoint.isNotBlank() || it == "GameTDB" }
+                .forEach { provider ->
+                    launch {
+                        loading = loading + provider
+                        try {
+                            val found = catalog.covers(game.title, game.system, provider, endpoint)
+                            choices = (choices + found).distinctBy { it.url }
+                            if (found.isEmpty()) unavailable = unavailable + provider
+                        } catch (e: Exception) {
+                            unavailable = unavailable + provider
+                        } finally {
+                            loading = loading - provider
+                        }
+                    }
+                }
+        }
+    }
+    androidx.compose.foundation.lazy.LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(bottom = 20.dp),
+    ) {
+        item {
+            Text(game.title, style = MaterialTheme.typography.titleLarge)
+            Text(game.system, style = MaterialTheme.typography.bodySmall)
+            Text(
+                "choose a cover",
+                Modifier.padding(top = 12.dp),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+        (coverProviders + choices.map { it.provider }).distinct().forEach { provider ->
+            val options = choices.filter { it.provider == provider }
+            if (options.isNotEmpty() || provider in loading)
+                item(key = provider) {
+                    Glass(Modifier.fillMaxWidth()) {
+                        Column(
+                            Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(provider, style = MaterialTheme.typography.labelLarge)
+                            if (provider in loading)
+                                Box(
+                                    Modifier.height(166.dp).fillMaxWidth(),
+                                    contentAlignment = androidx.compose.ui.Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(
+                                        Modifier.size(24.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                }
+                            else
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    items(options, key = { it.url }) { cover ->
+                                        Column(
+                                            Modifier.width(116.dp).clickable { onPick(cover) },
+                                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            Art(
+                                                cover.url,
+                                                artwork,
+                                                "choose $provider cover: ${cover.label}",
+                                                system = game.system,
+                                                coverBounds = CoverSize(116f, 146f),
+                                            )
+                                            Text(
+                                                if (provider == "LaunchBox")
+                                                    Regex("\\(([^()]*)\\)$")
+                                                        .find(cover.label)
+                                                        ?.groupValues
+                                                        ?.get(1) ?: "front cover"
+                                                else "use this cover",
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                        }
+                                    }
+                                }
+                        }
+                    }
+                }
+        }
+        item {
+            if (unavailable.isNotEmpty() && loading.isEmpty())
+                Text(
+                    "No matching cover from ${unavailable.joinToString()}. You can choose another cover or your own image.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            imageError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            Column(
+                Modifier.fillMaxWidth().padding(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                PinkButton(
+                    onClick = { picker.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("choose image from phone")
+                }
+                AeroButton(onClick = { onPick(null) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("add without a cover")
+                }
+            }
+        }
+    }
 }

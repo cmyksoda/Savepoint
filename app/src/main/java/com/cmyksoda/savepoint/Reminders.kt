@@ -113,6 +113,42 @@ object Reminders {
         )
     }
 
+    fun invitationNotification(context: Context, timeout: Long, allowLater: Boolean): Notification {
+        val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        val open =
+            PendingIntent.getActivity(context, 1, Intent(context, MainActivity::class.java), flags)
+        fun action(name: String, code: Int) =
+            PendingIntent.getBroadcast(
+                context,
+                code,
+                Intent(context, ReminderReceiver::class.java).setAction(name),
+                flags,
+            )
+        val builder =
+            Notification.Builder(context, CHANNEL)
+                .setSmallIcon(R.drawable.icon_notification)
+                .setContentTitle("A little time for yourself?")
+                .setContentText("Your games are here whenever you feel like playing.")
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .setTimeoutAfter(timeout)
+        if (allowLater) {
+            val later =
+                PendingIntent.getActivity(
+                    context,
+                    2,
+                    Intent(context, MainActivity::class.java).putExtra("later", true),
+                    flags,
+                )
+            builder.addAction(Notification.Action.Builder(null, "Later", later).build())
+        }
+        builder.addAction(
+            Notification.Action.Builder(null, "Skip today", action("SKIP", 3)).build()
+        )
+        builder.addAction(Notification.Action.Builder(null, "Pause", action("PAUSE", 4)).build())
+        return builder.build()
+    }
+
     fun clear(context: Context) =
         context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION)
 }
@@ -148,10 +184,11 @@ class ReminderReceiver : BroadcastReceiver() {
                 val store = SettingsStore(context)
                 val today = LocalDate.now().toString()
                 if (intent.action == "SKIP" || intent.action == "PAUSE") {
-                    val changed = store.change { s ->
-                        if (intent.action == "PAUSE") s.copy(reminders = false, laterAt = 0)
-                        else s.copy(skipDate = today, laterAt = 0)
-                    }
+                    val changed =
+                        store.change { s ->
+                            if (intent.action == "PAUSE") s.copy(reminders = false, laterAt = 0)
+                            else s.copy(skipDate = today, laterAt = 0)
+                        }
                     Reminders.clear(context)
                     Reminders.schedule(context, changed)
                     return@launch
@@ -173,14 +210,16 @@ class ReminderReceiver : BroadcastReceiver() {
                             PackageManager.PERMISSION_GRANTED
                 if (valid && permitted && notifications.areNotificationsEnabled()) {
                     var didClaim = false
-                    val claimed = store.change { current ->
-                        if (!canDeliver(current, invitation, now, ZoneId.systemDefault())) current
-                        else {
-                            didClaim = true
-                            if (followup) current.copy(followupDate = today, laterAt = 0)
-                            else current.copy(sentDate = today)
+                    val claimed =
+                        store.change { current ->
+                            if (!canDeliver(current, invitation, now, ZoneId.systemDefault()))
+                                current
+                            else {
+                                didClaim = true
+                                if (followup) current.copy(followupDate = today, laterAt = 0)
+                                else current.copy(sentDate = today)
+                            }
                         }
-                    }
                     if (!didClaim) {
                         Reminders.schedule(context, claimed)
                         return@launch
@@ -192,50 +231,14 @@ class ReminderReceiver : BroadcastReceiver() {
                             NotificationManager.IMPORTANCE_DEFAULT,
                         )
                     )
-                    val open =
-                        PendingIntent.getActivity(
+                    notifications.notify(
+                        Reminders.NOTIFICATION,
+                        Reminders.invitationNotification(
                             context,
-                            1,
-                            Intent(context, MainActivity::class.java),
-                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                        )
-                    val later =
-                        PendingIntent.getActivity(
-                            context,
-                            2,
-                            Intent(context, MainActivity::class.java).putExtra("later", true),
-                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                        )
-                    fun action(name: String, code: Int) =
-                        PendingIntent.getBroadcast(
-                            context,
-                            code,
-                            Intent(context, ReminderReceiver::class.java).setAction(name),
-                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                        )
-                    val builder =
-                        Notification.Builder(context, Reminders.CHANNEL)
-                            .setSmallIcon(R.drawable.icon_notification)
-                            .setContentTitle("a little time for yourself?")
-                            .setContentText("Your games are here whenever you feel like playing.")
-                            .setContentIntent(open)
-                            .setAutoCancel(true)
-                            .setTimeoutAfter(intent.getLongExtra("expires", now) - now)
-                            .addAction(
-                                Notification.Action.Builder(null, "skip today", action("SKIP", 3))
-                                    .build()
-                            )
-                            .addAction(
-                                Notification.Action.Builder(
-                                        null,
-                                        "pause invitations",
-                                        action("PAUSE", 4),
-                                    )
-                                    .build()
-                            )
-                    if (!followup && claimed.followupDate != today)
-                        builder.addAction(Notification.Action.Builder(null, "later", later).build())
-                    notifications.notify(Reminders.NOTIFICATION, builder.build())
+                            intent.getLongExtra("expires", now) - now,
+                            allowLater = !followup && claimed.followupDate != today,
+                        ),
+                    )
                 }
                 Reminders.schedule(context, store.read())
             } finally {
