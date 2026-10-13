@@ -280,10 +280,10 @@ fun Modifier.glassShelf(dark: Boolean): Modifier {
                         Color.Transparent,
                     ),
                     startY = bottom,
-                    endY = bottom + 10.dp.toPx(),
+                    endY = bottom + 14.dp.toPx(),
                 ),
                 topLeft = Offset(0f, bottom),
-                size = Size(size.width, 10.dp.toPx()),
+                size = Size(size.width, 14.dp.toPx()),
             )
             drawRect(
                 Brush.verticalGradient(
@@ -532,7 +532,13 @@ fun AeroTextField(
 }
 
 @Composable
-fun Choice(label: String, value: String, options: List<String>, onSelect: (String) -> Unit) {
+fun Choice(
+    label: String,
+    value: String,
+    options: List<String>,
+    menuAction: Pair<String, () -> Unit>? = null,
+    onSelect: (String) -> Unit,
+) {
     var expanded by remember { mutableStateOf(false) }
     var anchorWidth by remember { mutableStateOf(0) }
     val density = LocalDensity.current
@@ -556,6 +562,17 @@ fun Choice(label: String, value: String, options: List<String>, onSelect: (Strin
                 shape = RoundedCornerShape(16.dp),
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
+                menuAction?.let { (title, action) ->
+                    DropdownMenuItem(
+                        text = { Text(title, style = MaterialTheme.typography.bodyMedium) },
+                        leadingIcon = { AeroIcon(AeroSymbol.EDIT, Modifier.size(18.dp)) },
+                        onClick = {
+                            expanded = false
+                            action()
+                        },
+                    )
+                    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                }
                 options.forEach { item ->
                     DropdownMenuItem(
                         text = { Text(item) },
@@ -576,6 +593,8 @@ enum class AeroSymbol {
     BACK,
     NEXT,
     DOWN,
+    UP,
+    REMOVE,
     EDIT,
     SHELVES,
     BACKLOG,
@@ -619,6 +638,8 @@ fun AeroIcon(
                 }
                 AeroSymbol.NEXT -> path(9f, 5f, 16f, 12f, 9f, 19f)
                 AeroSymbol.DOWN -> path(5f, 9f, 12f, 16f, 19f, 9f)
+                AeroSymbol.UP -> path(5f, 16f, 12f, 9f, 19f, 16f)
+                AeroSymbol.REMOVE -> path(5f, 12f, 19f, 12f)
                 AeroSymbol.ADD -> {
                     path(12f, 5f, 12f, 19f)
                     path(5f, 12f, 19f, 12f)

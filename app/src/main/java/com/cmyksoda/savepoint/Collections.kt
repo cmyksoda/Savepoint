@@ -6,11 +6,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -179,7 +181,10 @@ fun CollectionsScreen(
                         Modifier.fillMaxWidth()
                             .animateItem(placementSpec = spring(stiffness = 350f))
                     ) {
-                        Column(Modifier.padding(12.dp)) {
+                        Column(
+                            Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
                             Row(
                                 Modifier.fillMaxWidth().clickable { onOpen(game.id) },
                                 verticalAlignment = Alignment.CenterVertically,
@@ -189,40 +194,49 @@ fun CollectionsScreen(
                                     game.cover,
                                     artwork,
                                     game.title,
+                                    Modifier.clip(RoundedCornerShape(6.dp)),
                                     system = game.system,
                                     coverBounds = CoverSize(54f, 72f),
+                                    reserveHeight = false,
                                 )
                                 Column(Modifier.weight(1f)) {
                                     Text(game.title, fontWeight = FontWeight.Medium)
                                     Text(game.system, style = MaterialTheme.typography.bodySmall)
                                 }
                             }
-                            FlowRow(
+                            Row(
+                                Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 AeroButton(
                                     onClick = { onReorder(selected, game.id, -1) },
+                                    modifier = Modifier.weight(1f),
                                     enabled = row.first().id != game.id,
                                 ) {
-                                    Text("↑ earlier")
+                                    AeroIcon(AeroSymbol.UP, Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("move up", maxLines = 1)
                                 }
                                 AeroButton(
                                     onClick = { onReorder(selected, game.id, 1) },
+                                    modifier = Modifier.weight(1f),
                                     enabled = row.last().id != game.id,
                                 ) {
-                                    Text("↓ later")
+                                    AeroIcon(AeroSymbol.DOWN, Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("move down", maxLines = 1)
                                 }
-                                AeroButton(
-                                    onClick = {
+                                AeroIconButton(
+                                    AeroSymbol.REMOVE,
+                                    "remove ${game.title} from collection",
+                                    {
                                         onMembers(
                                             selected,
                                             row.filter { it.id != game.id }.map { it.id }.toSet(),
                                         )
-                                    }
-                                ) {
-                                    Text("remove")
-                                }
+                                    },
+                                )
                             }
                         }
                     }

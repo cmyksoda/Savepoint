@@ -420,7 +420,7 @@ fun LibraryList(
     onCollections: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    val collections = games.map { it.collection }.filter { it.isNotBlank() }.distinct().sorted()
+    val collections = collectionNames(games, settings)
     val filtered =
         sortedLibrary(
             games.filter {
@@ -463,6 +463,7 @@ fun LibraryList(
                             "collection",
                             settings.collectionFilter.ifBlank { "all collections" },
                             listOf("all collections") + collections,
+                            menuAction = "manage collections" to onCollections,
                         ) {
                             onSettings(
                                 settings.copy(
@@ -472,7 +473,6 @@ fun LibraryList(
                         }
                     }
                 }
-                AeroButton(onClick = onCollections) { Text("manage collections") }
             }
         },
         card = { game, grid, modifier ->
