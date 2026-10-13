@@ -9,6 +9,8 @@ import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,6 +18,40 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class BackupInstrumentedTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+    @Test
+    fun originalFormatBackupLoadsWithoutInventingPlaythroughs() = runBlocking {
+        val archive = File(context.cacheDir, "test-${UUID.randomUUID()}.zip")
+        try {
+            val legacy =
+                JsonCodec.game(
+                    Game(title = "Older game", place = Place.FINISHED, notes = "keep these notes")
+                )
+            legacy.remove("playthroughs")
+            legacy.remove("hasPlayed")
+            legacy.remove("replayCount")
+            val manifest =
+                JSONObject()
+                    .put("version", 1)
+                    .put("games", JSONArray().put(legacy))
+                    .put("settings", JsonCodec.settings(Settings()))
+            ZipOutputStream(archive.outputStream()).use { zip ->
+                zip.putNextEntry(ZipEntry("library.json"))
+                zip.write(manifest.toString().toByteArray())
+                zip.closeEntry()
+            }
+            val restored = Backup.inspect(context, Uri.fromFile(archive))
+            try {
+                assertTrue(restored.games.single().inPlayLog)
+                assertTrue(restored.games.single().playthroughs.isEmpty())
+                assertEquals("keep these notes", restored.games.single().notes)
+            } finally {
+                restored.artwork.deleteRecursively()
+            }
+        } finally {
+            archive.delete()
+        }
+    }
 
     @Test
     fun backupRoundTripPreservesBothNotesAndSelectedArtworkAndDisablesReminders() = runBlocking {
@@ -35,6 +71,17 @@ class BackupInstrumentedTest {
                     pauseNote = "pause note",
                     place = Place.PAUSED,
                     cover = "local:$name",
+                    hasPlayed = true,
+                    replayCount = 1,
+                    playthroughs =
+                        listOf(
+                            Playthrough(
+                                feeling = Feeling.LOVED,
+                                thoughts = "first playthrough",
+                                hours = 2.5,
+                            ),
+                            Playthrough(feeling = Feeling.LIKED, thoughts = "replay thoughts"),
+                        ),
                 )
             Backup.export(
                 context,

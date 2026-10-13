@@ -480,6 +480,8 @@ fun GameDetails(
     onNotes: () -> Unit,
     onPause: () -> Unit,
     onEdit: () -> Unit,
+    onFinish: () -> Unit,
+    onPlayLog: () -> Unit,
     onMove: (Place, Boolean) -> Unit,
     onEncounter: (Long) -> Unit,
     onUndo: () -> Unit,
@@ -516,6 +518,10 @@ fun GameDetails(
                 }
             }
         OutlinedButton(onClick = onNotes, modifier = Modifier.fillMaxWidth()) { Text("notes") }
+        if (game.inPlayLog)
+            OutlinedButton(onClick = onPlayLog, modifier = Modifier.fillMaxWidth()) {
+                Text("view play log")
+            }
         if (game.shelf == Shelf.HUNTS) {
             val odds = calculatedOdds(game)
             Glass(Modifier.fillMaxWidth()) {
@@ -546,7 +552,7 @@ fun GameDetails(
             OutlinedButton(onClick = onPause, modifier = Modifier.fillMaxWidth()) {
                 Text("take a break from this game")
             }
-            TextButton(onClick = { onMove(Place.FINISHED, false) }) {
+            TextButton(onClick = onFinish) {
                 Text(if (game.shelf == Shelf.HUNTS) "mark hunt complete" else "mark finished")
             }
         } else {
@@ -555,14 +561,15 @@ fun GameDetails(
                     onClick = { onMove(Place.ACTIVE, true) },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("play now")
+                    Text(if (game.inPlayLog) "replay now" else "play now")
                 }
             OutlinedButton(
                 onClick = { onMove(Place.ACTIVE, false) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    if (game.shelf == Shelf.PLAY_THROUGH) "add to queue"
+                    if (game.shelf == Shelf.PLAY_THROUGH && game.inPlayLog) "queue a replay"
+                    else if (game.shelf == Shelf.PLAY_THROUGH) "add to queue"
                     else "return to ${game.shelf.label}"
                 )
             }
@@ -1026,7 +1033,7 @@ fun SettingsScreen(
             Text("import backup")
         }
         Text(
-            "savepoint · 0.1.0\nOriginal code © cmyksoda · GPLv3\nGame artwork belongs to its respective owners.",
+            "savepoint · 0.2.0\nOriginal code © cmyksoda · GPLv3\nGame artwork belongs to its respective owners.",
             style = MaterialTheme.typography.bodySmall,
         )
     }
@@ -1060,7 +1067,17 @@ fun Savepoint(openLater: Boolean) {
         ) {
             mutableStateOf<Game?>(null)
         }
-    var dialog by remember { mutableStateOf("") }
+    var dialog by rememberSaveable { mutableStateOf("") }
+    var logEntry by
+        rememberSaveable(
+            stateSaver =
+                Saver<Playthrough?, String>(
+                    save = { it?.let { entry -> JsonCodec.playthrough(entry).toString() } },
+                    restore = { JsonCodec.playthrough(JSONObject(it)) },
+                )
+        ) {
+            mutableStateOf<Playthrough?>(null)
+        }
     var note by rememberSaveable { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf<RestoredLibrary?>(null) }
@@ -1129,6 +1146,7 @@ fun Savepoint(openLater: Boolean) {
             library.load()
             settings = settingsStore.read()
             loaded = true
+            if (route == "finished") route = "log"
             Reminders.schedule(context, settings)
             if (openLater) dialog = "later"
         } catch (e: Exception) {
@@ -1184,7 +1202,7 @@ fun Savepoint(openLater: Boolean) {
             BackHandler(route != "home" || dialog.isNotBlank()) {
                 if (dialog.isNotBlank()) dialog = ""
                 else if (route == "form" && selectedGame != null) route = "details"
-                else route = "home"
+                else if (route == "journal") route = "log" else route = "home"
             }
             Column(
                 Modifier.fillMaxSize()
@@ -1206,7 +1224,7 @@ fun Savepoint(openLater: Boolean) {
                             onClick = {
                                 route =
                                     if (route == "form" && selectedGame != null) "details"
-                                    else "home"
+                                    else if (route == "journal") "log" else "home"
                             }
                         ) {
                             Text("‹ back")
@@ -1217,6 +1235,8 @@ fun Savepoint(openLater: Boolean) {
                             "shelf" -> editingShelf.label
                             "details" -> "your game"
                             "form" -> "edit game"
+                            "log",
+                            "journal" -> "play log"
                             else -> route
                         },
                         fontFamily = FontFamily.SansSerif,
@@ -1297,13 +1317,11 @@ fun Savepoint(openLater: Boolean) {
                                     },
                                 )
                             "backlog",
-                            "paused",
-                            "finished" ->
+                            "paused" ->
                                 LibraryList(
                                     games,
                                     when (route) {
                                         "paused" -> Place.PAUSED
-                                        "finished" -> Place.FINISHED
                                         else -> Place.BACKLOG
                                     },
                                     settings,
@@ -1314,6 +1332,33 @@ fun Savepoint(openLater: Boolean) {
                                         route = "details"
                                     },
                                 )
+                            "log" ->
+                                PlayLogList(
+                                    games,
+                                    artwork,
+                                    {
+                                        selected = it
+                                        route = "journal"
+                                    },
+                                )
+                            "journal" ->
+                                selectedGame?.let { game ->
+                                    GameJournal(
+                                        game,
+                                        artwork,
+                                        { entry ->
+                                            logEntry = entry
+                                            dialog = "entry"
+                                        },
+                                        { first ->
+                                            mutate {
+                                                LibraryRules.move(it, game.id, Place.ACTIVE, first)
+                                            }
+                                            route = "home"
+                                        },
+                                        { route = "details" },
+                                    )
+                                }
                             "shelf" ->
                                 ShelfEditor(
                                     editingShelf,
@@ -1345,6 +1390,18 @@ fun Savepoint(openLater: Boolean) {
                                             form = game
                                             route = "form"
                                         },
+                                        {
+                                            if (game.shelf == Shelf.HUNTS) {
+                                                mutate {
+                                                    LibraryRules.move(it, game.id, Place.FINISHED)
+                                                }
+                                                route = "home"
+                                            } else {
+                                                logEntry = Playthrough()
+                                                dialog = "finish"
+                                            }
+                                        },
+                                        { route = "journal" },
                                         { place, first ->
                                             mutate { LibraryRules.move(it, game.id, place, first) }
                                             route = "home"
@@ -1472,40 +1529,65 @@ fun Savepoint(openLater: Boolean) {
                                 )
                         }
                 }
-                if (
-                    route == "home" ||
-                        route == "backlog" ||
-                        route == "paused" ||
-                        route == "finished"
-                )
+                if (route == "home" || route == "backlog" || route == "paused" || route == "log")
                     Glass(Modifier.padding(horizontal = 14.dp, vertical = 10.dp).fillMaxWidth()) {
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            TextButton(onClick = { route = "home" }) { Text("shelves") }
-                            TextButton(onClick = { route = "backlog" }) { Text("backlog") }
-                            TextButton(onClick = { route = "paused" }) { Text("paused") }
-                            if (route == "backlog" || route == "finished")
-                                TextButton(
-                                    onClick = {
-                                        route = if (route == "finished") "backlog" else "finished"
+                            listOf(
+                                    "home" to "shelves",
+                                    "backlog" to "backlog",
+                                    "paused" to "paused",
+                                    "log" to "play log",
+                                )
+                                .forEach { (destination, label) ->
+                                    TextButton(
+                                        onClick = { route = destination },
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding =
+                                            PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                                    ) {
+                                        Text(label)
                                     }
-                                ) {
-                                    Text(if (route == "finished") "backlog" else "finished")
                                 }
-                            else
-                                TextButton(
-                                    onClick = {
-                                        selected = ""
-                                        route = "add"
-                                    }
-                                ) {
-                                    Text("+ add")
-                                }
+                            TextButton(
+                                onClick = {
+                                    selected = ""
+                                    route = "add"
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                            ) {
+                                Text("+ add")
+                            }
                         }
                     }
+            }
+            if (
+                (dialog == "finish" || dialog == "entry") &&
+                    selectedGame != null &&
+                    logEntry != null
+            ) {
+                PlaythroughEditor(
+                    selectedGame,
+                    logEntry!!,
+                    dialog == "finish",
+                    { entry, replays ->
+                        val id = selectedGame.id
+                        if (dialog == "finish")
+                            mutate { LibraryRules.finish(it, id, entry, replays) }
+                        else mutate { LibraryRules.editPlaythrough(it, id, entry, replays) }
+                        dialog = ""
+                        logEntry = null
+                        route = "journal"
+                    },
+                    {
+                        dialog = ""
+                        logEntry = null
+                    },
+                )
             }
             if (dialog == "notes" || dialog == "pause")
                 AlertDialog(

@@ -25,7 +25,7 @@ object Backup {
         withContext(Dispatchers.IO) {
             val manifest =
                 JSONObject()
-                    .put("version", 1)
+                    .put("version", 2)
                     .put("games", JSONArray(games.map { JsonCodec.game(it) }))
                     .put("settings", JsonCodec.settings(settings))
             ZipOutputStream(context.contentResolver.openOutputStream(uri)!!).use { zip ->
@@ -88,7 +88,7 @@ object Backup {
                     }
                 }
                 val data = requireNotNull(manifest) { "Missing library data" }
-                require(data.getInt("version") == 1) { "Unsupported backup version" }
+                require(data.getInt("version") in 1..2) { "Unsupported backup version" }
                 val array = data.getJSONArray("games")
                 val games = (0 until array.length()).map { JsonCodec.game(array.getJSONObject(it)) }
                 require(games.map { it.id }.distinct().size == games.size) {

@@ -34,6 +34,33 @@ data class Settings(
 )
 
 object JsonCodec {
+    fun playthrough(p: Playthrough) =
+        JSONObject().apply {
+            put("id", p.id)
+            put("finishedAt", p.finishedAt ?: JSONObject.NULL)
+            put("feeling", p.feeling?.name ?: JSONObject.NULL)
+            put("thoughts", p.thoughts)
+            put("hours", p.hours ?: JSONObject.NULL)
+        }
+
+    fun playthrough(j: JSONObject) =
+        Playthrough(
+                id = j.getString("id"),
+                finishedAt = if (j.isNull("finishedAt")) null else j.getLong("finishedAt"),
+                feeling =
+                    if (j.isNull("feeling")) null else Feeling.valueOf(j.getString("feeling")),
+                thoughts = j.optString("thoughts"),
+                hours = if (j.isNull("hours")) null else j.getDouble("hours"),
+            )
+            .also {
+                require(it.id.isNotBlank() && (it.finishedAt == null || it.finishedAt >= 0)) {
+                    "Invalid playthrough"
+                }
+                require(it.hours == null || it.hours.isFinite() && it.hours >= 0) {
+                    "Invalid playtime"
+                }
+            }
+
     fun game(g: Game) =
         JSONObject().apply {
             put("id", g.id)
@@ -58,6 +85,9 @@ object JsonCodec {
             put("encounters", g.encounters)
             put("shinyCharm", g.shinyCharm)
             put("manualOdds", g.manualOdds ?: JSONObject.NULL)
+            put("playthroughs", JSONArray(g.playthroughs.map { playthrough(it) }))
+            put("hasPlayed", g.hasPlayed)
+            put("replayCount", g.replayCount ?: JSONObject.NULL)
         }
 
     fun game(j: JSONObject) =
@@ -84,11 +114,24 @@ object JsonCodec {
                 encounters = j.optLong("encounters"),
                 shinyCharm = j.optBoolean("shinyCharm"),
                 manualOdds = if (j.isNull("manualOdds")) null else j.getInt("manualOdds"),
+                playthroughs =
+                    j.optJSONArray("playthroughs")?.let { entries ->
+                        (0 until entries.length()).map { playthrough(entries.getJSONObject(it)) }
+                    } ?: emptyList(),
+                hasPlayed = j.optBoolean("hasPlayed", j.getString("place") == "FINISHED"),
+                replayCount = if (j.isNull("replayCount")) null else j.getInt("replayCount"),
             )
             .also {
                 require(it.id.isNotBlank() && it.title.isNotBlank()) { "Invalid game entry" }
                 require(it.encounters >= 0 && (it.manualOdds == null || it.manualOdds > 0)) {
                     "Invalid hunt values"
+                }
+                require(it.replayCount == null || it.replayCount >= 0) { "Invalid replay count" }
+                require(
+                    it.playthroughs.map { entry -> entry.id }.distinct().size ==
+                        it.playthroughs.size
+                ) {
+                    "Duplicate playthrough identifiers"
                 }
             }
 

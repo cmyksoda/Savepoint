@@ -66,6 +66,20 @@ val systems =
         "Other",
     )
 
+enum class Feeling(val label: String) {
+    DIDNT_LIKE("didn't like"),
+    LIKED("liked"),
+    LOVED("loved"),
+}
+
+data class Playthrough(
+    val id: String = UUID.randomUUID().toString(),
+    val finishedAt: Long? = System.currentTimeMillis(),
+    val feeling: Feeling? = null,
+    val thoughts: String = "",
+    val hours: Double? = null,
+)
+
 data class Game(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
@@ -89,7 +103,16 @@ data class Game(
     val encounters: Long = 0,
     val shinyCharm: Boolean = false,
     val manualOdds: Int? = null,
+    val playthroughs: List<Playthrough> = emptyList(),
+    val hasPlayed: Boolean = false,
+    val replayCount: Int? = null,
 )
+
+val Game.inPlayLog: Boolean
+    get() = hasPlayed || playthroughs.isNotEmpty() || place == Place.FINISHED
+
+val Game.recordedHours: Double?
+    get() = playthroughs.mapNotNull { it.hours }.takeIf { it.isNotEmpty() }?.sum()
 
 object LibraryRules {
     fun move(games: List<Game>, id: String, place: Place, first: Boolean = false): List<Game> {
@@ -102,7 +125,13 @@ object LibraryRules {
         val positions = ordered.mapIndexed { index, game -> game.id to index }.toMap()
         return games.map {
             when {
-                it.id == id -> it.copy(place = place, position = positions.getValue(id))
+                it.id == id ->
+                    it.copy(
+                        place = place,
+                        position = positions.getValue(id),
+                        hasPlayed =
+                            it.hasPlayed || it.place == Place.FINISHED || place == Place.FINISHED,
+                    )
                 it.id in positions -> it.copy(position = positions.getValue(it.id))
                 else -> it
             }
@@ -127,6 +156,52 @@ object LibraryRules {
 
     fun pause(games: List<Game>, id: String, note: String): List<Game> =
         move(games.map { if (it.id == id) it.copy(pauseNote = note) else it }, id, Place.PAUSED)
+
+    fun finish(games: List<Game>, id: String, entry: Playthrough, replayCount: Int?): List<Game> {
+        require(entry.hours == null || entry.hours.isFinite() && entry.hours >= 0) {
+            "Playtime must be a finite, nonnegative number"
+        }
+        require(replayCount == null || replayCount >= 0) { "Replays cannot be negative" }
+        val game = games.first { it.id == id }
+        if (game.playthroughs.any { it.id == entry.id }) return games
+        val updated = games.map {
+            if (it.id == id)
+                it.copy(
+                    playthroughs = it.playthroughs + entry,
+                    hasPlayed = true,
+                    replayCount = replayCount,
+                )
+            else it
+        }
+        return move(updated, id, Place.FINISHED)
+    }
+
+    fun editPlaythrough(
+        games: List<Game>,
+        id: String,
+        entry: Playthrough,
+        replayCount: Int?,
+    ): List<Game> {
+        require(entry.hours == null || entry.hours.isFinite() && entry.hours >= 0) {
+            "Playtime must be a finite, nonnegative number"
+        }
+        require(replayCount == null || replayCount >= 0) { "Replays cannot be negative" }
+        return games.map { game ->
+            if (game.id != id) game
+            else
+                game.copy(
+                    playthroughs =
+                        if (game.playthroughs.any { it.id == entry.id })
+                            game.playthroughs.map {
+                                if (it.id == entry.id) entry.copy(finishedAt = it.finishedAt)
+                                else it
+                            }
+                        else game.playthroughs + entry,
+                    replayCount = replayCount,
+                    hasPlayed = true,
+                )
+        }
+    }
 }
 
 val huntVersions =
