@@ -286,7 +286,7 @@ class Catalog(private val context: Context) {
                                 )
                                     return@forEach
                                 if (isVirtualConsoleId(platform, id)) return@forEach
-                                if (!title.contains(query, ignoreCase = true)) return@forEach
+                                if (searchMatchScore(title, query) == null) return@forEach
                                 val artworkSlug = if (slug == "3ds") "3ds" else slug
                                 val extension = if (slug == "wii") "png" else "jpg"
                                 found +=

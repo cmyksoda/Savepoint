@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -13,6 +14,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -78,19 +82,59 @@ fun renameCollection(
     )
 }
 
+private data class CollectionViewport(val ids: List<String>, val index: Int, val offset: Int)
+
+@Composable
+private fun CollectionCollage(games: List<Game>, artwork: Artwork) {
+    val covers = games.sortedBy { it.collectionOrder }.filter { it.cover.isNotBlank() }.take(4)
+    Box(
+        Modifier.size(76.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .glassMaterial(LocalAeroDark.current, 12, elevated = false),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (covers.isEmpty()) AeroIcon(AeroSymbol.GRID, Modifier.size(26.dp))
+        else {
+            val bands = if (covers.size <= 2) listOf(covers) else covers.chunked(2)
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                bands.forEach { band ->
+                    Row(
+                        Modifier.weight(1f).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(1.dp),
+                    ) {
+                        band.forEach { game ->
+                            Box(Modifier.weight(1f).fillMaxHeight()) {
+                                Art(
+                                    game.cover,
+                                    artwork,
+                                    game.title,
+                                    Modifier.fillMaxSize(),
+                                    showPlaceholderTitle = false,
+                                    imageScale = ContentScale.Crop,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun CollectionsScreen(
     games: List<Game>,
     settings: Settings,
     artwork: Artwork,
+    selected: String,
     onCreate: (String) -> Unit,
     onRename: (String, String, (String?) -> Unit) -> Unit,
     onMembers: (String, Set<String>) -> Unit,
-    onReorder: (String, String, Int) -> Unit,
+    onReorder: (String, String, Int, (Boolean) -> Unit) -> Unit,
+    onOpenCollection: (String) -> Unit,
     onOpen: (String) -> Unit,
 ) {
     val names = collectionNames(games, settings)
-    var selected by rememberSaveable { mutableStateOf("") }
     var creating by rememberSaveable { mutableStateOf(false) }
     var renaming by rememberSaveable { mutableStateOf(false) }
     var renameBusy by remember { mutableStateOf(false) }
@@ -100,6 +144,27 @@ fun CollectionsScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var checked by rememberSaveable { mutableStateOf<Set<String>>(emptySet()) }
     val row = games.filter { it.collection == selected }.sortedBy { it.collectionOrder }
+    val listState = rememberLazyListState()
+    var pendingMove by remember { mutableStateOf<CollectionViewport?>(null) }
+    fun move(id: String, direction: Int) {
+        if (pendingMove != null) return
+        pendingMove =
+            CollectionViewport(
+                row.map { it.id },
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+            )
+        onReorder(selected, id, direction) { changed -> if (!changed) pendingMove = null }
+    }
+    val order = row.map { it.id }
+    SideEffect {
+        pendingMove?.let { anchor ->
+            if (order != anchor.ids) {
+                listState.requestScrollToItem(anchor.index, anchor.offset)
+                pendingMove = null
+            }
+        }
+    }
     Column(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -121,12 +186,16 @@ fun CollectionsScreen(
                     item { Text("Keep a series or a group of games together here.") }
                 items(names, key = { it }) { collection ->
                     Glass(
-                        Modifier.fillMaxWidth().clickable { selected = collection }.animateItem()
+                        Modifier.fillMaxWidth()
+                            .clickable { onOpenCollection(collection) }
+                            .animateItem()
                     ) {
                         Row(
-                            Modifier.padding(16.dp),
+                            Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
+                            CollectionCollage(games.filter { it.collection == collection }, artwork)
                             Column(Modifier.weight(1f)) {
                                 Text(collection, fontWeight = FontWeight.Medium)
                                 Text(
@@ -166,9 +235,9 @@ fun CollectionsScreen(
                 ) {
                     Text("choose games")
                 }
-                AeroButton(onClick = { selected = "" }) { Text("all collections") }
             }
             LazyColumn(
+                state = listState,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(bottom = 20.dp),
             ) {
@@ -210,18 +279,18 @@ fun CollectionsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 AeroButton(
-                                    onClick = { onReorder(selected, game.id, -1) },
+                                    onClick = { move(game.id, -1) },
                                     modifier = Modifier.weight(1f),
-                                    enabled = row.first().id != game.id,
+                                    enabled = pendingMove == null && row.first().id != game.id,
                                 ) {
                                     AeroIcon(AeroSymbol.UP, Modifier.size(14.dp))
                                     Spacer(Modifier.width(6.dp))
                                     Text("move up", maxLines = 1)
                                 }
                                 AeroButton(
-                                    onClick = { onReorder(selected, game.id, 1) },
+                                    onClick = { move(game.id, 1) },
                                     modifier = Modifier.weight(1f),
-                                    enabled = row.last().id != game.id,
+                                    enabled = pendingMove == null && row.last().id != game.id,
                                 ) {
                                     AeroIcon(AeroSymbol.DOWN, Modifier.size(14.dp))
                                     Spacer(Modifier.width(6.dp))
@@ -262,9 +331,9 @@ fun CollectionsScreen(
                     onClick = {
                         val entered = name.trim()
                         val existing = names.firstOrNull { it.equals(entered, true) }
-                        selected = existing ?: entered
                         if (existing == null) onCreate(entered)
                         creating = false
+                        onOpenCollection(existing ?: entered)
                     },
                     enabled = name.isNotBlank(),
                 ) {
@@ -300,7 +369,6 @@ fun CollectionsScreen(
                         onRename(selected, entered) { failure ->
                             renameBusy = false
                             if (failure == null) {
-                                selected = entered
                                 renaming = false
                             } else renameError = failure
                         }
@@ -330,7 +398,7 @@ fun CollectionsScreen(
                     LazyColumn(Modifier.heightIn(max = 300.dp)) {
                         items(
                             games
-                                .filter { it.title.contains(query, true) }
+                                .filter { searchMatchScore(it.title, query) != null }
                                 .sortedBy { it.title.lowercase() },
                             key = { it.id },
                         ) { game ->
@@ -346,7 +414,7 @@ fun CollectionsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Checkbox(game.id in checked, null, Modifier.size(20.dp))
+                                AeroCheckbox(game.id in checked, null, Modifier.size(20.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(game.title)
                                     if (game.collection.isNotBlank() && game.collection != selected)
@@ -381,11 +449,24 @@ fun FindGames(
     onOpen: (String) -> Unit,
     onCollections: () -> Unit,
 ) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
     var query by rememberSaveable { mutableStateOf("") }
     val results =
         games
-            .filter { it.title.contains(query, true) || it.pokemon.contains(query, true) }
-            .sortedBy { it.title.lowercase() }
+            .mapNotNull { game ->
+                val score =
+                    listOfNotNull(
+                            searchMatchScore(game.title, query),
+                            searchMatchScore(game.pokemon, query),
+                        )
+                        .minOrNull()
+                score?.let { it to game }
+            }
+            .sortedWith(
+                compareBy<Pair<Int, Game>> { it.first }.thenBy { it.second.title.lowercase() }
+            )
+            .map { it.second }
     Column(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -394,16 +475,33 @@ fun FindGames(
             query,
             { query = it },
             label = "search your games",
+            autoFocus = true,
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
-        AeroButton(onClick = onCollections) { Text("manage collections") }
+        AeroButton(
+            onClick = {
+                focus.clearFocus()
+                keyboard?.hide()
+                onCollections()
+            }
+        ) {
+            Text("manage collections")
+        }
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(bottom = 20.dp),
         ) {
             items(results, key = { it.id }) { game ->
-                Glass(Modifier.fillMaxWidth().clickable { onOpen(game.id) }.animateItem()) {
+                Glass(
+                    Modifier.fillMaxWidth()
+                        .clickable {
+                            focus.clearFocus()
+                            keyboard?.hide()
+                            onOpen(game.id)
+                        }
+                        .animateItem()
+                ) {
                     Row(
                         Modifier.padding(12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),

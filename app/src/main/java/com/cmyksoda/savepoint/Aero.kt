@@ -2,7 +2,6 @@ package com.cmyksoda.savepoint
 
 import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,6 +24,8 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -36,6 +37,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.Role
@@ -171,14 +173,21 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
     val waveIndices = if (dark) listOf(1, 4, 7, 10) else (0..10).toList()
     val waves =
         waveIndices.map { index ->
-            val phase = index * .28f
+            val phase = index * .28f + if (dark) 0f else .24f * kotlin.math.sin(index * 1.23f)
             val level = index * .115f - .08f
-            val amplitude = .046f + .008f * kotlin.math.sin(phase)
+            val amplitude =
+                .046f +
+                    .008f * kotlin.math.sin(phase) +
+                    if (dark) 0f else .006f * kotlin.math.cos(index * 1.7f)
             val path =
                 Path().apply {
                     for (step in 0..48) {
                         val t = -.2f + step / 48f * 1.4f
-                        val y = level - .09f * t + amplitude * kotlin.math.sin(t * 4.52f + phase)
+                        val slope = .09f + if (dark) 0f else .018f * kotlin.math.sin(index * .93f)
+                        val frequency =
+                            4.52f + if (dark) 0f else .32f * kotlin.math.cos(index * 1.17f)
+                        val y =
+                            level - slope * t + amplitude * kotlin.math.sin(t * frequency + phase)
                         if (step == 0) moveTo(t * w, y * h) else lineTo(t * w, y * h)
                     }
                 }
@@ -310,6 +319,7 @@ fun Modifier.glassMaterial(
     radius: Int = 18,
     strong: Boolean = false,
     elevated: Boolean = true,
+    elevation: Dp = if (strong) 12.dp else 7.dp,
 ): Modifier {
     val shape = RoundedCornerShape(radius.dp)
     val colors =
@@ -323,7 +333,7 @@ fun Modifier.glassMaterial(
     return then(
             if (elevated)
                 Modifier.shadow(
-                    if (strong) 12.dp else 7.dp,
+                    elevation,
                     shape,
                     ambientColor = Color(0xFF261932),
                     spotColor = Color(0xFF181C34),
@@ -383,6 +393,39 @@ fun Glass(
     Column(modifier.glassMaterial(LocalAeroDark.current, strong = strong), content = content)
 }
 
+private fun Modifier.controlShadow(radius: Dp, visible: Boolean = true): Modifier = drawWithCache {
+    if (!visible || size.width <= 0f || size.height <= 0f) {
+        return@drawWithCache onDrawBehind {}
+    }
+    val margin = 10.dp.toPx()
+    val shadow =
+        ImageBitmap(
+            (size.width + margin * 2).toInt().coerceAtLeast(1),
+            (size.height + margin * 2).toInt().coerceAtLeast(1),
+        )
+    val paint =
+        android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.argb(45, 38, 25, 50)
+            maskFilter =
+                android.graphics.BlurMaskFilter(
+                    3.dp.toPx(),
+                    android.graphics.BlurMaskFilter.Blur.NORMAL,
+                )
+        }
+    android.graphics
+        .Canvas(shadow.asAndroidBitmap())
+        .drawRoundRect(
+            margin,
+            margin + 2.dp.toPx(),
+            margin + size.width,
+            margin + size.height + 2.dp.toPx(),
+            radius.toPx(),
+            radius.toPx(),
+            paint,
+        )
+    onDrawBehind { drawImage(shadow, Offset(-margin, -margin)) }
+}
+
 @Composable
 private fun AeroControl(
     onClick: () -> Unit,
@@ -417,20 +460,10 @@ private fun AeroControl(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Surface(
-            Modifier.fillMaxWidth().alpha(if (!enabled) .5f else if (pressed) .94f else 1f),
-            shape = shape,
-            color = Color.Transparent,
-            contentColor =
-                if (primary) {
-                    if (dark) Color(0xFF421D39) else Color.White
-                } else MaterialTheme.colorScheme.onSurface,
-            shadowElevation = if (pressed) 0.dp else 2.dp,
-            border = if (primary) BorderStroke(1.dp, Color.White.copy(alpha = .6f)) else null,
-        ) {
-            val material =
-                if (primary)
-                    Modifier.background(Brush.verticalGradient(gradient)).drawWithContent {
+        val material =
+            if (primary)
+                Modifier.background(Brush.verticalGradient(gradient))
+                    .drawWithContent {
                         drawRoundRect(
                             Brush.verticalGradient(
                                 listOf(Color.White.copy(alpha = .2f), Color.Transparent)
@@ -441,15 +474,38 @@ private fun AeroControl(
                         )
                         drawContent()
                     }
-                else Modifier.glassMaterial(dark, 12, elevated = false)
-            Row(
-                Modifier.defaultMinSize(minWidth = 96.dp, minHeight = minHeight)
+                    .border(1.dp, Color.White.copy(alpha = .6f), shape)
+            else Modifier.glassMaterial(dark, 12, elevated = false)
+        val foreground =
+            if (primary) {
+                if (dark) Color(0xFF421D39) else Color.White
+            } else MaterialTheme.colorScheme.onSurface
+        Box(Modifier.fillMaxWidth()) {
+            Box(
+                Modifier.matchParentSize()
+                    .graphicsLayer {
+                        alpha = if (!enabled) .5f else if (pressed) .94f else 1f
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    }
+                    .controlShadow(12.dp, !pressed)
+                    .clip(shape)
                     .then(material)
+            )
+            Row(
+                Modifier.fillMaxWidth()
+                    .defaultMinSize(minWidth = 96.dp, minHeight = minHeight)
+                    .alpha(if (enabled) 1f else .5f)
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ProvideTextStyle(MaterialTheme.typography.labelLarge) { content() }
+                CompositionLocalProvider(LocalContentColor provides foreground) {
+                    ProvideTextStyle(
+                        MaterialTheme.typography.labelLarge.copy(background = Color.Transparent)
+                    ) {
+                        content()
+                    }
+                }
             }
         }
     }
@@ -504,8 +560,18 @@ fun AeroTextField(
     singleLine: Boolean = false,
     minLines: Int = 1,
     maxLines: Int = Int.MAX_VALUE,
+    autoFocus: Boolean = false,
 ) {
     val dark = LocalAeroDark.current
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(autoFocus, dark) {
+        if (autoFocus) {
+            withFrameNanos {}
+            focus.requestFocus()
+            keyboard?.show()
+        }
+    }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             label,
@@ -513,22 +579,46 @@ fun AeroTextField(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier,
         )
-        OutlinedTextField(
-            value,
-            onValueChange,
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
-            singleLine = singleLine,
-            minLines = minLines,
-            maxLines = maxLines,
-            shape = RoundedCornerShape(14.dp),
-            colors =
-                OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = if (dark) Color(0x99333B53) else Color(0xBFFFFFFF),
-                    focusedContainerColor = if (dark) Color(0xE02A334D) else Color(0xF5FFFFFF),
-                    unfocusedBorderColor = if (dark) Color(0xFF7B88A6) else Color(0xFFC6AEBF),
-                ),
-        )
+        key(dark) {
+            OutlinedTextField(
+                value,
+                onValueChange,
+                modifier =
+                    Modifier.fillMaxWidth().focusRequester(focus).semantics {
+                        contentDescription = label
+                    },
+                singleLine = singleLine,
+                minLines = minLines,
+                maxLines = maxLines,
+                shape = RoundedCornerShape(14.dp),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor =
+                            if (dark) Color(0x99333B53) else Color(0xBFFFFFFF),
+                        focusedContainerColor = if (dark) Color(0xE02A334D) else Color(0xF5FFFFFF),
+                        unfocusedBorderColor = if (dark) Color(0xFF7B88A6) else Color(0xFFC6AEBF),
+                    ),
+            )
+        }
     }
+}
+
+@Composable
+fun AeroCheckbox(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    key(LocalAeroDark.current) { Checkbox(checked, onCheckedChange, modifier) }
+}
+
+@Composable
+fun AeroSwitch(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    key(LocalAeroDark.current) { Switch(checked, onCheckedChange, modifier) }
 }
 
 @Composable
@@ -835,17 +925,28 @@ fun AeroIconButton(
     compact: Boolean = false,
     tint: Color? = null,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
     Box(
         modifier
             .size(48.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         Box(
             Modifier.size(if (compact) 32.dp else 40.dp)
-                .glassMaterial(LocalAeroDark.current, if (compact) 10 else 20),
+                .graphicsLayer {
+                    alpha = if (pressed) .9f else 1f
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                }
+                .controlShadow(if (compact) 10.dp else 20.dp, !pressed)
+                .glassMaterial(LocalAeroDark.current, if (compact) 10 else 20, elevated = false),
             contentAlignment = Alignment.Center,
         ) {
             AeroIcon(

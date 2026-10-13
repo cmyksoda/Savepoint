@@ -70,7 +70,7 @@ import org.json.JSONObject
 private val bottomTabRoutes = setOf("home", "backlog", "paused", "log")
 
 private val dockRoutes =
-    setOf("home", "backlog", "paused", "log", "add", "catalog", "find", "collections")
+    setOf("home", "backlog", "paused", "log", "add", "catalog", "find", "collections", "collection")
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,6 +92,7 @@ fun Art(
     coverBounds: CoverSize? = null,
     transparent: Boolean = false,
     reserveHeight: Boolean = true,
+    imageScale: ContentScale = ContentScale.Fit,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     var bitmap by remember(url) { mutableStateOf(artwork.memoryBitmap(url, sprite)) }
@@ -144,7 +145,7 @@ fun Art(
                     bitmap!!.asImageBitmap(),
                     title,
                     Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
+                    contentScale = imageScale,
                     filterQuality =
                         if (sprite) androidx.compose.ui.graphics.FilterQuality.None
                         else androidx.compose.ui.graphics.FilterQuality.Medium,
@@ -426,8 +427,8 @@ fun LibraryList(
             games.filter {
                 it.place == place &&
                     (query.isBlank() ||
-                        it.title.contains(query, true) ||
-                        it.pokemon.contains(query, true)) &&
+                        searchMatchScore(it.title, query) != null ||
+                        searchMatchScore(it.pokemon, query) != null) &&
                     (settings.systemFilter.isEmpty() || it.system == settings.systemFilter) &&
                     (settings.collectionFilter.isEmpty() ||
                         it.collection == settings.collectionFilter)
@@ -917,7 +918,7 @@ fun GameForm(
                 modifier = Modifier.fillMaxWidth(),
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
+                AeroCheckbox(
                     charm,
                     {
                         charm = it
@@ -1015,6 +1016,7 @@ fun AddScreen(
             query,
             { query = it },
             label = "game title",
+            autoFocus = true,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
@@ -1112,7 +1114,7 @@ fun SettingsScreen(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("rest invitations", Modifier.weight(1f))
-                    Switch(
+                    AeroSwitch(
                         settings.reminders,
                         { enabled ->
                             if (enabled) onEnable()
@@ -1144,7 +1146,7 @@ fun SettingsScreen(
                             verticalArrangement =
                                 Arrangement.spacedBy(5.dp, Alignment.CenterVertically),
                         ) {
-                            Checkbox(checked, null, Modifier.size(20.dp))
+                            AeroCheckbox(checked, null, Modifier.size(20.dp))
                             Text(day, style = MaterialTheme.typography.bodySmall)
                         }
                     }
@@ -1255,6 +1257,7 @@ fun Savepoint(openLater: Boolean) {
         }
     var route by navigation
     var selected by rememberSaveable { mutableStateOf("") }
+    var selectedCollection by rememberSaveable { mutableStateOf("") }
     var editingShelf by rememberSaveable { mutableStateOf(Shelf.PLAY_THROUGH) }
     var addShelf by rememberSaveable { mutableStateOf<Shelf?>(Shelf.PLAY_THROUGH) }
     var addReturn by rememberSaveable { mutableStateOf("home") }
@@ -1381,6 +1384,7 @@ fun Savepoint(openLater: Boolean) {
                     renamed.games
                 }
                 settings = settingsStore.change { collectionRenameSettings(it, previous, name) }
+                if (selectedCollection == previous) selectedCollection = name
                 completed(null)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -1503,6 +1507,7 @@ fun Savepoint(openLater: Boolean) {
                             "home" -> "Savepoint"
                             "find" -> "search"
                             "shelf" -> editingShelf.label
+                            "collection" -> "collections"
                             "details" -> "your game"
                             "catalog",
                             "cover" -> "cover art"
@@ -1577,6 +1582,7 @@ fun Savepoint(openLater: Boolean) {
                                     "form",
                                     "catalog" -> "$screen:${form?.id}"
                                     "shelf" -> "$screen:${editingShelf.name}"
+                                    "collection" -> "$screen:$selectedCollection"
                                     else -> screen
                                 }
                             screenStates.SaveableStateProvider(stateKey) {
@@ -1632,11 +1638,14 @@ fun Savepoint(openLater: Boolean) {
                                                 },
                                                 { route = "collections" },
                                             )
-                                        "collections" ->
+                                        "collections",
+                                        "collection" ->
                                             CollectionsScreen(
                                                 games,
                                                 settings,
                                                 artwork,
+                                                if (screen == "collection") selectedCollection
+                                                else "",
                                                 { name ->
                                                     updateSettings(
                                                         settings.copy(
@@ -1655,10 +1664,32 @@ fun Savepoint(openLater: Boolean) {
                                                     )
                                                     mutate { setCollectionMembers(it, name, ids) }
                                                 },
-                                                { name, id, direction ->
-                                                    mutate {
-                                                        reorderCollection(it, name, id, direction)
+                                                { name, id, direction, finished ->
+                                                    scope.launch {
+                                                        try {
+                                                            var changed = false
+                                                            library.change { current ->
+                                                                val updated =
+                                                                    reorderCollection(
+                                                                        current,
+                                                                        name,
+                                                                        id,
+                                                                        direction,
+                                                                    )
+                                                                changed = updated != current
+                                                                updated
+                                                            }
+                                                            finished(changed)
+                                                        } catch (e: Exception) {
+                                                            if (e is CancellationException) throw e
+                                                            error = e.message
+                                                            finished(false)
+                                                        }
                                                     }
+                                                },
+                                                { name ->
+                                                    selectedCollection = name
+                                                    route = "collection"
                                                 },
                                                 {
                                                     selected = it
