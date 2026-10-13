@@ -43,6 +43,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -98,8 +99,12 @@ val AeroTypography =
     )
 
 fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
-    val w = size.width
-    val h = size.height
+    if (size.width <= 0f || size.height <= 0f) return@drawWithCache onDrawBehind {}
+    val renderWidth = minOf(size.width.toInt(), 720).coerceAtLeast(1)
+    val renderHeight = (size.height * renderWidth / size.width).toInt().coerceAtLeast(1)
+    val bitmap = ImageBitmap(renderWidth, renderHeight)
+    val w = renderWidth.toFloat()
+    val h = renderHeight.toFloat()
     val base =
         Brush.verticalGradient(
             if (dark) listOf(Color(0xFF172D43), Color(0xFF221C3A), Color(0xFF121A33))
@@ -118,7 +123,7 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
         Brush.radialGradient(
             listOf(
                 (if (dark) Color(0xFF66C9DA) else Color.White).copy(
-                    alpha = if (dark) .32f else .8f
+                    alpha = if (dark) .26f else .72f
                 ),
                 Color.Transparent,
             ),
@@ -134,106 +139,124 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
             center = Offset(w * .12f, h * .78f),
             radius = w * .95f,
         )
-    val ribbonEdge =
-        Path().apply {
-            moveTo(-w * .3f, h * .87f)
-            cubicTo(w * .52f, h * .70f, -w * .07f, h * .42f, w * .76f, h * .36f)
-            cubicTo(w * .96f, h * .34f, w * 1.14f, h * .30f, w * 1.32f, h * .26f)
+    val origin = Offset(-w * .55f, -h * .14f)
+    val rays =
+        listOf(
+                Offset(w * .55f, h * 1.16f),
+                Offset(w * 1.45f, h * 1.16f),
+                Offset(w * 2.7f, h * 1.04f),
+                Offset(w * 2.4f, h * .56f),
+            )
+            .map { end ->
+                val path =
+                    Path().apply {
+                        moveTo(origin.x, origin.y)
+                        lineTo(end.x, end.y)
+                    }
+                val light =
+                    Brush.linearGradient(
+                        0f to
+                            (if (dark) Color(0xFFD0EBF7) else Color.White).copy(
+                                alpha = if (dark) .13f else .34f
+                            ),
+                        .4f to Color.White.copy(alpha = if (dark) .07f else .20f),
+                        1f to Color.Transparent,
+                        start = origin,
+                        end = end,
+                    )
+                path to light
+            }
+    val waves =
+        (0..10).map { index ->
+            val phase = index * .28f
+            val level = index * .115f - .08f
+            val amplitude = .046f + .008f * kotlin.math.sin(phase)
+            val path =
+                Path().apply {
+                    for (step in 0..48) {
+                        val t = -.2f + step / 48f * 1.4f
+                        val y = level - .09f * t + amplitude * kotlin.math.sin(t * 4.52f + phase)
+                        if (step == 0) moveTo(t * w, y * h) else lineTo(t * w, y * h)
+                    }
+                }
+            val shade = Path().apply { addPath(path, Offset(0f, h * .018f)) }
+            val strength = .65f + .35f * kotlin.math.sin(index * .45f)
+            val light =
+                Brush.horizontalGradient(
+                    0f to Color.Transparent,
+                    .2f to Color(0xFFE6D6F6).copy(alpha = strength * if (dark) .05f else .1f),
+                    .55f to Color.White.copy(alpha = strength * if (dark) .14f else .25f),
+                    .85f to Color(0xFFDAEDF8).copy(alpha = strength * if (dark) .07f else .12f),
+                    1f to Color.Transparent,
+                    startX = -w * .2f,
+                    endX = w * 1.2f,
+                )
+            Triple(path, shade, light)
         }
-    val ribbon =
-        Path().apply {
-            addPath(ribbonEdge)
-            lineTo(w * 1.32f, h * .35f)
-            cubicTo(w * 1.13f, h * .39f, w * .98f, h * .44f, w * .79f, h * .44f)
-            cubicTo(w * .20f, h * .45f, w * .77f, h * .75f, -w * .3f, h * .96f)
-            close()
-        }
-    val ribbonReflection =
-        Path().apply {
-            addPath(ribbonEdge)
-            lineTo(w * 1.32f, h * .275f)
-            cubicTo(w * 1.14f, h * .315f, w * .96f, h * .355f, w * .76f, h * .375f)
-            cubicTo(-w * .07f, h * .435f, w * .52f, h * .715f, -w * .3f, h * .885f)
-            close()
-        }
-    val curlEdge =
-        Path().apply {
-            moveTo(w * 1.2f, h * .42f)
-            cubicTo(w * .32f, h * .55f, w * .20f, h * .72f, w * 1.14f, h * .86f)
-        }
-    val curl =
-        Path().apply {
-            addPath(curlEdge)
-            lineTo(w * 1.14f, h * .94f)
-            cubicTo(w * .13f, h * .78f, w * .06f, h * .53f, w * 1.2f, h * .36f)
-            close()
-        }
-    val curlReflection =
-        Path().apply {
-            addPath(curlEdge)
-            lineTo(w * 1.14f, h * .874f)
-            cubicTo(w * .20f, h * .734f, w * .32f, h * .564f, w * 1.2f, h * .434f)
-            close()
-        }
-    val headerEdge =
-        Path().apply {
-            moveTo(-w * .12f, h * .10f)
-            cubicTo(w * .25f, h * .03f, w * .47f, h * .20f, w * 1.12f, h * .07f)
-        }
-    val glass =
-        Brush.linearGradient(
-            0f to Color(0xFFCCEAF5).copy(alpha = if (dark) .03f else .12f),
-            .42f to Color.White.copy(alpha = if (dark) .12f else .44f),
-            .66f to Color(0xFFF8BBDD).copy(alpha = if (dark) .10f else .23f),
-            1f to Color.White.copy(alpha = if (dark) .025f else .06f),
-            start = Offset(w, h * .3f),
-            end = Offset(0f, h),
+    val glint =
+        Brush.horizontalGradient(
+            0f to Color.Transparent,
+            .25f to Color(0xFFF9D5EB).copy(alpha = if (dark) .04f else .16f),
+            .6f to Color.White.copy(alpha = if (dark) .17f else .50f),
+            .88f to Color(0xFFDFEDF9).copy(alpha = if (dark) .06f else .20f),
+            1f to Color.Transparent,
+            startX = -w * .2f,
+            endX = w * 1.2f,
         )
-    val reflection =
-        Brush.linearGradient(
+    val valley =
+        Brush.horizontalGradient(
             listOf(
-                Color.White.copy(alpha = if (dark) .27f else .70f),
-                Color(0xFFDFEDF9).copy(alpha = if (dark) .06f else .15f),
+                Color.Transparent,
+                (if (dark) Color(0xFF0B142E) else Color(0xFFD48CB9)).copy(
+                    alpha = if (dark) .1f else .11f
+                ),
                 Color.Transparent,
             ),
-            start = Offset(w, h * .36f),
-            end = Offset(w * .1f, h * .9f),
+            startX = -w * .2f,
+            endX = w * 1.2f,
         )
-    val rim =
-        Brush.linearGradient(
-            listOf(
-                Color(0xFFFFD4EA).copy(alpha = if (dark) .13f else .45f),
-                Color.White.copy(alpha = if (dark) .55f else .95f),
-                Color(0xFFC4EDFA).copy(alpha = if (dark) .18f else .5f),
-            ),
-            start = Offset(0f, h * .8f),
-            end = Offset(w, h * .38f),
-        )
-    onDrawBehind {
+    CanvasDrawScope().draw(
+        this,
+        layoutDirection,
+        androidx.compose.ui.graphics.Canvas(bitmap),
+        Size(w, h),
+    ) {
+        fun glow(path: Path, brush: Brush, width: Float, blur: Float) {
+            drawIntoCanvas { canvas ->
+                val paint =
+                    Paint().apply {
+                        style = PaintingStyle.Stroke
+                        strokeWidth = width
+                        strokeCap = StrokeCap.Round
+                        strokeJoin = StrokeJoin.Round
+                        isAntiAlias = true
+                    }
+                brush.applyTo(size, paint, 1f)
+                paint.asFrameworkPaint().maskFilter =
+                    android.graphics.BlurMaskFilter(
+                        blur,
+                        android.graphics.BlurMaskFilter.Blur.NORMAL,
+                    )
+                canvas.drawPath(path, paint)
+            }
+        }
         drawRect(base)
         drawRect(roseLight)
         drawRect(blueLight)
         drawRect(lilacLight)
-        drawPath(curl, glass)
-        drawPath(curlReflection, reflection)
-        drawPath(
-            curlEdge,
-            Color.White.copy(alpha = if (dark) .035f else .12f),
-            style = Stroke(7.dp.toPx()),
-        )
-        drawPath(curlEdge, rim, style = Stroke(1.dp.toPx()))
-        drawPath(ribbon, glass)
-        drawPath(ribbonReflection, reflection)
-        drawPath(
-            ribbonEdge,
-            Color.White.copy(alpha = if (dark) .035f else .12f),
-            style = Stroke(7.dp.toPx()),
-        )
-        drawPath(ribbonEdge, rim, style = Stroke(1.1.dp.toPx()))
-        drawPath(
-            headerEdge,
-            Color.White.copy(alpha = if (dark) .13f else .55f),
-            style = Stroke(1.dp.toPx()),
+        for ((path, light) in rays) glow(path, light, w * .06f, w * .035f)
+        for ((index, wave) in waves.withIndex()) {
+            val (path, shade, light) = wave
+            glow(shade, valley, h * .028f, h * .022f)
+            glow(path, light, h * .026f, h * .020f)
+            if (index in 2..8 && index % 2 == 0) glow(path, glint, h * .0015f, h * .0018f)
+        }
+    }
+    onDrawBehind {
+        drawImage(
+            bitmap,
+            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+            filterQuality = FilterQuality.High,
         )
     }
 }
