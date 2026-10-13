@@ -20,6 +20,38 @@ class BackupInstrumentedTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Test
+    fun bundledStarterCoversAreAvailableOfflineAndSurviveBackup() = runBlocking {
+        val artwork = Artwork(context)
+        val archive = File(context.cacheDir, "test-${UUID.randomUUID()}.zip")
+        artwork.installBundledCovers()
+        val games = starterGames()
+        try {
+            for (game in games) {
+                val bitmap = artwork.cachedBitmap(preferredCoverUrl(game.cover))
+                assertNotNull("Missing offline cover for ${game.title}", bitmap)
+                if (game.system == "Game Boy Advance") assertEquals(bitmap!!.width, bitmap.height)
+            }
+            Backup.export(context, Uri.fromFile(archive), games, Settings(), artwork)
+            val restored = Backup.inspect(context, Uri.fromFile(archive))
+            try {
+                assertEquals(games, restored.games)
+                for (game in games) {
+                    for (url in listOf(game.cover, preferredCoverUrl(game.cover)).distinct()) {
+                        val file = File(restored.artwork, "artwork/${artwork.filename(url)}")
+                        assertTrue("Cover missing from backup: ${game.title}", file.isFile)
+                        val original = File(artwork.directory, artwork.filename(url))
+                        assertArrayEquals(original.readBytes(), file.readBytes())
+                    }
+                }
+            } finally {
+                restored.artwork.deleteRecursively()
+            }
+        } finally {
+            archive.delete()
+        }
+    }
+
+    @Test
     fun originalFormatBackupLoadsWithoutInventingPlaythroughs() = runBlocking {
         val archive = File(context.cacheDir, "test-${UUID.randomUUID()}.zip")
         try {

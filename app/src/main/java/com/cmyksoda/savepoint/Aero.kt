@@ -812,12 +812,13 @@ fun GameIdentity(game: Game, artwork: Artwork, showShelf: Boolean = false) {
                 if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
                 artwork,
                 game.title,
-                Modifier.size(88.dp, 120.dp)
-                    .shadow(6.dp, RoundedCornerShape(12.dp))
+                Modifier.shadow(6.dp, RoundedCornerShape(12.dp))
                     .clip(RoundedCornerShape(12.dp))
                     .border(1.dp, Color.White.copy(alpha = .5f), RoundedCornerShape(12.dp)),
                 game.shelf == Shelf.HUNTS,
                 showPlaceholderTitle = false,
+                system = game.system,
+                coverBounds = CoverSize(88f, 120f),
             )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(

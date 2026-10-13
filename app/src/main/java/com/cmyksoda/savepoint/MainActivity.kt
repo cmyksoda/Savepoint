@@ -29,7 +29,6 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -70,6 +69,9 @@ fun Art(
     modifier: Modifier = Modifier,
     sprite: Boolean = false,
     showPlaceholderTitle: Boolean = true,
+    system: String = "",
+    coverBounds: CoverSize? = null,
+    overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     var bitmap by remember(url) { mutableStateOf<android.graphics.Bitmap?>(null) }
     LaunchedEffect(url) {
@@ -80,20 +82,17 @@ fun Art(
                 ?: bitmap
                 ?: runCatching { artwork.bitmap(url) }.getOrNull()
     }
+    val frame = coverBounds?.let {
+        if (sprite) it else fitCover(coverAspectRatio(system, bitmap?.width, bitmap?.height), it)
+    }
+    val size = frame?.let { Modifier.size(it.width.dp, it.height.dp) } ?: Modifier
     Box(
-        modifier.background(Brush.linearGradient(listOf(Color(0xFFC677A4), Color(0xFF59496F)))),
+        size
+            .then(modifier)
+            .background(Brush.linearGradient(listOf(Color(0xFFC677A4), Color(0xFF59496F)))),
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {
-            if (!sprite) {
-                Image(
-                    bitmap!!.asImageBitmap(),
-                    null,
-                    Modifier.fillMaxSize().blur(18.dp),
-                    contentScale = ContentScale.Crop,
-                )
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .18f)))
-            }
             Image(
                 bitmap!!.asImageBitmap(),
                 title,
@@ -115,30 +114,33 @@ fun Art(
                         overflow = TextOverflow.Ellipsis,
                     )
             }
+        overlay()
     }
 }
 
 @Composable
 fun GameCover(game: Game, artwork: Artwork, focus: Boolean, onOpen: () -> Unit) {
     val hunt = game.shelf == Shelf.HUNTS
-    val width = if (focus) 156.dp else if (hunt) 142.dp else 108.dp
-    val height = if (focus) 244.dp else if (hunt) 154.dp else 176.dp
-    Box(
-        Modifier.width(width)
-            .height(height)
-            .shadow(8.dp, RoundedCornerShape(16.dp))
+    Art(
+        if (hunt) game.sprite else game.cover,
+        artwork,
+        if (hunt) game.pokemon.ifBlank { game.title } else game.title,
+        Modifier.shadow(8.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
             .border(1.dp, Color.White.copy(alpha = .65f), RoundedCornerShape(16.dp))
             .clickable(onClick = onOpen)
-            .semantics { contentDescription = "${game.title}${if (focus) ", playing now" else ""}" }
+            .semantics {
+                contentDescription = "${game.title}${if (focus) ", playing now" else ""}"
+            },
+        sprite = hunt,
+        system = game.system,
+        coverBounds =
+            when {
+                hunt -> CoverSize(142f, 154f)
+                focus -> CoverSize(216f, 244f)
+                else -> CoverSize(144f, 176f)
+            },
     ) {
-        Art(
-            if (hunt) game.sprite else game.cover,
-            artwork,
-            if (hunt) game.pokemon.ifBlank { game.title } else game.title,
-            Modifier.fillMaxSize(),
-            hunt,
-        )
         if (focus)
             Surface(
                 Modifier.align(Alignment.TopStart).padding(8.dp),
@@ -341,8 +343,10 @@ fun LibraryList(
                             if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
                             artwork,
                             game.title,
-                            Modifier.size(54.dp, 72.dp).clip(RoundedCornerShape(8.dp)),
+                            Modifier.clip(RoundedCornerShape(8.dp)),
                             game.shelf == Shelf.HUNTS,
+                            system = game.system,
+                            coverBounds = CoverSize(54f, 72f),
                         )
                         Column(Modifier.weight(1f)) {
                             Text(game.title, fontWeight = FontWeight.SemiBold)
@@ -524,6 +528,9 @@ fun GameDetails(
             Text("Title and cover source: GameTDB", style = MaterialTheme.typography.bodySmall)
         if (game.source == "igdb")
             Text("Game data provided by IGDB", style = MaterialTheme.typography.bodySmall)
+        bundledCovers
+            .firstOrNull { it.url == game.cover && it.attribution != "Cover via GameTDB" }
+            ?.let { Text(it.attribution, style = MaterialTheme.typography.bodySmall) }
         if (game.sprite.startsWith("https://raw.githubusercontent.com/PokeAPI"))
             Text(
                 "Pokémon artwork via PokéAPI · respective owners retain artwork rights",
@@ -625,7 +632,14 @@ fun GameForm(
             Text("choose cover image")
         }
         if (cover.isNotBlank())
-            Art(cover, artwork, title, Modifier.size(90.dp, 120.dp).clip(RoundedCornerShape(12.dp)))
+            Art(
+                cover,
+                artwork,
+                title,
+                Modifier.clip(RoundedCornerShape(12.dp)),
+                system = system,
+                coverBounds = CoverSize(90f, 120f),
+            )
         if (shelf == Shelf.HUNTS) {
             AeroTextField(
                 pokemon,
@@ -1032,7 +1046,7 @@ fun Savepoint(openLater: Boolean) {
     fun mutate(action: (List<Game>) -> List<Game>) {
         scope.launch {
             try {
-                library.change(action)
+                library.change { current -> fillMissingStarterCovers(action(current)) }
             } catch (e: Exception) {
                 error = e.message ?: "Could not save this change"
             }
@@ -1088,7 +1102,10 @@ fun Savepoint(openLater: Boolean) {
         }
     LaunchedEffect(Unit) {
         try {
+            artwork.installBundledCovers()
             library.load()
+            if (fillMissingStarterCovers(library.games.value) != library.games.value)
+                library.change(::fillMissingStarterCovers)
             settings = settingsStore.read()
             loaded = true
             if (route == "finished") route = "log"
@@ -1200,52 +1217,7 @@ fun Savepoint(openLater: Boolean) {
                                         route = "add"
                                     },
                                     {
-                                        mutate { old ->
-                                            old +
-                                                listOf(
-                                                    Game(
-                                                        title = "Rhythm Heaven Groove",
-                                                        system = "Nintendo Switch",
-                                                        place = Place.ACTIVE,
-                                                        cover =
-                                                            "https://art.gametdb.com/switch/cover/US/BFLTA.jpg",
-                                                        source = "gametdb",
-                                                        sourceId = "BFLTA",
-                                                    ),
-                                                    Game(
-                                                        title = "DELTARUNE",
-                                                        system = "Nintendo Switch",
-                                                        place = Place.ACTIVE,
-                                                        position = 1,
-                                                        cover =
-                                                            "https://art.gametdb.com/switch/cover/US/BN5WA.jpg",
-                                                        source = "gametdb",
-                                                        sourceId = "BN5WA",
-                                                    ),
-                                                    Game(
-                                                        title = "Metroid: Zero Mission",
-                                                        system = "Game Boy Advance",
-                                                        place = Place.ACTIVE,
-                                                        position = 2,
-                                                        collection = "2d metroid",
-                                                        collectionOrder = 1,
-                                                    ),
-                                                    Game(
-                                                        title = "AM2R",
-                                                        system = "PC",
-                                                        place = Place.ACTIVE,
-                                                        position = 3,
-                                                        collection = "2d metroid",
-                                                        collectionOrder = 2,
-                                                    ),
-                                                    Game(
-                                                        title = "Pokémon Pokopia",
-                                                        system = "Nintendo Switch 2",
-                                                        shelf = Shelf.EASY,
-                                                        place = Place.ACTIVE,
-                                                    ),
-                                                )
-                                        }
+                                        mutate { old -> old + starterGames() }
                                     },
                                 )
                             "backlog",
@@ -1612,7 +1584,9 @@ fun Savepoint(openLater: Boolean) {
                                         val previous = games
                                         val previousSettings = settings
                                         try {
-                                            library.change { backup.games }
+                                            library.change {
+                                                fillMissingStarterCovers(backup.games)
+                                            }
                                             settings = settingsStore.change { backup.settings }
                                         } catch (e: Exception) {
                                             library.change { previous }

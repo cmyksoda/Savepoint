@@ -142,8 +142,10 @@ fun PlayLogList(games: List<Game>, artwork: Artwork, onOpen: (String) -> Unit) {
                             if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
                             artwork,
                             game.title,
-                            Modifier.size(70.dp, 94.dp).clip(RoundedCornerShape(12.dp)),
+                            Modifier.clip(RoundedCornerShape(12.dp)),
                             game.shelf == Shelf.HUNTS,
+                            system = game.system,
+                            coverBounds = CoverSize(70f, 94f),
                         )
                         Column(
                             Modifier.weight(1f),
