@@ -31,3 +31,20 @@ test('service validates input and does not expose credential errors', async () =
     assert.doesNotMatch(await unavailable.text(), /secret|access_token/i);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
+
+test('Virtual Console releases are excluded while original Nintendo hardware remains', () => {
+  const results = normalize([{ id: 10, name: 'Metroid: Zero Mission', platforms: [{ id: 24 }, { id: 41 }, { id: 130 }], release_dates: [{ platform: 24, date: 100 }, { platform: 41, date: 1000 }, { platform: 130, date: 2000 }] }]);
+  assert.deepEqual(results.map(game => game.system), ['Game Boy Advance']);
+});
+
+test('Persona on Switch and enhanced Nintendo editions remain available', () => {
+  const persona = normalize([{ id: 11, name: 'Persona 5 Royal', platforms: [{ id: 48, name: 'PlayStation 4' }, { id: 130 }], release_dates: [{ platform: 48, date: 100 }, { platform: 130, date: 1000 }] }]);
+  assert.equal(persona[0].system, 'Nintendo Switch');
+  const deluxe = normalize([{ id: 12, name: 'A game Deluxe', platforms: [{ id: 18 }, { id: 130 }], release_dates: [{ platform: 18, date: 100 }, { platform: 130, date: 1000 }] }]);
+  assert.deepEqual(deluxe.map(game => game.system), ['NES', 'Nintendo Switch']);
+});
+
+test('modern native ports and remakes are not treated as Virtual Console', () => {
+  const results = normalize([{ id: 13, name: 'A modern game', platforms: [{ id: 41 }, { id: 130 }], release_dates: [{ platform: 41, date: 100 }, { platform: 130, date: 1000 }] }]);
+  assert.deepEqual(results.map(game => game.system), ['Wii U', 'Nintendo Switch']);
+});

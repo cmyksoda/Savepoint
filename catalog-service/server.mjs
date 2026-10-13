@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
+import { launchBoxCovers } from './covers.mjs';
 
 const platformNames = new Map([
   [6, 'PC'], [3, 'PC'], [14, 'PC'], [13, 'PC'], [18, 'NES'], [58, 'SNES'], [4, 'Nintendo 64'], [21, 'GameCube'],
@@ -10,18 +11,32 @@ const platformNames = new Map([
 ]);
 
 export function normalize(games) {
-  return games.flatMap(game => (game.platforms ?? []).map(platform => {
-    const system = platformNames.get(platform.id)
-      ?? (platform.name?.includes('Switch 2') ? 'Nintendo Switch 2' : platform.name);
-    if (!system) return null;
-    const dates = (game.release_dates ?? []).filter(date => date.platform === platform.id && date.date);
-    const release = dates.length ? Math.min(...dates.map(date => date.date)) * 1000 : null;
-    return {
-      title: game.name, system, release, source: 'igdb', sourceId: String(game.id),
-      cover: game.cover?.image_id
-        ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg` : '',
-    };
-  }).filter(Boolean));
+  const results = [];
+  const retroNintendo = new Set([18, 51, 58, 4, 33, 22, 24, 20, 21]);
+  const virtualConsoleHosts = new Set([5, 41, 37, 130]);
+  for (const game of games) {
+    const dated = (game.release_dates ?? []).filter(date => Number.isFinite(date.date) && date.platform);
+    const earliest = dated.length ? Math.min(...dated.map(date => date.date)) : null;
+    const originalIds = new Set(dated.filter(date => date.date === earliest).map(date => date.platform));
+    const retroOriginal = [...originalIds].some(id => retroNintendo.has(id));
+    const enhanced = /\b(deluxe|remake|remaster(?:ed)?|definitive|hd)\b/i.test(game.name);
+    const bySystem = new Map();
+    for (const platform of game.platforms ?? []) {
+      const system = platformNames.get(platform.id) ?? (platform.name?.includes('Switch 2') ? 'Nintendo Switch 2' : null);
+      if (!system) continue;
+      const dates = dated.filter(date => date.platform === platform.id);
+      const release = dates.length ? Math.min(...dates.map(date => date.date)) : null;
+      const virtualConsole = retroOriginal && !enhanced && !originalIds.has(platform.id) &&
+        (virtualConsoleHosts.has(platform.id) || system === 'Nintendo Switch 2') && release !== null && release > earliest;
+      if (virtualConsole) continue;
+      const item = { title: game.name, system, release: release === null ? null : release * 1000, source: 'igdb', sourceId: String(game.id),
+        cover: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg` : '' };
+      const previous = bySystem.get(system);
+      if (!previous || (item.release !== null && (previous.release === null || item.release < previous.release))) bySystem.set(system, item);
+    }
+    results.push(...bySystem.values());
+  }
+  return results;
 }
 
 let token;
@@ -56,15 +71,24 @@ export const server = createServer(async (request, response) => {
   const url = new URL(request.url, 'http://localhost');
   if (request.method !== 'GET') return send(405, { error: 'GET required' });
   if (url.pathname === '/health') return send(200, { status: 'ok' });
-  if (url.pathname !== '/search') return send(404, { error: 'Not found' });
+  if (!['/search', '/covers'].includes(url.pathname)) return send(404, { error: 'Not found' });
   const query = url.searchParams.get('q')?.trim();
   if (!query || query.length > 120) return send(400, { error: 'Enter a title of 1–120 characters' });
-  const cached = cache.get(query.toLowerCase());
+  const provider = url.pathname === '/covers' ? url.searchParams.get('provider') : null;
+  const system = url.searchParams.get('system')?.trim() ?? '';
+  if (provider && !['LaunchBox', 'IGDB'].includes(provider)) return send(400, { error: 'Unknown cover provider' });
+  const key = `${url.pathname}:${provider}:${system}:${query.toLowerCase()}`;
+  const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return send(200, cached.body);
   requests = requests.filter(time => time > Date.now() - 1000);
   if (requests.length >= 3) return send(429, { error: 'Try again shortly' });
   requests.push(Date.now());
   try {
+    if (provider === 'LaunchBox') {
+      const body = { results: await launchBoxCovers(query, system) };
+      cache.set(key, { expires: Date.now() + 300000, body });
+      return send(200, body);
+    }
     const accessToken = await credentials();
     const safeQuery = query.replace(/[\\"\r\n]/g, ' ');
     const upstream = await fetch('https://api.igdb.com/v4/games', {
@@ -75,9 +99,10 @@ export const server = createServer(async (request, response) => {
     });
     if (upstream.status === 401) tokenExpires = 0;
     if (!upstream.ok) throw new Error('Catalog search unavailable');
-    const body = { results: normalize(await upstream.json()), attribution: 'Game data provided by IGDB' };
+    const games = normalize(await upstream.json());
+    const body = { results: provider === 'IGDB' ? games.filter(game => game.system === system && game.cover).map(game => ({ url: game.cover, title: game.title, system: game.system, label: game.title, provider: 'IGDB', sourceId: game.sourceId, attribution: 'Cover via IGDB' })) : games, attribution: 'Game data provided by IGDB' };
     for (const [key, entry] of cache) if (entry.expires <= Date.now()) cache.delete(key);
-    cache.set(query.toLowerCase(), { expires: Date.now() + 300000, body });
+    cache.set(key, { expires: Date.now() + 300000, body });
     send(200, body);
   } catch {
     send(503, { error: 'Catalog search unavailable. Manual entry is still available.' });

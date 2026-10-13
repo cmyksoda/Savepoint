@@ -22,6 +22,7 @@ data class Settings(
     val sort: LibrarySort = LibrarySort.ADDED_NEW,
     val systemFilter: String = "",
     val collectionFilter: String = "",
+    val collectionNames: Set<String> = emptySet(),
     val catalogUrl: String = "",
     val reminders: Boolean = false,
     val days: Set<Int> = (1..7).toSet(),
@@ -72,6 +73,7 @@ object JsonCodec {
             put("added", g.added)
             put("release", g.release ?: JSONObject.NULL)
             put("cover", g.cover)
+            put("coverProvider", g.coverProvider)
             put("source", g.source)
             put("sourceId", g.sourceId)
             put("notes", g.notes)
@@ -101,6 +103,7 @@ object JsonCodec {
                 added = j.getLong("added"),
                 release = if (j.isNull("release")) null else j.getLong("release"),
                 cover = j.optString("cover"),
+                coverProvider = j.optString("coverProvider"),
                 source = j.optString("source", "manual"),
                 sourceId = j.optString("sourceId"),
                 notes = j.optString("notes"),
@@ -141,6 +144,7 @@ object JsonCodec {
             put("sort", s.sort.name)
             put("systemFilter", s.systemFilter)
             put("collectionFilter", s.collectionFilter)
+            put("collectionNames", JSONArray(s.collectionNames.sorted()))
             put("catalogUrl", s.catalogUrl)
             put("reminders", s.reminders)
             put("days", JSONArray(s.days.sorted()))
@@ -158,6 +162,13 @@ object JsonCodec {
                 sort = LibrarySort.valueOf(j.optString("sort", "ADDED_NEW")),
                 systemFilter = j.optString("systemFilter"),
                 collectionFilter = j.optString("collectionFilter"),
+                collectionNames =
+                    j.optJSONArray("collectionNames")?.let { a ->
+                        (0 until a.length())
+                            .map { a.getString(it) }
+                            .filter { it.isNotBlank() }
+                            .toSet()
+                    } ?: emptySet(),
                 catalogUrl = j.optString("catalogUrl"),
                 reminders = j.optBoolean("reminders"),
                 days =

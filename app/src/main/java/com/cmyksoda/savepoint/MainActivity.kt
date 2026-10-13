@@ -11,6 +11,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,6 +29,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -34,9 +43,12 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -71,9 +83,10 @@ fun Art(
     showPlaceholderTitle: Boolean = true,
     system: String = "",
     coverBounds: CoverSize? = null,
+    transparent: Boolean = false,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
-    var bitmap by remember(url) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var bitmap by remember(url) { mutableStateOf(artwork.memoryBitmap(url)) }
     LaunchedEffect(url) {
         bitmap = runCatching { artwork.cachedBitmap(url) }.getOrNull()
         val preferred = preferredCoverUrl(url)
@@ -91,7 +104,13 @@ fun Art(
     Box(
         size
             .then(modifier)
-            .background(Brush.linearGradient(listOf(Color(0xFFC677A4), Color(0xFF59496F)))),
+            .then(
+                if (transparent) Modifier
+                else
+                    Modifier.background(
+                        Brush.linearGradient(listOf(Color(0xFFC677A4), Color(0xFF59496F)))
+                    )
+            ),
         contentAlignment = Alignment.Center,
     ) {
         if (bitmap != null) {
@@ -121,13 +140,55 @@ fun Art(
 }
 
 @Composable
-fun GameCover(game: Game, artwork: Artwork, focus: Boolean, onOpen: () -> Unit) {
+fun GameCover(
+    game: Game,
+    artwork: Artwork,
+    focus: Boolean,
+    modifier: Modifier = Modifier,
+    onOpen: () -> Unit,
+) {
     val hunt = game.shelf == Shelf.HUNTS
+    if (hunt) {
+        Column(
+            modifier.width(142.dp).clickable(onClick = onOpen).semantics {
+                contentDescription = game.title
+            },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Art(
+                game.sprite,
+                artwork,
+                displayPokemonName(game.pokemon),
+                Modifier.size(112.dp),
+                sprite = true,
+                transparent = true,
+                showPlaceholderTitle = false,
+            )
+            Text(
+                displayPokemonName(game.pokemon).ifBlank { "shiny hunt" },
+                fontSize = 12.sp,
+                lineHeight = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                huntVersions[game.pokemonVersion] ?: game.title,
+                fontSize = 10.sp,
+                lineHeight = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        return
+    }
     Art(
         if (hunt) game.sprite else game.cover,
         artwork,
         if (hunt) game.pokemon.ifBlank { game.title } else game.title,
-        Modifier.shadow(8.dp, RoundedCornerShape(16.dp))
+        modifier
+            .shadow(8.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
             .border(1.dp, Color.White.copy(alpha = .65f), RoundedCornerShape(16.dp))
             .clickable(onClick = onOpen)
@@ -240,7 +301,14 @@ fun Home(
                             )
                         }
                         LazyRow(
-                            modifier = Modifier.fillMaxWidth().glassShelf(LocalAeroDark.current),
+                            modifier =
+                                Modifier.fillMaxWidth()
+                                    .height(
+                                        (if (shelf == Shelf.PLAY_THROUGH) 254
+                                            else if (shelf == Shelf.HUNTS) 164 else 186)
+                                            .dp
+                                    )
+                                    .glassShelf(LocalAeroDark.current),
                             contentPadding =
                                 PaddingValues(start = 20.dp, end = 20.dp, bottom = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -251,6 +319,8 @@ fun Home(
                                     game,
                                     artwork,
                                     shelf == Shelf.PLAY_THROUGH && row.first().id == game.id,
+                                    Modifier.animateItem(placementSpec = spring(stiffness = 350f))
+                                        .animateContentSize(spring(stiffness = 350f)),
                                 ) {
                                     onOpen(game.id)
                                 }
@@ -270,6 +340,8 @@ fun LibraryList(
     artwork: Artwork,
     onSettings: (Settings) -> Unit,
     onOpen: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    onCollections: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val collections = games.map { it.collection }.filter { it.isNotBlank() }.distinct().sorted()
@@ -290,13 +362,6 @@ fun LibraryList(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        AeroTextField(
-            query,
-            { query = it },
-            label = "find a game",
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
         Choice("sort", settings.sort.label, LibrarySort.entries.map { it.label }) { value ->
             onSettings(settings.copy(sort = LibrarySort.entries.first { it.label == value }))
         }
@@ -322,6 +387,7 @@ fun LibraryList(
                 }
             }
         }
+        TextButton(onClick = onCollections) { Text("manage collections") }
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(bottom = 20.dp),
@@ -335,7 +401,11 @@ fun LibraryList(
                     )
                 }
             items(filtered, key = { it.id }) { game ->
-                Glass(Modifier.fillMaxWidth().clickable { onOpen(game.id) }) {
+                Glass(
+                    Modifier.fillMaxWidth()
+                        .animateItem(placementSpec = spring(stiffness = 350f))
+                        .clickable { onOpen(game.id) }
+                ) {
                     Row(
                         Modifier.padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -363,6 +433,13 @@ fun LibraryList(
                                     modifier = Modifier.padding(top = 6.dp),
                                 )
                         }
+                        if (place == Place.BACKLOG)
+                            AeroIconButton(
+                                AeroSymbol.DELETE,
+                                "delete ${game.title}",
+                                { onDelete(game.id) },
+                                compact = true,
+                            )
                         AeroIcon(
                             AeroSymbol.NEXT,
                             Modifier.size(16.dp),
@@ -408,7 +485,7 @@ fun ShelfEditor(
             }
         }
         items(row, key = { it.id }) { game ->
-            Glass(Modifier.fillMaxWidth()) {
+            Glass(Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f))) {
                 Column(Modifier.padding(14.dp)) {
                     TextButton(onClick = { onOpen(game.id) }) {
                         Text(game.title, fontWeight = FontWeight.SemiBold)
@@ -447,35 +524,54 @@ fun GameDetails(
     onEncounter: (Long) -> Unit,
     onUndo: () -> Unit,
     canUndo: Boolean,
+    onEditCount: () -> Unit,
+    onRelocate: () -> Unit,
+    onDelete: () -> Unit,
+    onCover: () -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        GameIdentity(game, artwork, showShelf = true)
-        if (game.pauseNote.isNotBlank())
+        GameIdentity(game, artwork, showShelf = true, prominent = true)
+        if (game.shelf != Shelf.HUNTS) TextButton(onClick = onCover) { Text("change cover art") }
+        if (game.shelf != Shelf.HUNTS && game.pauseNote.isNotBlank())
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("for when you return", fontWeight = FontWeight.SemiBold)
                     Text(game.pauseNote)
                 }
             }
-        AeroActionRow(
-            first = {
-                AeroButton(onClick = onNotes) {
-                    AeroIcon(AeroSymbol.LOG, Modifier.size(17.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("notes")
-                }
-            },
-            second = {
-                AeroButton(onClick = onEdit) {
-                    AeroIcon(AeroSymbol.EDIT, Modifier.size(17.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("edit game")
-                }
-            },
-        )
+        if (game.shelf == Shelf.HUNTS)
+            AeroButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) { Text("edit hunt") }
+        else {
+            AeroActionRow(
+                first = {
+                    AeroButton(onClick = onNotes) {
+                        AeroIcon(AeroSymbol.LOG, Modifier.size(17.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("notes")
+                    }
+                },
+                second = {
+                    AeroButton(onClick = onEdit) {
+                        AeroIcon(AeroSymbol.EDIT, Modifier.size(17.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("edit game")
+                    }
+                },
+            )
+        }
+        if (game.place == Place.ACTIVE || game.place == Place.BACKLOG) {
+            AeroActionRow(
+                first = { AeroButton(onClick = onRelocate) { Text("move game") } },
+                second = { AeroButton(onClick = onPause) { Text("pause game") } },
+            )
+        } else
+            AeroButton(onClick = onRelocate, modifier = Modifier.fillMaxWidth()) {
+                Text("move game")
+            }
         if (game.inPlayLog)
             AeroButton(onClick = onPlayLog, modifier = Modifier.fillMaxWidth()) {
                 Text("view play log")
@@ -484,19 +580,42 @@ fun GameDetails(
             val odds = calculatedOdds(game)
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("${game.encounters} encounters", fontSize = 24.sp)
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable(onClick = onEditCount)
+                            .semantics { contentDescription = "change encounter count" },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "${game.encounters} encounters",
+                            fontSize = 24.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                        AeroIcon(
+                            AeroSymbol.EDIT,
+                            Modifier.size(17.dp),
+                            MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     Text(game.method)
                     Text(odds.first?.let { "1 in $it · ${odds.second}" } ?: odds.second)
                     Text(huntVersions[game.pokemonVersion] ?: game.pokemonVersion)
                     if (game.shinyCharm) Text("shiny charm enabled")
                     PinkButton(
-                        onClick = { if (game.encounters < Long.MAX_VALUE) onEncounter(1) },
+                        onClick = {
+                            if (game.encounters < Long.MAX_VALUE) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onEncounter(1)
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         minHeight = 64.dp,
                     ) {
                         Text("+1 encounter", fontSize = 20.sp)
                     }
                     TextButton(onClick = onUndo, enabled = canUndo) { Text("undo last count") }
+                    HuntStatistics(game)
                 }
             }
         }
@@ -508,14 +627,9 @@ fun GameDetails(
                 ) {
                     Text("play now")
                 }
-            AeroActionRow(
-                first = { AeroButton(onClick = onPause) { Text("pause this game") } },
-                second = {
-                    AeroButton(onClick = onFinish) {
-                        Text(if (game.shelf == Shelf.HUNTS) "complete hunt" else "mark finished")
-                    }
-                },
-            )
+            AeroButton(onClick = onFinish, modifier = Modifier.fillMaxWidth()) {
+                Text(if (game.shelf == Shelf.HUNTS) "complete hunt" else "mark finished")
+            }
         } else {
             if (game.shelf == Shelf.PLAY_THROUGH)
                 PinkButton(
@@ -531,21 +645,19 @@ fun GameDetails(
                 Text(
                     if (game.shelf == Shelf.PLAY_THROUGH && game.inPlayLog) "queue a replay"
                     else if (game.shelf == Shelf.PLAY_THROUGH) "add to queue"
-                    else "return to ${game.shelf.label}"
+                    else "send to ${game.shelf.label}"
                 )
             }
         }
+        TextButton(onClick = onDelete) {
+            Text("delete game", color = MaterialTheme.colorScheme.error)
+        }
         if (game.source == "gametdb")
-            Text(
-                if (game.cover == deltarunePublisherCover) "Title source: GameTDB"
-                else "Title and cover source: GameTDB",
-                style = MaterialTheme.typography.bodySmall,
-            )
+            Text("Title source: GameTDB", style = MaterialTheme.typography.bodySmall)
         if (game.source == "igdb")
             Text("Game data provided by IGDB", style = MaterialTheme.typography.bodySmall)
-        bundledCovers
-            .firstOrNull { it.url == game.cover && it.attribution != "Cover via GameTDB" }
-            ?.let { Text(it.attribution, style = MaterialTheme.typography.bodySmall) }
+        if (game.cover.isNotBlank() && game.shelf != Shelf.HUNTS)
+            Text("Cover via ${coverProvider(game)}", style = MaterialTheme.typography.bodySmall)
         if (game.sprite.startsWith("https://raw.githubusercontent.com/PokeAPI"))
             Text(
                 "Pokémon artwork via PokéAPI · respective owners retain artwork rights",
@@ -559,6 +671,7 @@ fun GameForm(
     initial: Game,
     artwork: Artwork,
     catalog: Catalog,
+    existing: Boolean,
     onSave: (Game) -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -566,7 +679,7 @@ fun GameForm(
     val scope = rememberCoroutineScope()
     var title by rememberSaveable(initial.id) { mutableStateOf(initial.title) }
     var system by rememberSaveable(initial.id) { mutableStateOf(initial.system) }
-    var shelf by rememberSaveable(initial.id) { mutableStateOf(initial.shelf) }
+    var shelf by rememberSaveable(initial.id, initial.shelf) { mutableStateOf(initial.shelf) }
     var collection by rememberSaveable(initial.id) { mutableStateOf(initial.collection) }
     var collectionOrder by
         rememberSaveable(initial.id) { mutableStateOf(initial.collectionOrder.toString()) }
@@ -582,8 +695,13 @@ fun GameForm(
             )
         }
     var cover by rememberSaveable(initial.id) { mutableStateOf(initial.cover) }
+    var selectedCoverProvider by
+        rememberSaveable(initial.id) { mutableStateOf(initial.coverProvider) }
     var pokemon by rememberSaveable(initial.id) { mutableStateOf(initial.pokemon) }
-    var version by rememberSaveable(initial.id) { mutableStateOf(initial.pokemonVersion) }
+    var version by
+        rememberSaveable(initial.id, initial.pokemonVersion) {
+            mutableStateOf(initial.pokemonVersion)
+        }
     var sprite by rememberSaveable(initial.id) { mutableStateOf(initial.sprite) }
     var method by rememberSaveable(initial.id) { mutableStateOf(initial.method) }
     var count by rememberSaveable(initial.id) { mutableStateOf(initial.encounters.toString()) }
@@ -599,7 +717,11 @@ fun GameForm(
                 scope.launch {
                     try {
                         val selected = artwork.select(uri)
-                        if (selectingSprite) sprite = selected else cover = selected
+                        if (selectingSprite) sprite = selected
+                        else {
+                            cover = selected
+                            selectedCoverProvider = "Selected image"
+                        }
                     } catch (e: Exception) {
                         error = e.message
                     }
@@ -616,9 +738,10 @@ fun GameForm(
             modifier = Modifier.fillMaxWidth(),
         )
         Choice("system", system, systems) { system = it }
-        Choice("shelf", shelf.label, Shelf.entries.map { it.label }) { label ->
-            shelf = Shelf.entries.first { it.label == label }
-        }
+        if (existing)
+            Choice("shelf", shelf.label, Shelf.entries.map { it.label }) { label ->
+                shelf = Shelf.entries.first { it.label == label }
+            }
         AeroTextField(
             collection,
             { collection = it },
@@ -666,7 +789,7 @@ fun GameForm(
                 modifier = Modifier.fillMaxWidth(),
             )
             Choice(
-                "game artwork version",
+                "Pokémon game",
                 huntVersions[version] ?: version,
                 huntVersions.values.toList(),
             ) { value ->
@@ -703,15 +826,25 @@ fun GameForm(
                 }
             }
             if (sprite.isNotBlank()) Art(sprite, artwork, pokemon, Modifier.size(100.dp), true)
-            AeroTextField(
-                method,
-                {
-                    method = it
-                    odds = ""
-                },
-                label = "hunt method",
-                modifier = Modifier.fillMaxWidth(),
-            )
+            val methods = huntMethods(version)
+            Choice(
+                "hunt method",
+                if (method in methods) method else "Other / custom",
+                methods + "Other / custom",
+            ) {
+                method = if (it == "Other / custom") "" else it
+                odds = ""
+            }
+            if (method !in methods)
+                AeroTextField(
+                    method,
+                    {
+                        method = it
+                        odds = ""
+                    },
+                    label = "custom method",
+                    modifier = Modifier.fillMaxWidth(),
+                )
             AeroTextField(
                 count,
                 { count = it },
@@ -735,7 +868,7 @@ fun GameForm(
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "Verified standard odds are shown for supported games. Other methods need your verified value. Changing method or charm clears the old value.",
+                "Standard base odds follow the game generation. Methods and modifiers without a verified calculation need your odds value. Changing method or charm clears the old value.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -744,6 +877,9 @@ fun GameForm(
             onClick = {
                 try {
                     require(title.isNotBlank()) { "Give this game a title" }
+                    require(shelf != Shelf.HUNTS || pokemon.isNotBlank()) {
+                        "Enter the Pokémon you are hunting"
+                    }
                     val encounters = count.toLongOrNull() ?: error("Enter a whole encounter count")
                     require(encounters >= 0) { "Encounters cannot be negative" }
                     val denominator =
@@ -769,6 +905,7 @@ fun GameForm(
                             collectionOrder = order,
                             release = date,
                             cover = cover,
+                            coverProvider = selectedCoverProvider,
                             pokemon = pokemon.trim(),
                             pokemonVersion = version,
                             sprite = sprite,
@@ -792,14 +929,7 @@ fun GameForm(
 }
 
 @Composable
-fun AddScreen(
-    catalog: Catalog,
-    endpoint: String,
-    shelf: Shelf?,
-    onShelf: (Shelf?) -> Unit,
-    onChoose: (Game) -> Unit,
-    onManual: () -> Unit,
-) {
+fun AddScreen(catalog: Catalog, endpoint: String, onChoose: (Game) -> Unit, onManual: () -> Unit) {
     val scope = rememberCoroutineScope()
     var query by rememberSaveable { mutableStateOf("") }
     var system by rememberSaveable { mutableStateOf("") }
@@ -810,10 +940,6 @@ fun AddScreen(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Choice("add to", shelf?.label ?: "backlog", Shelf.entries.map { it.label } + "backlog") {
-            label ->
-            onShelf(Shelf.entries.firstOrNull { it.label == label })
-        }
         AeroTextField(
             query,
             { query = it },
@@ -924,24 +1050,32 @@ fun SettingsScreen(
                         },
                     )
                 }
-                listOf("mon", "tue", "wed", "thu", "fri", "sat", "sun").forEachIndexed { index, day
-                    ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier =
-                            Modifier.fillMaxWidth().clickable {
-                                val number = index + 1
-                                onChange(
-                                    settings.copy(
-                                        days =
-                                            if (number in settings.days) settings.days - number
-                                            else settings.days + number
+                Row(Modifier.fillMaxWidth()) {
+                    listOf("mon", "tue", "wed", "thu", "fri", "sat", "sun").forEachIndexed {
+                        index,
+                        day ->
+                        val number = index + 1
+                        val checked = number in settings.days
+                        Column(
+                            Modifier.weight(1f)
+                                .heightIn(min = 64.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .toggleable(checked, role = Role.Checkbox) {
+                                    onChange(
+                                        settings.copy(
+                                            days =
+                                                if (checked) settings.days - number
+                                                else settings.days + number
+                                        )
                                     )
-                                )
-                            },
-                    ) {
-                        Checkbox(index + 1 in settings.days, null)
-                        Text(day)
+                                }
+                                .padding(vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
+                            Checkbox(checked, null, Modifier.size(20.dp))
+                            Text(day, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
                 Row {
@@ -1040,6 +1174,7 @@ fun Savepoint(openLater: Boolean) {
     var editingShelf by rememberSaveable { mutableStateOf(Shelf.PLAY_THROUGH) }
     var addShelf by rememberSaveable { mutableStateOf<Shelf?>(Shelf.PLAY_THROUGH) }
     var addReturn by rememberSaveable { mutableStateOf("home") }
+    var destinationChosen by rememberSaveable { mutableStateOf(false) }
     var form by
         rememberSaveable(
             stateSaver =
@@ -1062,6 +1197,9 @@ fun Savepoint(openLater: Boolean) {
             mutableStateOf<Playthrough?>(null)
         }
     var note by rememberSaveable { mutableStateOf("") }
+    var encounterValue by rememberSaveable { mutableStateOf("1") }
+    var encounterMode by rememberSaveable { mutableStateOf("add encounters") }
+    var encounterError by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf<RestoredLibrary?>(null) }
     var undoCount by remember { mutableStateOf<Pair<String, Long>?>(null) }
@@ -1076,9 +1214,60 @@ fun Savepoint(openLater: Boolean) {
             }
         }
     }
+    fun changeEncounters(id: String, transform: (Long) -> Long) {
+        scope.launch {
+            try {
+                var previous = 0L
+                library.change { list ->
+                    list.map { game ->
+                        if (game.id == id) {
+                            previous = game.encounters
+                            game.copy(encounters = transform(game.encounters))
+                        } else game
+                    }
+                }
+                undoCount = id to previous
+            } catch (e: Exception) {
+                error = e.message
+            }
+        }
+    }
+    fun saveGame(game: Game) {
+        val newFinishedGame = games.none { it.id == game.id } && game.place == Place.FINISHED
+        mutate { list ->
+            val previous = list.firstOrNull { it.id == game.id }
+            val positioned =
+                game.copy(
+                    added = previous?.added ?: System.currentTimeMillis(),
+                    position =
+                        if (
+                            previous == null ||
+                                previous.shelf != game.shelf ||
+                                previous.place != game.place
+                        )
+                            (list
+                                .filter {
+                                    it.shelf == game.shelf &&
+                                        it.place == game.place &&
+                                        it.id != game.id
+                                }
+                                .maxOfOrNull { it.position } ?: -1) + 1
+                        else previous.position,
+                )
+            if (previous == null) list + positioned
+            else list.map { if (it.id == game.id) positioned else it }
+        }
+        selected = game.id
+        route = if (game.place == Place.FINISHED) "journal" else "details"
+        if (newFinishedGame) {
+            logEntry = Playthrough(finishedAt = null)
+            dialog = "entry"
+        }
+    }
     fun startAdding(shelf: Shelf?, from: String) {
         addShelf = shelf
         addReturn = from
+        destinationChosen = false
         selected = ""
         form = null
         route = "add"
@@ -1183,6 +1372,7 @@ fun Savepoint(openLater: Boolean) {
             if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
         }
     }
+    val backdrop = remember(dark) { Modifier.aeroBackdrop(dark) }
     val colors = aeroColors(dark)
     MaterialTheme(colorScheme = colors, typography = AeroTypography) {
         CompositionLocalProvider(
@@ -1192,7 +1382,7 @@ fun Savepoint(openLater: Boolean) {
             BackHandler(route != "home" || dialog.isNotBlank()) {
                 if (dialog.isNotBlank()) dialog = "" else route = backRoute()
             }
-            Column(Modifier.fillMaxSize().aeroBackdrop(dark).safeDrawingPadding()) {
+            Column(Modifier.fillMaxSize().then(backdrop).safeDrawingPadding()) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1201,10 +1391,11 @@ fun Savepoint(openLater: Boolean) {
                     if (route != "home")
                         AeroIconButton(AeroSymbol.BACK, "back", onClick = { route = backRoute() })
                     else
-                        Image(painterResource(R.drawable.icon_handheld), null, Modifier.size(32.dp))
+                        Image(painterResource(R.drawable.icon_handheld), null, Modifier.size(48.dp))
                     Text(
                         when (route) {
                             "home" -> "Savepoint"
+                            "find" -> "search"
                             "shelf" -> editingShelf.label
                             "details" -> "your game"
                             "form" -> if (selectedGame == null) "add game" else "edit game"
@@ -1217,262 +1408,499 @@ fun Savepoint(openLater: Boolean) {
                         modifier = Modifier.weight(1f),
                     )
                     if (route == "home")
-                        AeroIconButton(AeroSymbol.SETTINGS, "settings", { route = "settings" })
+                        AeroIconButton(
+                            AeroSymbol.SETTINGS,
+                            "settings",
+                            { route = "settings" },
+                            compact = true,
+                        )
+                    if (route in listOf("home", "backlog", "paused", "log"))
+                        AeroIconButton(AeroSymbol.SEARCH, "search your games", { route = "find" })
                 }
                 Box(Modifier.weight(1f)) {
                     if (!loaded) CircularProgressIndicator(Modifier.align(Alignment.Center))
                     else
-                        when (route) {
-                            "home" ->
-                                Home(
-                                    games,
-                                    artwork,
-                                    {
-                                        selected = it
-                                        route = "details"
-                                    },
-                                    {
-                                        editingShelf = it
-                                        route = "shelf"
-                                    },
-                                    { startAdding(Shelf.PLAY_THROUGH, "home") },
-                                    { mutate { old -> old + starterGames() } },
-                                )
-                            "backlog",
-                            "paused" ->
-                                LibraryList(
-                                    games,
-                                    when (route) {
-                                        "paused" -> Place.PAUSED
-                                        else -> Place.BACKLOG
-                                    },
-                                    settings,
-                                    artwork,
-                                    ::updateSettings,
-                                    {
-                                        selected = it
-                                        route = "details"
-                                    },
-                                )
-                            "log" ->
-                                PlayLogList(
-                                    games,
-                                    artwork,
-                                    {
-                                        selected = it
-                                        route = "journal"
-                                    },
-                                )
-                            "journal" ->
-                                selectedGame?.let { game ->
-                                    GameJournal(
-                                        game,
-                                        artwork,
-                                        { entry ->
-                                            logEntry = entry
-                                            dialog = "entry"
-                                        },
-                                        { first ->
-                                            mutate {
-                                                LibraryRules.move(it, game.id, Place.ACTIVE, first)
-                                            }
-                                            route = "home"
-                                        },
-                                        { route = "details" },
-                                    )
-                                }
-                            "shelf" ->
-                                ShelfEditor(
-                                    editingShelf,
-                                    games,
-                                    { id, direction ->
-                                        mutate { LibraryRules.reorder(it, id, direction) }
-                                    },
-                                    {
-                                        selected = it
-                                        route = "details"
-                                    },
-                                    { id -> mutate { LibraryRules.move(it, id, Place.BACKLOG) } },
-                                    { startAdding(editingShelf, "shelf") },
-                                    { route = "backlog" },
-                                )
-                            "details" ->
-                                selectedGame?.let { game ->
-                                    GameDetails(
-                                        game,
+                        AnimatedContent(
+                            targetState = route,
+                            transitionSpec = {
+                                (fadeIn(tween(180)) + slideInHorizontally(tween(220)) { it / 32 })
+                                    .togetherWith(fadeOut(tween(100)))
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                            label = "screen transition",
+                        ) { screen ->
+                            when (screen) {
+                                "home" ->
+                                    Home(
+                                        games,
                                         artwork,
                                         {
-                                            note = game.notes
-                                            dialog = "notes"
-                                        },
-                                        {
-                                            note = game.pauseNote
-                                            dialog = "pause"
-                                        },
-                                        {
-                                            form = game
-                                            route = "form"
-                                        },
-                                        {
-                                            if (game.shelf == Shelf.HUNTS) {
-                                                mutate {
-                                                    LibraryRules.move(it, game.id, Place.FINISHED)
-                                                }
-                                                route = "home"
-                                            } else {
-                                                logEntry = Playthrough()
-                                                dialog = "finish"
-                                            }
-                                        },
-                                        { route = "journal" },
-                                        { place, first ->
-                                            mutate { LibraryRules.move(it, game.id, place, first) }
-                                            route = "home"
-                                        },
-                                        { delta ->
-                                            scope.launch {
-                                                try {
-                                                    var before = 0L
-                                                    library.change { list ->
-                                                        list.map {
-                                                            if (it.id == game.id) {
-                                                                before = it.encounters
-                                                                it.copy(
-                                                                    encounters =
-                                                                        if (
-                                                                            it.encounters ==
-                                                                                Long.MAX_VALUE
-                                                                        )
-                                                                            it.encounters
-                                                                        else it.encounters + delta
-                                                                )
-                                                            } else it
-                                                        }
-                                                    }
-                                                    undoCount = game.id to before
-                                                } catch (e: Exception) {
-                                                    error = e.message
-                                                }
-                                            }
-                                        },
-                                        {
-                                            undoCount?.let { (id, count) ->
-                                                mutate { list ->
-                                                    list.map {
-                                                        if (it.id == id) it.copy(encounters = count)
-                                                        else it
-                                                    }
-                                                }
-                                                undoCount = null
-                                            }
-                                        },
-                                        undoCount?.first == game.id,
-                                    )
-                                }
-                            "add" ->
-                                AddScreen(
-                                    catalog,
-                                    settings.catalogUrl,
-                                    addShelf,
-                                    { addShelf = it },
-                                    {
-                                        form =
-                                            it.copy(
-                                                shelf = addShelf ?: Shelf.PLAY_THROUGH,
-                                                place =
-                                                    if (addShelf == null) Place.BACKLOG
-                                                    else Place.ACTIVE,
-                                            )
-                                        selected = ""
-                                        route = "form"
-                                    },
-                                    {
-                                        form =
-                                            Game(
-                                                title = "",
-                                                shelf = addShelf ?: Shelf.PLAY_THROUGH,
-                                                place =
-                                                    if (addShelf == null) Place.BACKLOG
-                                                    else Place.ACTIVE,
-                                            )
-                                        selected = ""
-                                        route = "form"
-                                    },
-                                )
-                            "form" ->
-                                form?.let { initial ->
-                                    GameForm(
-                                        initial,
-                                        artwork,
-                                        catalog,
-                                        { game ->
-                                            mutate { list ->
-                                                if (list.any { it.id == game.id })
-                                                    list.map {
-                                                        if (it.id == game.id)
-                                                            game.copy(
-                                                                position =
-                                                                    if (game.shelf != initial.shelf)
-                                                                        (list
-                                                                            .filter { peer ->
-                                                                                peer.shelf ==
-                                                                                    game.shelf &&
-                                                                                    peer.place ==
-                                                                                        game.place
-                                                                            }
-                                                                            .maxOfOrNull { peer ->
-                                                                                peer.position
-                                                                            } ?: -1) + 1
-                                                                    else game.position
-                                                            )
-                                                        else it
-                                                    }
-                                                else
-                                                    list +
-                                                        game.copy(
-                                                            added = System.currentTimeMillis(),
-                                                            position =
-                                                                (list
-                                                                    .filter {
-                                                                        it.shelf == game.shelf &&
-                                                                            it.place == game.place
-                                                                    }
-                                                                    .maxOfOrNull { it.position }
-                                                                    ?: -1) + 1,
-                                                        )
-                                            }
-                                            selected = game.id
+                                            selected = it
                                             route = "details"
                                         },
-                                        { route = if (selectedGame != null) "details" else "add" },
+                                        {
+                                            editingShelf = it
+                                            route = "shelf"
+                                        },
+                                        { startAdding(Shelf.PLAY_THROUGH, "home") },
+                                        { mutate { old -> old + starterGames() } },
                                     )
-                                }
-                            "settings" ->
-                                SettingsScreen(
-                                    settings,
-                                    ::updateSettings,
-                                    {
-                                        if (Build.VERSION.SDK_INT >= 33)
-                                            notificationPermission.launch(
-                                                Manifest.permission.POST_NOTIFICATIONS
+                                "backlog",
+                                "paused" ->
+                                    LibraryList(
+                                        games,
+                                        when (screen) {
+                                            "paused" -> Place.PAUSED
+                                            else -> Place.BACKLOG
+                                        },
+                                        settings,
+                                        artwork,
+                                        ::updateSettings,
+                                        {
+                                            selected = it
+                                            route = "details"
+                                        },
+                                        { id ->
+                                            selected = id
+                                            dialog = "delete"
+                                        },
+                                        { route = "collections" },
+                                    )
+                                "find" ->
+                                    FindGames(
+                                        games,
+                                        artwork,
+                                        {
+                                            selected = it
+                                            route = "details"
+                                        },
+                                        { route = "collections" },
+                                    )
+                                "collections" ->
+                                    CollectionsScreen(
+                                        games,
+                                        settings,
+                                        artwork,
+                                        { name ->
+                                            updateSettings(
+                                                settings.copy(
+                                                    collectionNames =
+                                                        settings.collectionNames + name
+                                                )
                                             )
-                                        else updateSettings(settings.copy(reminders = true))
-                                    },
-                                    { export.launch("savepoint-${LocalDate.now()}.zip") },
-                                    {
-                                        import.launch(
-                                            arrayOf("application/zip", "application/octet-stream")
+                                        },
+                                        { name, ids ->
+                                            updateSettings(
+                                                settings.copy(
+                                                    collectionNames =
+                                                        settings.collectionNames + name
+                                                )
+                                            )
+                                            mutate { setCollectionMembers(it, name, ids) }
+                                        },
+                                        { name, id, direction ->
+                                            mutate { reorderCollection(it, name, id, direction) }
+                                        },
+                                        {
+                                            selected = it
+                                            route = "details"
+                                        },
+                                    )
+                                "log" ->
+                                    PlayLogList(
+                                        games,
+                                        artwork,
+                                        {
+                                            selected = it
+                                            route = "journal"
+                                        },
+                                    )
+                                "journal" ->
+                                    selectedGame?.let { game ->
+                                        GameJournal(
+                                            game,
+                                            artwork,
+                                            { entry ->
+                                                logEntry = entry
+                                                dialog = "entry"
+                                            },
+                                            { first ->
+                                                mutate {
+                                                    LibraryRules.move(
+                                                        it,
+                                                        game.id,
+                                                        Place.ACTIVE,
+                                                        first,
+                                                    )
+                                                }
+                                                route = "home"
+                                            },
+                                            { route = "details" },
                                         )
-                                    },
-                                )
+                                    }
+                                "shelf" ->
+                                    ShelfEditor(
+                                        editingShelf,
+                                        games,
+                                        { id, direction ->
+                                            mutate { LibraryRules.reorder(it, id, direction) }
+                                        },
+                                        {
+                                            selected = it
+                                            route = "details"
+                                        },
+                                        { id ->
+                                            mutate { LibraryRules.move(it, id, Place.BACKLOG) }
+                                        },
+                                        { startAdding(editingShelf, "shelf") },
+                                        { route = "backlog" },
+                                    )
+                                "details" ->
+                                    selectedGame?.let { game ->
+                                        GameDetails(
+                                            game,
+                                            artwork,
+                                            {
+                                                note = game.notes
+                                                dialog = "notes"
+                                            },
+                                            {
+                                                if (game.shelf == Shelf.HUNTS) {
+                                                    mutate {
+                                                        LibraryRules.move(it, game.id, Place.PAUSED)
+                                                    }
+                                                    route = "home"
+                                                } else {
+                                                    note = game.pauseNote
+                                                    dialog = "pause"
+                                                }
+                                            },
+                                            {
+                                                form = game
+                                                route = "form"
+                                            },
+                                            {
+                                                if (game.shelf == Shelf.HUNTS) {
+                                                    mutate {
+                                                        LibraryRules.move(
+                                                            it,
+                                                            game.id,
+                                                            Place.FINISHED,
+                                                        )
+                                                    }
+                                                    route = "home"
+                                                } else {
+                                                    logEntry = Playthrough()
+                                                    dialog = "finish"
+                                                }
+                                            },
+                                            { route = "journal" },
+                                            { place, first ->
+                                                mutate {
+                                                    LibraryRules.move(it, game.id, place, first)
+                                                }
+                                                route = "home"
+                                            },
+                                            { delta ->
+                                                changeEncounters(game.id) {
+                                                    increasedEncounterCount(it, delta)
+                                                }
+                                            },
+                                            {
+                                                undoCount?.let { (id, count) ->
+                                                    mutate { list ->
+                                                        list.map {
+                                                            if (it.id == id)
+                                                                it.copy(encounters = count)
+                                                            else it
+                                                        }
+                                                    }
+                                                    undoCount = null
+                                                }
+                                            },
+                                            undoCount?.first == game.id,
+                                            {
+                                                encounterMode = "add encounters"
+                                                encounterValue = "1"
+                                                encounterError = null
+                                                dialog = "encounters"
+                                            },
+                                            {
+                                                form = game
+                                                dialog = "destination"
+                                            },
+                                            { dialog = "delete" },
+                                            { dialog = "cover" },
+                                        )
+                                    }
+                                "add" ->
+                                    AddScreen(
+                                        catalog,
+                                        settings.catalogUrl,
+                                        { game ->
+                                            form = game.copy(shelf = addShelf ?: Shelf.PLAY_THROUGH)
+                                            selected = ""
+                                            dialog = "destination"
+                                        },
+                                        {
+                                            form =
+                                                Game(
+                                                    title = "",
+                                                    shelf = addShelf ?: Shelf.PLAY_THROUGH,
+                                                )
+                                            selected = ""
+                                            route = "form"
+                                        },
+                                    )
+                                "form" ->
+                                    form?.let { initial ->
+                                        GameForm(
+                                            initial,
+                                            artwork,
+                                            catalog,
+                                            games.any { it.id == initial.id },
+                                            { game ->
+                                                if (
+                                                    games.any { it.id == game.id } ||
+                                                        destinationChosen
+                                                )
+                                                    saveGame(game)
+                                                else {
+                                                    form = game
+                                                    dialog = "destination"
+                                                }
+                                            },
+                                            {
+                                                route =
+                                                    if (selectedGame != null) "details" else "add"
+                                            },
+                                        )
+                                    }
+                                "settings" ->
+                                    SettingsScreen(
+                                        settings,
+                                        ::updateSettings,
+                                        {
+                                            if (Build.VERSION.SDK_INT >= 33)
+                                                notificationPermission.launch(
+                                                    Manifest.permission.POST_NOTIFICATIONS
+                                                )
+                                            else updateSettings(settings.copy(reminders = true))
+                                        },
+                                        { export.launch("savepoint-${LocalDate.now()}.zip") },
+                                        {
+                                            import.launch(
+                                                arrayOf(
+                                                    "application/zip",
+                                                    "application/octet-stream",
+                                                )
+                                            )
+                                        },
+                                    )
+                            }
                         }
                 }
-                if (route == "home" || route == "backlog" || route == "paused" || route == "log")
+                if (
+                    route in
+                        listOf("home", "backlog", "paused", "log", "add", "find", "collections") ||
+                        (route == "form" && selectedGame == null)
+                )
                     AeroDock(
                         route,
                         { route = it },
-                        { startAdding(if (route == "backlog") null else Shelf.PLAY_THROUGH, route) },
+                        {
+                            if (route != "add" && route != "form")
+                                startAdding(
+                                    if (route == "backlog") null else Shelf.PLAY_THROUGH,
+                                    route,
+                                )
+                        },
                     )
+            }
+            if (dialog == "cover" && selectedGame != null)
+                CoverPicker(
+                    selectedGame,
+                    artwork,
+                    catalog,
+                    settings.catalogUrl,
+                    { cover ->
+                        val id = selectedGame.id
+                        mutate { list ->
+                            list.map {
+                                if (it.id == id)
+                                    it.copy(cover = cover.url, coverProvider = cover.provider)
+                                else it
+                            }
+                        }
+                        dialog = ""
+                    },
+                    { dialog = "" },
+                )
+            if (dialog == "encounters" && selectedGame != null) {
+                AeroDialog(
+                    onDismissRequest = { dialog = "" },
+                    title = { Text("encounters") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Choice("change", encounterMode, listOf("add encounters", "set total")) {
+                                encounterMode = it
+                                encounterValue =
+                                    if (it == "set total") selectedGame.encounters.toString()
+                                    else "1"
+                                encounterError = null
+                            }
+                            AeroTextField(
+                                encounterValue,
+                                {
+                                    encounterValue = it
+                                    encounterError = null
+                                },
+                                label =
+                                    if (encounterMode == "set total") "total encounters"
+                                    else "how many to add?",
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            encounterError?.let {
+                                Text(it, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        PinkButton(
+                            onClick = {
+                                val amount = encounterValue.toLongOrNull()
+                                if (
+                                    amount == null ||
+                                        amount < 0 ||
+                                        (encounterMode == "add encounters" && amount == 0L)
+                                )
+                                    encounterError =
+                                        "Enter a ${if (encounterMode == "set total") "nonnegative" else "positive"} whole number"
+                                else {
+                                    val add = encounterMode == "add encounters"
+                                    changeEncounters(selectedGame.id) {
+                                        if (add) increasedEncounterCount(it, amount) else amount
+                                    }
+                                    dialog = ""
+                                }
+                            }
+                        ) {
+                            Text(
+                                if (encounterMode == "set total") "save total" else "add encounters"
+                            )
+                        }
+                    },
+                    dismissButton = { TextButton(onClick = { dialog = "" }) { Text("cancel") } },
+                )
+            }
+            if (dialog == "delete" && selectedGame != null) {
+                AeroDialog(
+                    onDismissRequest = { dialog = "" },
+                    title = { Text("delete ${selectedGame.title}?") },
+                    text = {
+                        Text(
+                            "Remove this game and its saved notes and playthroughs from Savepoint?"
+                        )
+                    },
+                    confirmButton = {
+                        AeroButton(
+                            onClick = {
+                                val id = selectedGame.id
+                                mutate { list -> list.filterNot { it.id == id } }
+                                dialog = ""
+                                selected = ""
+                                if (route !in listOf("backlog", "paused", "home", "log"))
+                                    route = "backlog"
+                            }
+                        ) {
+                            Text("delete game", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = { TextButton(onClick = { dialog = "" }) { Text("cancel") } },
+                )
+            }
+            if (dialog == "destination" && form != null) {
+                AeroDialog(
+                    onDismissRequest = { dialog = "" },
+                    title = { Text("where should it go?") },
+                    text = {
+                        Column {
+                            Text(
+                                form!!.title,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 10.dp),
+                            )
+                            Shelf.entries.forEach { destination ->
+                                TextButton(
+                                    onClick = {
+                                        val game =
+                                            form!!.copy(shelf = destination, place = Place.ACTIVE)
+                                        dialog = ""
+                                        if (destination == Shelf.HUNTS && game.pokemon.isBlank()) {
+                                            form =
+                                                game.copy(
+                                                    pokemonVersion = inferHuntVersion(game.title) ?: "other"
+                                                )
+                                            destinationChosen = true
+                                            route = "form"
+                                        } else saveGame(game)
+                                    },
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                ) {
+                                    AeroIcon(AeroSymbol.SHELVES, Modifier.size(20.dp))
+                                    Text(
+                                        destination.label,
+                                        Modifier.weight(1f).padding(start = 12.dp),
+                                    )
+                                    AeroIcon(AeroSymbol.NEXT, Modifier.size(14.dp))
+                                }
+                            }
+                            HorizontalDivider(
+                                Modifier.padding(vertical = 6.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = .3f),
+                            )
+                            listOf(Place.BACKLOG to "backlog", Place.FINISHED to "play log")
+                                .forEach { (place, label) ->
+                                    TextButton(
+                                        onClick = {
+                                            val game =
+                                                form!!.copy(
+                                                    place = place,
+                                                    hasPlayed =
+                                                        form!!.hasPlayed || place == Place.FINISHED,
+                                                )
+                                            if (
+                                                place == Place.FINISHED &&
+                                                    games.any {
+                                                        it.id == game.id &&
+                                                            it.place != Place.FINISHED
+                                                    }
+                                            ) {
+                                                selected = game.id
+                                                logEntry = Playthrough()
+                                                dialog = "finish"
+                                            } else {
+                                                dialog = ""
+                                                saveGame(game)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                                    ) {
+                                        AeroIcon(
+                                            if (place == Place.BACKLOG) AeroSymbol.BACKLOG
+                                            else AeroSymbol.LOG,
+                                            Modifier.size(20.dp),
+                                        )
+                                        Text(label, Modifier.weight(1f).padding(start = 12.dp))
+                                        AeroIcon(AeroSymbol.NEXT, Modifier.size(14.dp))
+                                    }
+                                }
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = { dialog = "" }) { Text("cancel") } },
+                )
             }
             if (
                 (dialog == "finish" || dialog == "entry") &&

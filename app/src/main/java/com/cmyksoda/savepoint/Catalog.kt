@@ -4,7 +4,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.LruCache
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLEncoder
@@ -12,6 +14,8 @@ import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+
+class SourceUnavailable(val status: Int) : IOException("Source unavailable ($status)")
 
 fun fetchBytes(url: String): ByteArray {
     require(URI(url).scheme == "https") { "An HTTPS address is required" }
@@ -21,9 +25,7 @@ fun fetchBytes(url: String): ByteArray {
     connection.instanceFollowRedirects = false
     connection.setRequestProperty("User-Agent", "Savepoint/0.1 (personal game library)")
     return try {
-        require(connection.responseCode == 200) {
-            "Source unavailable (${connection.responseCode})"
-        }
+        if (connection.responseCode != 200) throw SourceUnavailable(connection.responseCode)
         connection.inputStream.use { it.readBytes() }
     } finally {
         connection.disconnect()
@@ -45,6 +47,29 @@ fun preferredCoverUrl(url: String): String {
 
 class Artwork(private val context: Context) {
     val directory = File(context.filesDir, "artwork").apply { mkdirs() }
+    private val decoded =
+        object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 8 / 1024).toInt()) {
+            override fun sizeOf(key: String, value: Bitmap): Int =
+                (value.allocationByteCount + 1023) / 1024
+        }
+
+    fun memoryBitmap(url: String): Bitmap? = decoded.get(preferredCoverUrl(url)) ?: decoded.get(url)
+
+    private fun decode(url: String): Bitmap? {
+        memoryBitmap(url)?.let {
+            return it
+        }
+        val file = fileFor(url)
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, bounds)
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 720) sample *= 2
+        return BitmapFactory.decodeFile(
+                file.path,
+                BitmapFactory.Options().apply { inSampleSize = sample },
+            )
+            ?.also { decoded.put(url, it) }
+    }
 
     fun filename(url: String) =
         MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") {
@@ -60,9 +85,7 @@ class Artwork(private val context: Context) {
     }
 
     suspend fun cachedBitmap(url: String): Bitmap? =
-        withContext(Dispatchers.IO) {
-            if (url.isBlank()) null else BitmapFactory.decodeFile(fileFor(url).path)
-        }
+        withContext(Dispatchers.IO) { if (url.isBlank()) null else decode(url) }
 
     suspend fun installBundledCovers() =
         withContext(Dispatchers.IO) {
@@ -81,6 +104,7 @@ class Artwork(private val context: Context) {
                     }
                 }
             }
+            for (cover in bundledCovers) decode(preferredCoverUrl(cover.url))
         }
 
     suspend fun bitmap(url: String): Bitmap? =
@@ -89,9 +113,9 @@ class Artwork(private val context: Context) {
             val file = fileFor(url)
             if (!file.exists() && !url.startsWith("local:")) {
                 val bytes = fetchBytes(url)
-                require(BitmapFactory.decodeByteArray(bytes, 0, bytes.size) != null) {
-                    "Artwork is not an image"
-                }
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Artwork is not an image" }
                 val temporary = File.createTempFile("artwork-", ".tmp", directory)
                 try {
                     temporary.writeBytes(bytes)
@@ -100,15 +124,15 @@ class Artwork(private val context: Context) {
                     temporary.delete()
                 }
             }
-            BitmapFactory.decodeFile(file.path)
+            decode(url)
         }
 
     suspend fun select(uri: Uri): String =
         withContext(Dispatchers.IO) {
             val bytes = context.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-            require(BitmapFactory.decodeByteArray(bytes, 0, bytes.size) != null) {
-                "Choose an image file"
-            }
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Choose an image file" }
             val name = filename(java.util.UUID.randomUUID().toString())
             File(directory, name).writeBytes(bytes)
             "local:$name"
@@ -204,6 +228,42 @@ class Catalog(private val context: Context) {
                 ) to warning
         }
 
+    suspend fun covers(
+        title: String,
+        system: String,
+        provider: String,
+        endpoint: String,
+    ): List<CoverCandidate> =
+        withContext(Dispatchers.IO) {
+            if (provider == "GameTDB") {
+                return@withContext search(title, system, "")
+                    .first
+                    .filter { it.source == "gametdb" && it.cover.isNotBlank() }
+                    .map { CoverCandidate(it.cover, "GameTDB", it.title) }
+            }
+            require(endpoint.isNotBlank()) {
+                "Set your catalog service address in settings to search $provider covers."
+            }
+            fun encoded(value: String) = URLEncoder.encode(value, "UTF-8")
+            val data =
+                JSONObject(
+                        String(
+                            fetchBytes(
+                                "${endpoint.trimEnd('/')}/covers?q=${encoded(title)}&system=${encoded(system)}&provider=${encoded(provider)}"
+                            )
+                        )
+                    )
+                    .getJSONArray("results")
+            (0 until data.length()).map { index ->
+                val item = data.getJSONObject(index)
+                CoverCandidate(
+                    item.getString("url"),
+                    item.getString("provider"),
+                    item.getString("label"),
+                )
+            }
+        }
+
     suspend fun shinySprite(pokemon: String, version: String): String =
         withContext(Dispatchers.IO) {
             val generation =
@@ -230,7 +290,7 @@ class Catalog(private val context: Context) {
                 }
             val slug = pokemon.trim().lowercase().replace(' ', '-')
             require(slug.matches(Regex("[a-z0-9-]+"))) { "Enter a Pokémon name or Pokédex number" }
-            val data = JSONObject(String(fetchBytes("https://pokeapi.co/api/v2/pokemon/$slug")))
+            val data = resolvePokemon(slug) { url -> JSONObject(String(fetchBytes(url))) }
             val versionKey =
                 when (version) {
                     "omegaruby-alphasapphire" -> "omega-ruby-alpha-sapphire"

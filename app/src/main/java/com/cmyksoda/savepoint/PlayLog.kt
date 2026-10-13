@@ -26,11 +26,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 fun formatHours(hours: Double): String =
-    NumberFormat.getNumberInstance()
-        .apply {
-            maximumFractionDigits = 2
-        }
-        .format(hours)
+    NumberFormat.getNumberInstance().apply { maximumFractionDigits = 2 }.format(hours)
 
 private fun feelingSymbol(feeling: Feeling): AeroSymbol =
     when (feeling) {
@@ -93,9 +89,8 @@ fun LogExtras(game: Game) {
 
 @Composable
 fun PlayLogList(games: List<Game>, artwork: Artwork, onOpen: (String) -> Unit) {
-    var query by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf("recently finished") }
-    val filtered = games.filter { it.inPlayLog && it.title.contains(query.trim(), true) }
+    val filtered = games.filter { it.inPlayLog }
     val ordered =
         when (sort) {
             "title · A–Z" -> filtered.sortedBy { it.title.lowercase() }
@@ -111,13 +106,6 @@ fun PlayLogList(games: List<Game>, artwork: Artwork, onOpen: (String) -> Unit) {
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        AeroTextField(
-            query,
-            { query = it },
-            label = "find a game",
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
         Choice("sort", sort, listOf("recently finished", "title · A–Z", "title · Z–A")) {
             sort = it
         }
@@ -181,7 +169,7 @@ fun GameJournal(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        GameIdentity(game, artwork)
+        GameIdentity(game, artwork, prominent = true)
         Glass(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

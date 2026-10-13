@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -537,14 +538,16 @@ fun AeroTextField(
 @Composable
 fun Choice(label: String, value: String, options: List<String>, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    var anchorWidth by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Text(
             label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier,
         )
-        Box {
+        Box(Modifier.fillMaxWidth().onSizeChanged { anchorWidth = it.width }) {
             AeroButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(value, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 AeroIcon(AeroSymbol.DOWN, Modifier.padding(start = 8.dp).size(16.dp))
@@ -552,7 +555,8 @@ fun Choice(label: String, value: String, options: List<String>, onSelect: (Strin
             DropdownMenu(
                 expanded,
                 { expanded = false },
-                modifier = Modifier.heightIn(max = 360.dp),
+                modifier =
+                    Modifier.width(with(density) { anchorWidth.toDp() }).heightIn(max = 360.dp),
                 shape = RoundedCornerShape(16.dp),
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
@@ -581,6 +585,8 @@ enum class AeroSymbol {
     LOG,
     ADD,
     SETTINGS,
+    SEARCH,
+    DELETE,
     HEART,
     THUMB_UP,
     THUMB_DOWN,
@@ -618,6 +624,17 @@ fun AeroIcon(
                 AeroSymbol.ADD -> {
                     path(12f, 5f, 12f, 19f)
                     path(5f, 12f, 19f, 12f)
+                }
+                AeroSymbol.SEARCH -> {
+                    drawCircle(tint, 6.5f, Offset(10f, 10f), style = stroke)
+                    path(15f, 15f, 21f, 21f)
+                }
+                AeroSymbol.DELETE -> {
+                    path(4f, 6f, 20f, 6f)
+                    path(9f, 6f, 9f, 3f, 15f, 3f, 15f, 6f)
+                    path(6f, 6f, 7f, 21f, 17f, 21f, 18f, 6f)
+                    path(10f, 10f, 10f, 17f)
+                    path(14f, 10f, 14f, 17f)
                 }
                 AeroSymbol.PAUSE -> {
                     drawRoundRect(tint, Offset(6f, 5f), Size(4f, 14f), CornerRadius(1.4f))
@@ -839,6 +856,7 @@ fun AeroDock(route: String, onNavigate: (String) -> Unit, onAdd: () -> Unit) {
                 }
             Box(
                 Modifier.padding(start = 6.dp)
+                    .offset(y = (-5).dp)
                     .size(48.dp)
                     .glassMaterial(LocalAeroDark.current, 24)
                     .background(
@@ -950,7 +968,54 @@ fun AeroDialog(
 }
 
 @Composable
-fun GameIdentity(game: Game, artwork: Artwork, showShelf: Boolean = false) {
+fun GameIdentity(
+    game: Game,
+    artwork: Artwork,
+    showShelf: Boolean = false,
+    prominent: Boolean = false,
+) {
+    if (prominent || game.shelf == Shelf.HUNTS) {
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            val hunt = game.shelf == Shelf.HUNTS
+            Art(
+                if (hunt) game.sprite else game.cover,
+                artwork,
+                game.title,
+                if (hunt) Modifier.size(if (prominent) 152.dp else 104.dp)
+                else
+                    Modifier.shadow(10.dp, RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(1.dp, Color.White.copy(alpha = .6f), RoundedCornerShape(16.dp)),
+                sprite = hunt,
+                transparent = hunt,
+                showPlaceholderTitle = false,
+                system = game.system,
+                coverBounds = if (hunt) null else CoverSize(180f, 220f),
+            )
+            Text(
+                if (hunt) displayPokemonName(game.pokemon) else game.title,
+                fontWeight = FontWeight.Medium,
+                fontSize = 20.sp,
+                lineHeight = 25.sp,
+            )
+            Text(
+                if (hunt) huntVersions[game.pokemonVersion] ?: game.title else game.system,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (showShelf && !hunt)
+                Text(
+                    game.shelf.label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+        }
+        return
+    }
     Glass(Modifier.fillMaxWidth()) {
         Row(
             Modifier.padding(16.dp),

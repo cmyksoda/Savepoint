@@ -29,6 +29,7 @@ class BackupInstrumentedTest {
             for (game in games) {
                 val bitmap = artwork.cachedBitmap(preferredCoverUrl(game.cover))
                 assertNotNull("Missing offline cover for ${game.title}", bitmap)
+                assertSame(bitmap, artwork.cachedBitmap(preferredCoverUrl(game.cover)))
                 if (game.system == "Game Boy Advance") assertEquals(bitmap!!.width, bitmap.height)
             }
             Backup.export(context, Uri.fromFile(archive), games, Settings(), artwork)
@@ -103,6 +104,8 @@ class BackupInstrumentedTest {
                     pauseNote = "pause note",
                     place = Place.PAUSED,
                     cover = "local:$name",
+                    coverProvider = "Selected image",
+                    collection = "favorites",
                     hasPlayed = true,
                     replayCount = 1,
                     playthroughs =
@@ -119,13 +122,20 @@ class BackupInstrumentedTest {
                 context,
                 Uri.fromFile(archive),
                 listOf(game),
-                Settings(reminders = true),
+                Settings(
+                    reminders = true,
+                    collectionNames = setOf("favorites", "empty collection"),
+                ),
                 artwork,
             )
             val restored = Backup.inspect(context, Uri.fromFile(archive))
             try {
                 assertEquals(listOf(game), restored.games)
                 assertFalse(restored.settings.reminders)
+                assertEquals(
+                    setOf("favorites", "empty collection"),
+                    restored.settings.collectionNames,
+                )
                 assertEquals(0, restored.settings.laterAt)
                 assertArrayEquals(
                     image.readBytes(),

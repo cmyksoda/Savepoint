@@ -27,6 +27,9 @@ fun mergeSettings(current: Settings, previous: Settings, changed: Settings) =
         collectionFilter =
             if (changed.collectionFilter != previous.collectionFilter) changed.collectionFilter
             else current.collectionFilter,
+        collectionNames =
+            if (changed.collectionNames != previous.collectionNames) changed.collectionNames
+            else current.collectionNames,
         catalogUrl =
             if (changed.catalogUrl != previous.catalogUrl) changed.catalogUrl
             else current.catalogUrl,
@@ -90,6 +93,7 @@ data class Game(
     val added: Long = System.currentTimeMillis(),
     val release: Long? = null,
     val cover: String = "",
+    val coverProvider: String = "",
     val source: String = "manual",
     val sourceId: String = "",
     val notes: String = "",
@@ -164,15 +168,16 @@ object LibraryRules {
         require(replayCount == null || replayCount >= 0) { "Replays cannot be negative" }
         val game = games.first { it.id == id }
         if (game.playthroughs.any { it.id == entry.id }) return games
-        val updated = games.map {
-            if (it.id == id)
-                it.copy(
-                    playthroughs = it.playthroughs + entry,
-                    hasPlayed = true,
-                    replayCount = replayCount,
-                )
-            else it
-        }
+        val updated =
+            games.map {
+                if (it.id == id)
+                    it.copy(
+                        playthroughs = it.playthroughs + entry,
+                        hasPlayed = true,
+                        replayCount = replayCount,
+                    )
+                else it
+            }
         return move(updated, id, Place.FINISHED)
     }
 
@@ -230,18 +235,22 @@ val huntVersions =
         "other" to "Other (choose artwork manually)",
     )
 
+fun increasedEncounterCount(current: Long, amount: Long): Long {
+    require(current >= 0 && amount >= 0) { "Encounters cannot be negative" }
+    return if (amount > Long.MAX_VALUE - current) Long.MAX_VALUE else current + amount
+}
+
 fun calculatedOdds(game: Game): Pair<Int?, String> {
     game.manualOdds?.let {
         return it to "manual odds"
     }
-    val verifiedFullOdds = setOf("emerald", "firered-leafgreen", "platinum", "heartgold-soulsilver")
+    val base = baseShinyOdds(game.pokemonVersion)
     if (
-        game.pokemonVersion in verifiedFullOdds &&
-            game.method == "Random encounters" &&
+        base != null &&
+            game.method in listOf("Random encounters", "Soft resets", "Runaways") &&
             !game.shinyCharm
-    ) {
-        return 8192 to "standard random encounter · no modifiers"
-    }
+    )
+        return base to "standard base odds · no modifiers"
     return null to "unknown — enter verified odds for this game and method"
 }
 
