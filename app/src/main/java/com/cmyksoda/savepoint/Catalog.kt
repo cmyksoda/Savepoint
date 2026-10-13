@@ -57,14 +57,9 @@ class Artwork(private val context: Context) {
 
     fun cachedAspectRatio(url: String): Float? = ratios[preferredCoverUrl(url)] ?: ratios[url]
 
-    suspend fun prepareLibraryGeometry(games: List<Game>) =
+    suspend fun prepareLibraryArtwork(games: List<Game>) =
         withContext(Dispatchers.IO) {
             for (game in games) {
-                if (game.shelf == Shelf.HUNTS) {
-                    if (game.sprite.isNotBlank() && fileFor(game.sprite).isFile)
-                        spriteBitmap(game.sprite)
-                    continue
-                }
                 if (game.cover.isBlank()) continue
                 for (url in listOf(preferredCoverUrl(game.cover), game.cover).distinct()) {
                     val file = fileFor(url)
@@ -74,6 +69,26 @@ class Artwork(private val context: Context) {
                     if (bounds.outWidth > 0 && bounds.outHeight > 0)
                         ratios[url] = bounds.outWidth.toFloat() / bounds.outHeight
                 }
+            }
+            for (game in games.filter { it.place == Place.ACTIVE }) {
+                if (game.shelf == Shelf.HUNTS) {
+                    if (game.sprite.isNotBlank() && fileFor(game.sprite).isFile)
+                        spriteBitmap(game.sprite)
+                } else if (game.cover.isNotBlank()) {
+                    cachedCoverBitmap(game.cover)
+                }
+            }
+        }
+
+    suspend fun cachedCoverBitmap(url: String): Bitmap? =
+        withContext(Dispatchers.IO) {
+            if (url.isBlank()) null
+            else {
+                memoryBitmap(url)
+                    ?: listOf(preferredCoverUrl(url), url).distinct().firstNotNullOfOrNull {
+                        candidate ->
+                        if (fileFor(candidate).isFile) decode(candidate) else null
+                    }
             }
         }
 

@@ -99,7 +99,8 @@ fun Art(
             bitmap = runCatching { artwork.spriteBitmap(url) }.getOrNull()
             return@LaunchedEffect
         }
-        bitmap = runCatching { artwork.cachedBitmap(url) }.getOrNull()
+        bitmap = runCatching { artwork.cachedCoverBitmap(url) }.getOrNull() ?: bitmap
+        if (bitmap != null) return@LaunchedEffect
         val preferred = preferredCoverUrl(url)
         bitmap =
             runCatching { artwork.bitmap(preferred) }.getOrNull()
@@ -227,9 +228,9 @@ fun GameCover(
             if (hunt) game.sprite else game.cover,
             artwork,
             if (hunt) game.pokemon.ifBlank { game.title } else game.title,
-            Modifier.shadow(8.dp, RoundedCornerShape(16.dp))
-                .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, Color.White.copy(alpha = .65f), RoundedCornerShape(16.dp))
+            Modifier.shadow(8.dp, RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(10.dp))
+                .border(1.dp, Color.White.copy(alpha = .65f), RoundedCornerShape(10.dp))
                 .clickable(onClick = onOpen)
                 .semantics {
                     contentDescription = "${game.title}${if (focus) ", playing now" else ""}"
@@ -292,7 +293,7 @@ fun Home(
     val active = games.filter { it.place == Place.ACTIVE }
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        contentPadding = PaddingValues(bottom = 40.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
         if (active.isEmpty())
@@ -344,13 +345,13 @@ fun Home(
                             modifier =
                                 Modifier.fillMaxWidth()
                                     .height(
-                                        (if (shelf == Shelf.PLAY_THROUGH) 254
-                                            else if (shelf == Shelf.HUNTS) 134 else 186)
+                                        (if (shelf == Shelf.PLAY_THROUGH) 264
+                                            else if (shelf == Shelf.HUNTS) 148 else 196)
                                             .dp
                                     )
                                     .glassShelf(LocalAeroDark.current),
                             contentPadding =
-                                PaddingValues(start = 20.dp, end = 20.dp, bottom = 10.dp),
+                                PaddingValues(start = 20.dp, end = 20.dp, bottom = 18.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.Bottom,
                         ) {
@@ -379,7 +380,6 @@ fun LibraryList(
     artwork: Artwork,
     onSettings: (Settings) -> Unit,
     onOpen: (String) -> Unit,
-    onDelete: (String) -> Unit,
     onCollections: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -439,14 +439,7 @@ fun LibraryList(
             }
         },
         card = { game, grid, modifier ->
-            LibraryGameCard(
-                game,
-                artwork,
-                grid,
-                modifier,
-                { onOpen(game.id) },
-                onDelete = if (place == Place.BACKLOG) ({ onDelete(game.id) }) else null,
-            ) {
+            LibraryGameCard(game, artwork, grid, modifier, { onOpen(game.id) }) {
                 if (game.collection.isNotBlank())
                     Text(game.collection, style = MaterialTheme.typography.bodySmall)
                 if (place == Place.PAUSED && game.pauseNote.isNotBlank())
@@ -1379,7 +1372,7 @@ fun Savepoint(openLater: Boolean) {
             library.load()
             if (updateStarterArtwork(library.games.value) != library.games.value)
                 library.change(::updateStarterArtwork)
-            artwork.prepareLibraryGeometry(library.games.value)
+            artwork.prepareLibraryArtwork(library.games.value)
             settings = settingsStore.read()
             loaded = true
             if (route == "finished") route = "log"
@@ -1458,12 +1451,7 @@ fun Savepoint(openLater: Boolean) {
                         modifier = Modifier.weight(1f),
                     )
                     if (route == "home")
-                        AeroIconButton(
-                            AeroSymbol.SETTINGS,
-                            "settings",
-                            { route = "settings" },
-                            compact = true,
-                        )
+                        AeroIconButton(AeroSymbol.SETTINGS, "settings", { route = "settings" })
                     if (route in listOf("backlog", "paused", "log"))
                         AeroIconButton(
                             if (route in settings.gridViews) AeroSymbol.LIST else AeroSymbol.GRID,
@@ -1511,9 +1499,7 @@ fun Savepoint(openLater: Boolean) {
                                         )
                                         .using(null)
                                 } else
-                                    fadeIn(tween(170, delayMillis = 40))
-                                        .togetherWith(fadeOut(tween(100)))
-                                        .using(null)
+                                    fadeIn(tween(110)).togetherWith(fadeOut(tween(80))).using(null)
                             },
                             modifier = Modifier.fillMaxSize().clipToBounds(),
                             label = "screen transition",
@@ -1568,10 +1554,6 @@ fun Savepoint(openLater: Boolean) {
                                                 {
                                                     selected = it
                                                     route = "details"
-                                                },
-                                                { id ->
-                                                    selected = id
-                                                    dialog = "delete"
                                                 },
                                                 { route = "collections" },
                                             )

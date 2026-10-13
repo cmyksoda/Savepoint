@@ -64,7 +64,6 @@ fun LibraryGameCard(
     grid: Boolean,
     modifier: Modifier,
     onOpen: () -> Unit,
-    onDelete: (() -> Unit)? = null,
     showSystem: Boolean = true,
     extras: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -97,15 +96,6 @@ fun LibraryGameCard(
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { image() }
                 identity()
-                if (onDelete != null)
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                        AeroIconButton(
-                            AeroSymbol.DELETE,
-                            "delete ${game.title}",
-                            onDelete,
-                            compact = true,
-                        )
-                    }
             }
         else
             Row(
@@ -119,13 +109,6 @@ fun LibraryGameCard(
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                     content = identity,
                 )
-                if (onDelete != null)
-                    AeroIconButton(
-                        AeroSymbol.DELETE,
-                        "delete ${game.title}",
-                        onDelete,
-                        compact = true,
-                    )
                 AeroIcon(
                     AeroSymbol.NEXT,
                     Modifier.size(16.dp),

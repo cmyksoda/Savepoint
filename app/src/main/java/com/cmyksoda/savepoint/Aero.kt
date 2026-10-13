@@ -267,8 +267,8 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
 
 fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
     val x = 0f
-    val height = 2.5.dp.toPx()
-    val y = size.height - 10.dp.toPx()
+    val height = 6.dp.toPx()
+    val y = size.height - 14.dp.toPx()
     val width = size.width - x * 2
     val shadowHeight = 34.dp.toPx()
     val shadowWidth = minOf(size.width.toInt(), 720).coerceAtLeast(1)
@@ -294,12 +294,12 @@ fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
             val glow =
                 Paint().apply {
                     color =
-                        if (dark) Color(0xFFFFC9E3).copy(alpha = .18f)
-                        else Color.White.copy(alpha = .4f)
+                        if (dark) Color(0xFFFFC9E3).copy(alpha = .44f)
+                        else Color(0xFFFFF0FA).copy(alpha = .85f)
                     isAntiAlias = true
                     asFrameworkPaint().maskFilter =
                         android.graphics.BlurMaskFilter(
-                            5.dp.toPx() * scale,
+                            7.dp.toPx() * scale,
                             android.graphics.BlurMaskFilter.Blur.NORMAL,
                         )
                 }
@@ -332,8 +332,8 @@ fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
         )
         drawRoundRect(
             Brush.verticalGradient(
-                if (dark) listOf(Color(0xAA8293B3), Color(0x55545A84), Color(0xAA38384F))
-                else listOf(Color(0xDDFFFFFF), Color(0x99D9C4DA), Color(0x66B590B1)),
+                if (dark) listOf(Color(0xDDBAC3D9), Color(0xAA777CA5), Color(0xAA45425C))
+                else listOf(Color.White, Color(0xFFE4CDE0), Color(0xCCAD7DA3)),
                 startY = y,
                 endY = y + height,
             ),
@@ -345,7 +345,7 @@ fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
             Color.White.copy(alpha = if (dark) .55f else .95f),
             Offset(x, y),
             Offset(size.width - x, y),
-            strokeWidth = .65.dp.toPx(),
+            strokeWidth = 1.dp.toPx(),
         )
     }
 }
@@ -828,9 +828,22 @@ fun AeroIcon(
                     }
                 }
                 AeroSymbol.SETTINGS -> {
+                    val gear =
+                        Path().apply {
+                            repeat(6) { tooth ->
+                                val angles = listOf(-26f, -12f, 12f, 26f)
+                                angles.forEachIndexed { edge, angle ->
+                                    val radians = Math.toRadians((tooth * 60f + angle).toDouble())
+                                    val radius = if (edge == 0 || edge == 3) 7.3f else 9.5f
+                                    val x = 12f + kotlin.math.cos(radians).toFloat() * radius
+                                    val y = 12f + kotlin.math.sin(radians).toFloat() * radius
+                                    if (tooth == 0 && edge == 0) moveTo(x, y) else lineTo(x, y)
+                                }
+                            }
+                            close()
+                        }
+                    drawPath(gear, tint, style = stroke)
                     drawCircle(tint, 3f, Offset(12f, 12f), style = stroke)
-                    drawCircle(tint, 7f, Offset(12f, 12f), style = stroke)
-                    repeat(8) { rotate(it * 45f, Offset(12f, 12f)) { path(12f, 2f, 12f, 5f) } }
                 }
             }
         }
@@ -881,7 +894,10 @@ fun AeroDock(
     val addPressed by addInteraction.collectIsPressedAsState()
     val addScale by animateFloatAsState(if (addPressed) .94f else 1f, label = "add press")
     Glass(modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth()) {
-        Row(Modifier.padding(6.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             listOf(
                     Triple("home", "shelves", AeroSymbol.SHELVES),
                     Triple("backlog", "backlog", AeroSymbol.BACKLOG),

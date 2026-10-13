@@ -20,6 +20,33 @@ class BackupInstrumentedTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Test
+    fun savedLibraryCoversAreDecodedBeforeTheFirstShelfWithoutNetwork() = runBlocking {
+        val saved = Artwork(context)
+        val name = saved.filename(UUID.randomUUID().toString())
+        val file = File(saved.directory, name)
+        try {
+            file.outputStream().use {
+                Bitmap.createBitmap(80, 50, Bitmap.Config.ARGB_8888)
+                    .compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
+            val url = "local:$name"
+            val reopened = Artwork(context)
+            assertNull(reopened.memoryBitmap(url))
+            reopened.prepareLibraryArtwork(
+                listOf(Game(title = "Saved cover", cover = url, place = Place.ACTIVE))
+            )
+            val bitmap = reopened.memoryBitmap(url)
+            assertNotNull(bitmap)
+            assertEquals(80, bitmap!!.width)
+            assertEquals(1.6f, reopened.cachedAspectRatio(url)!!, .001f)
+            assertSame(bitmap, reopened.cachedCoverBitmap(url))
+            assertEquals(File(context.filesDir, "artwork"), reopened.directory)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
     fun bundledStarterCoversAreAvailableOfflineAndSurviveBackup() = runBlocking {
         val artwork = Artwork(context)
         val archive = File(context.cacheDir, "test-${UUID.randomUUID()}.zip")
