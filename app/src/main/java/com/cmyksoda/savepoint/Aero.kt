@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -96,74 +97,145 @@ val AeroTypography =
             TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium, lineHeight = 26.sp),
     )
 
-fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawBehind {
-    drawRect(
+fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
+    val w = size.width
+    val h = size.height
+    val base =
         Brush.verticalGradient(
-            if (dark) listOf(Color(0xFF1C263F), Color(0xFF101425), Color(0xFF202138))
-            else listOf(Color(0xFFEAF4F7), Color(0xFFF8E1EF), Color(0xFFEADCEB))
+            if (dark) listOf(Color(0xFF172D43), Color(0xFF221C3A), Color(0xFF121A33))
+            else listOf(Color(0xFFEDF7FB), Color(0xFFF9D6E9), Color(0xFFE4DDF5))
         )
-    )
-    drawRect(
+    val roseLight =
         Brush.radialGradient(
             listOf(
-                (if (dark) Color(0xFF983C79) else Color(0xFFF8A7D2)).copy(alpha = .46f),
+                (if (dark) Color(0xFFB75094) else Color(0xFFF39ACB)).copy(alpha = .58f),
                 Color.Transparent,
             ),
-            center = Offset(size.width * 1.03f, size.height * .35f),
-            radius = size.width * .95f,
+            center = Offset(w * 1.03f, h * .39f),
+            radius = w * 1.15f,
         )
-    )
-    drawRect(
+    val blueLight =
         Brush.radialGradient(
             listOf(
-                (if (dark) Color(0xFF55AAC3) else Color.White).copy(alpha = .33f),
+                (if (dark) Color(0xFF66C9DA) else Color.White).copy(
+                    alpha = if (dark) .32f else .8f
+                ),
                 Color.Transparent,
             ),
-            center = Offset(-size.width * .2f, size.height * .05f),
-            radius = size.width * 1.2f,
+            center = Offset(-w * .18f, h * .09f),
+            radius = w * 1.15f,
         )
-    )
+    val lilacLight =
+        Brush.radialGradient(
+            listOf(
+                (if (dark) Color(0xFF8776CE) else Color(0xFFC7BAEF)).copy(alpha = .28f),
+                Color.Transparent,
+            ),
+            center = Offset(w * .12f, h * .78f),
+            radius = w * .95f,
+        )
+    val ribbonEdge =
+        Path().apply {
+            moveTo(-w * .3f, h * .87f)
+            cubicTo(w * .52f, h * .70f, -w * .07f, h * .42f, w * .76f, h * .36f)
+            cubicTo(w * .96f, h * .34f, w * 1.14f, h * .30f, w * 1.32f, h * .26f)
+        }
     val ribbon =
         Path().apply {
-            moveTo(-size.width * .2f, size.height * .74f)
-            cubicTo(
-                size.width * .6f,
-                size.height * .44f,
-                size.width * .18f,
-                size.height * .19f,
-                size.width * 1.2f,
-                size.height * .14f,
-            )
-            lineTo(size.width * 1.2f, size.height * .22f)
-            cubicTo(
-                size.width * .2f,
-                size.height * .26f,
-                size.width * .7f,
-                size.height * .52f,
-                -size.width * .2f,
-                size.height * .81f,
-            )
+            addPath(ribbonEdge)
+            lineTo(w * 1.32f, h * .35f)
+            cubicTo(w * 1.13f, h * .39f, w * .98f, h * .44f, w * .79f, h * .44f)
+            cubicTo(w * .20f, h * .45f, w * .77f, h * .75f, -w * .3f, h * .96f)
             close()
         }
-    drawPath(
-        ribbon,
-        Brush.linearGradient(
-            listOf(Color.White.copy(alpha = if (dark) .035f else .3f), Color.Transparent)
-        ),
-    )
-    val edge =
+    val ribbonReflection =
         Path().apply {
-            moveTo(-size.width * .2f, size.height * .74f)
-            cubicTo(
-                size.width * .6f,
-                size.height * .44f,
-                size.width * .18f,
-                size.height * .19f,
-                size.width * 1.2f,
-                size.height * .14f,
-            )
+            addPath(ribbonEdge)
+            lineTo(w * 1.32f, h * .275f)
+            cubicTo(w * 1.14f, h * .315f, w * .96f, h * .355f, w * .76f, h * .375f)
+            cubicTo(-w * .07f, h * .435f, w * .52f, h * .715f, -w * .3f, h * .885f)
+            close()
         }
-    drawPath(edge, Color.White.copy(alpha = if (dark) .1f else .65f), style = Stroke(1.dp.toPx()))
+    val curlEdge =
+        Path().apply {
+            moveTo(w * 1.2f, h * .42f)
+            cubicTo(w * .32f, h * .55f, w * .20f, h * .72f, w * 1.14f, h * .86f)
+        }
+    val curl =
+        Path().apply {
+            addPath(curlEdge)
+            lineTo(w * 1.14f, h * .94f)
+            cubicTo(w * .13f, h * .78f, w * .06f, h * .53f, w * 1.2f, h * .36f)
+            close()
+        }
+    val curlReflection =
+        Path().apply {
+            addPath(curlEdge)
+            lineTo(w * 1.14f, h * .874f)
+            cubicTo(w * .20f, h * .734f, w * .32f, h * .564f, w * 1.2f, h * .434f)
+            close()
+        }
+    val headerEdge =
+        Path().apply {
+            moveTo(-w * .12f, h * .10f)
+            cubicTo(w * .25f, h * .03f, w * .47f, h * .20f, w * 1.12f, h * .07f)
+        }
+    val glass =
+        Brush.linearGradient(
+            0f to Color(0xFFCCEAF5).copy(alpha = if (dark) .03f else .12f),
+            .42f to Color.White.copy(alpha = if (dark) .12f else .44f),
+            .66f to Color(0xFFF8BBDD).copy(alpha = if (dark) .10f else .23f),
+            1f to Color.White.copy(alpha = if (dark) .025f else .06f),
+            start = Offset(w, h * .3f),
+            end = Offset(0f, h),
+        )
+    val reflection =
+        Brush.linearGradient(
+            listOf(
+                Color.White.copy(alpha = if (dark) .27f else .70f),
+                Color(0xFFDFEDF9).copy(alpha = if (dark) .06f else .15f),
+                Color.Transparent,
+            ),
+            start = Offset(w, h * .36f),
+            end = Offset(w * .1f, h * .9f),
+        )
+    val rim =
+        Brush.linearGradient(
+            listOf(
+                Color(0xFFFFD4EA).copy(alpha = if (dark) .13f else .45f),
+                Color.White.copy(alpha = if (dark) .55f else .95f),
+                Color(0xFFC4EDFA).copy(alpha = if (dark) .18f else .5f),
+            ),
+            start = Offset(0f, h * .8f),
+            end = Offset(w, h * .38f),
+        )
+    onDrawBehind {
+        drawRect(base)
+        drawRect(roseLight)
+        drawRect(blueLight)
+        drawRect(lilacLight)
+        drawPath(curl, glass)
+        drawPath(curlReflection, reflection)
+        drawPath(
+            curlEdge,
+            Color.White.copy(alpha = if (dark) .035f else .12f),
+            style = Stroke(7.dp.toPx()),
+        )
+        drawPath(curlEdge, rim, style = Stroke(1.dp.toPx()))
+        drawPath(ribbon, glass)
+        drawPath(ribbonReflection, reflection)
+        drawPath(
+            ribbonEdge,
+            Color.White.copy(alpha = if (dark) .035f else .12f),
+            style = Stroke(7.dp.toPx()),
+        )
+        drawPath(ribbonEdge, rim, style = Stroke(1.1.dp.toPx()))
+        drawPath(
+            headerEdge,
+            Color.White.copy(alpha = if (dark) .13f else .55f),
+            style = Stroke(1.dp.toPx()),
+        )
+    }
 }
 
 fun Modifier.glassShelf(dark: Boolean): Modifier = drawBehind {
@@ -498,14 +570,32 @@ fun AeroIcon(
                     path(14f, 6f, 18f, 10f)
                 }
                 AeroSymbol.SHELVES -> {
-                    path(3f, 11f, 21f, 11f)
-                    path(3f, 21f, 21f, 21f)
-                    path(6f, 3f, 6f, 9f)
-                    path(11f, 2f, 11f, 9f)
-                    path(16f, 4f, 19f, 9f)
-                    path(6f, 14f, 6f, 19f)
-                    path(12f, 14f, 12f, 19f)
-                    path(18f, 14f, 18f, 19f)
+                    path(3f, 3f, 3f, 21f)
+                    path(21f, 3f, 21f, 21f)
+                    drawRoundRect(tint, Offset(2f, 10f), Size(20f, 2.3f), CornerRadius(.7f))
+                    drawRoundRect(tint, Offset(2f, 20f), Size(20f, 2.3f), CornerRadius(.7f))
+                    drawRoundRect(
+                        tint,
+                        Offset(5.5f, 4f),
+                        Size(3.5f, 6f),
+                        CornerRadius(.6f),
+                        style = Stroke(1.5f),
+                    )
+                    drawRoundRect(
+                        tint,
+                        Offset(12f, 3f),
+                        Size(3.5f, 7f),
+                        CornerRadius(.6f),
+                        style = Stroke(1.5f),
+                    )
+                    drawRoundRect(
+                        tint,
+                        Offset(5.5f, 14f),
+                        Size(4f, 6f),
+                        CornerRadius(.6f),
+                        style = Stroke(1.5f),
+                    )
+                    path(14f, 14f, 17f, 19f)
                 }
                 AeroSymbol.BACKLOG -> {
                     drawRoundRect(
