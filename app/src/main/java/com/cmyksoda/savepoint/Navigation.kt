@@ -23,6 +23,16 @@ class ScreenHistory(saved: List<String> = listOf("home")) {
     operator fun setValue(owner: Any?, property: KProperty<*>, destination: String) =
         open(destination)
 
+    fun finishAdding(destination: String) {
+        val add = trail.lastIndexOf("add")
+        val hunt = trail.lastIndexOf("hunt-add")
+        val origin = maxOf(add, hunt)
+        if (origin >= 0) trail.subList(origin + 1, trail.size).clear()
+        else if (trail.lastOrNull() in setOf("catalog", "form")) trail.removeAt(trail.lastIndex)
+        current.value = trail.lastOrNull() ?: "home"
+        open(destination)
+    }
+
     fun open(destination: String) {
         if (destination == current.value) return
         if (destination in setOf("home", "backlog", "paused", "log")) {

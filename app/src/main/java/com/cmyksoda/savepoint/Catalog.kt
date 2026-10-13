@@ -13,10 +13,24 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 data class CatalogPage(val games: List<Game>, val warning: String?, val nextOffset: Int?)
+
+fun imageAvailable(url: String): Boolean {
+    val connection = URI(url).toURL().openConnection() as HttpURLConnection
+    connection.requestMethod = "HEAD"
+    connection.connectTimeout = 10000
+    connection.readTimeout = 10000
+    connection.setRequestProperty("User-Agent", "Savepoint/0.3 (personal game library)")
+    return try {
+        connection.responseCode == 200 && connection.contentType?.startsWith("image/") == true
+    } finally {
+        connection.disconnect()
+    }
+}
 
 class SourceUnavailable(val status: Int) : IOException("Source unavailable ($status)")
 
@@ -227,6 +241,7 @@ class Artwork(private val context: Context) {
 }
 
 class Catalog(private val context: Context) {
+    val pokemon = PokemonCatalog(context)
     private val sources =
         linkedMapOf(
             "Nintendo Switch" to "switch",
@@ -245,6 +260,7 @@ class Catalog(private val context: Context) {
         system: String,
         endpoint: String,
         offset: Int = 0,
+        refreshGameTdb: Boolean = false,
     ): CatalogPage =
         withContext(Dispatchers.IO) {
             val found = mutableListOf<Game>()
@@ -291,10 +307,28 @@ class Catalog(private val context: Context) {
             for ((platform, slug) in requested) {
                 try {
                     val cache = File(context.cacheDir, "$slug-titles.txt")
-                    if (!cache.exists())
-                        cache.writeBytes(
-                            fetchBytes("https://www.gametdb.com/${slug}tdb.txt?LANG=EN")
-                        )
+                    val valid =
+                        cache.isFile &&
+                            cache.bufferedReader().use {
+                                it.readLine()?.startsWith("TITLES =") == true
+                            }
+                    if (
+                        !valid ||
+                            refreshGameTdb ||
+                            System.currentTimeMillis() - cache.lastModified() > 86400000L
+                    ) {
+                        val bytes = fetchBytes("https://www.gametdb.com/${slug}tdb.txt?LANG=EN")
+                        require(String(bytes.take(100).toByteArray()).startsWith("TITLES =")) {
+                            "GameTDB returned an invalid title list"
+                        }
+                        val temporary = File.createTempFile("titles-", ".tmp", context.cacheDir)
+                        try {
+                            temporary.writeBytes(bytes)
+                            require(temporary.renameTo(cache))
+                        } finally {
+                            temporary.delete()
+                        }
+                    }
                     cache.useLines { lines ->
                         lines
                             .filter { it.contains(" = ") && !it.startsWith("TITLES") }
@@ -341,17 +375,59 @@ class Catalog(private val context: Context) {
         system: String,
         provider: String,
         endpoint: String,
+        refresh: Boolean = false,
     ): List<CoverCandidate> =
         withContext(Dispatchers.IO) {
             if (provider == "GameTDB") {
-                return@withContext search(title, catalogSystemName(system), "")
-                    .first
-                    .filter {
-                        it.source == "gametdb" &&
-                            it.cover.isNotBlank() &&
-                            catalogTitleKey(it.title) == catalogTitleKey(title)
-                    }
-                    .map { CoverCandidate(it.cover, "GameTDB", it.title) }
+                val requestedSystem = catalogSystemName(system)
+                val lookupSystem =
+                    if (requestedSystem == "Nintendo Switch 2") "Nintendo Switch"
+                    else requestedSystem
+                val lookupTitle = gameTdbCoverTitle(title)
+                val matches =
+                    searchPage(lookupTitle, lookupSystem, "", refreshGameTdb = refresh)
+                        .games
+                        .filter {
+                            it.source == "gametdb" &&
+                                catalogTitleKey(it.title) == catalogTitleKey(lookupTitle)
+                        }
+                return@withContext kotlinx.coroutines.coroutineScope {
+                    matches
+                        .flatMap { game ->
+                            listOf("US", "EN", "JA").map { region ->
+                                async {
+                                    val slug = sources[lookupSystem] ?: return@async null
+                                    val extension = if (slug == "wii") "png" else "jpg"
+                                    val base = "https://art.gametdb.com/$slug"
+                                    val url =
+                                        listOf(
+                                                "$base/coverHQ/$region/${game.sourceId}.$extension",
+                                                "$base/cover/$region/${game.sourceId}.$extension",
+                                            )
+                                            .firstOrNull {
+                                                runCatching { imageAvailable(it) }
+                                                    .getOrDefault(false)
+                                            } ?: return@async null
+                                    val label =
+                                        when (region) {
+                                            "EN" -> "Europe"
+                                            "JA" -> "Japan"
+                                            else -> "US"
+                                        }
+                                    CoverCandidate(
+                                        url,
+                                        "GameTDB",
+                                        if (requestedSystem == "Nintendo Switch 2")
+                                            "$label · Switch cover"
+                                        else label,
+                                    )
+                                }
+                            }
+                        }
+                        .map { it.await() }
+                        .filterNotNull()
+                        .distinctBy { it.url }
+                }
             }
             require(endpoint.isNotBlank()) {
                 "Set your catalog service address in settings to search $provider covers."
@@ -382,50 +458,12 @@ class Catalog(private val context: Context) {
 
     suspend fun shinySprite(pokemon: String, version: String): String =
         withContext(Dispatchers.IO) {
-            val generation =
-                when (version) {
-                    "gold",
-                    "silver",
-                    "crystal" -> "generation-ii"
-                    "ruby-sapphire",
-                    "emerald",
-                    "firered-leafgreen" -> "generation-iii"
-                    "diamond-pearl",
-                    "platinum",
-                    "heartgold-soulsilver" -> "generation-iv"
-                    "black-white" -> "generation-v"
-                    "x-y",
-                    "omegaruby-alphasapphire" -> "generation-vi"
-                    "sun-moon",
-                    "ultra-sun-ultra-moon",
-                    "lets-go" -> "generation-vii"
-                    else ->
-                        throw IllegalArgumentException(
-                            "Choose game-specific artwork manually for this game."
-                        )
-                }
-            val slug = pokemon.trim().lowercase().replace(' ', '-')
-            require(slug.matches(Regex("[a-z0-9-]+"))) { "Enter a Pokémon name or Pokédex number" }
-            val data = resolvePokemon(slug) { url -> JSONObject(String(fetchBytes(url))) }
-            val versionKey =
-                when (version) {
-                    "omegaruby-alphasapphire" -> "omega-ruby-alpha-sapphire"
-                    "lets-go" -> "lets-go-pikachu-lets-go-eevee"
-                    else -> version
-                }
-            val sprites =
-                data
-                    .getJSONObject("sprites")
-                    .getJSONObject("versions")
-                    .getJSONObject(generation)
-                    .optJSONObject(versionKey)
-                    ?: throw IllegalArgumentException(
-                        "No matching game artwork is available. Choose a game-specific image manually."
-                    )
-            val url = sprites.optString("front_shiny")
-            require(url.isNotBlank() && url != "null") {
-                "No shiny artwork exists for this Pokémon in the selected game."
+            val choice = this@Catalog.pokemon.find(pokemon.trim().lowercase().replace(' ', '-'))
+            serebiiShinyCandidates(choice, version).firstOrNull { url ->
+                runCatching { imageAvailable(url) }.getOrDefault(false)
             }
-            url
+                ?: throw IllegalArgumentException(
+                    "No Serebii shiny artwork was found for this form and game. You can choose an image."
+                )
         }
 }

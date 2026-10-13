@@ -9,8 +9,8 @@ android {
         applicationId = "com.cmyksoda.savepoint"
         minSdk = 26
         targetSdk = 37
-        versionCode = 18
-        versionName = "0.3.15"
+        versionCode = 19
+        versionName = "0.3.16"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }

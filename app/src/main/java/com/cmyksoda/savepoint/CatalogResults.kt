@@ -96,3 +96,11 @@ fun mergeCatalogResults(
     }
     return merged.values.toList()
 }
+
+fun gameTdbCoverTitle(title: String): String =
+    title
+        .replace(
+            Regex("\\s*[-–—:]?\\s*\\(?Nintendo Switch 2 Edition\\)?$", RegexOption.IGNORE_CASE),
+            "",
+        )
+        .trim()

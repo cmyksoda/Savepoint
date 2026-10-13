@@ -73,7 +73,18 @@ import org.json.JSONObject
 private val bottomTabRoutes = setOf("home", "backlog", "paused", "log")
 
 private val dockRoutes =
-    setOf("home", "backlog", "paused", "log", "add", "catalog", "find", "collections", "collection")
+    setOf(
+        "home",
+        "backlog",
+        "paused",
+        "log",
+        "add",
+        "catalog",
+        "find",
+        "collections",
+        "collection",
+        "hunt-add",
+    )
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -150,7 +161,13 @@ fun Art(
                     Modifier.fillMaxSize(),
                     contentScale = imageScale,
                     filterQuality =
-                        if (sprite) androidx.compose.ui.graphics.FilterQuality.None
+                        if (
+                            sprite &&
+                                !Regex("/Shiny/(XY|SM|SWSH|LGPE|BDSP|LA|SV|ZA)/")
+                                    .containsMatchIn(url) &&
+                                maxOf(bitmap!!.width, bitmap!!.height) <= 96
+                        )
+                            androidx.compose.ui.graphics.FilterQuality.None
                         else androidx.compose.ui.graphics.FilterQuality.Medium,
                 )
             } else
@@ -780,14 +797,19 @@ fun GameForm(
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var selectingSprite by remember { mutableStateOf(false) }
+    var spriteRequest by remember { mutableIntStateOf(0) }
+    var selectingPokemon by remember { mutableStateOf(false) }
     val imagePicker =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null)
                 scope.launch {
                     try {
                         val selected = artwork.select(uri)
-                        if (selectingSprite) sprite = selected
-                        else {
+                        if (selectingSprite) {
+                            spriteRequest++
+                            busy = false
+                            sprite = selected
+                        } else {
                             cover = selected
                             selectedCoverProvider = "Selected image"
                         }
@@ -796,95 +818,124 @@ fun GameForm(
                     }
                 }
         }
+    fun findSprite() {
+        if (pokemon.isBlank() || version.isBlank() || version == "other") return
+        val request = ++spriteRequest
+        val wantedPokemon = pokemon
+        val wantedVersion = version
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                val found = catalog.shinySprite(wantedPokemon, wantedVersion)
+                if (
+                    request == spriteRequest && pokemon == wantedPokemon && version == wantedVersion
+                )
+                    sprite = found
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                if (request == spriteRequest) error = e.message
+            } finally {
+                if (request == spriteRequest) busy = false
+            }
+        }
+    }
+    if (selectingPokemon)
+        AeroDialog(
+            onDismissRequest = { selectingPokemon = false },
+            title = { Text("choose a Pokémon") },
+            text = {
+                Box(Modifier.height(400.dp).fillMaxWidth()) {
+                    PokemonPicker(catalog.pokemon) { choice ->
+                        pokemon = choice.slug
+                        sprite = ""
+                        selectingPokemon = false
+                        findSprite()
+                    }
+                }
+            },
+            confirmButton = {
+                AeroButton(onClick = { selectingPokemon = false }) { Text("cancel") }
+            },
+        )
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        AeroTextField(
-            title,
-            { title = it },
-            label = if (shelf == Shelf.HUNTS) "game title" else "title",
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Choice("system", system, systems) { system = it }
-        if (existing)
-            Choice("shelf", shelf.label, Shelf.entries.map { it.label }) { label ->
-                shelf = Shelf.entries.first { it.label == label }
-            }
-        AeroTextField(
-            collection,
-            { collection = it },
-            label = "collection (optional)",
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (collection.isNotBlank())
+        if (shelf != Shelf.HUNTS) {
             AeroTextField(
-                collectionOrder,
-                { collectionOrder = it },
-                label = "position in collection",
-                modifier = Modifier.fillMaxWidth(),
-            )
-        AeroTextField(
-            release,
-            { release = it },
-            label = "release date · YYYY-MM-DD (optional)",
-            modifier = Modifier.fillMaxWidth(),
-        )
-        AeroButton(
-            onClick = {
-                selectingSprite = false
-                imagePicker.launch("image/*")
-            }
-        ) {
-            Text("choose cover image")
-        }
-        if (cover.isNotBlank())
-            Art(
-                cover,
-                artwork,
                 title,
-                Modifier.clip(RoundedCornerShape(12.dp)),
-                system = system,
-                coverBounds = CoverSize(90f, 120f),
-            )
-        if (shelf == Shelf.HUNTS) {
-            AeroTextField(
-                pokemon,
-                {
-                    pokemon = it
-                    sprite = ""
-                },
-                label = "Pokémon name or form slug",
+                { title = it },
+                label = "title",
                 modifier = Modifier.fillMaxWidth(),
             )
+            Choice("system", system, systems) { system = it }
+            if (existing)
+                Choice("shelf", shelf.label, Shelf.entries.map { it.label }) { label ->
+                    shelf = Shelf.entries.first { it.label == label }
+                }
+            AeroTextField(
+                collection,
+                { collection = it },
+                label = "collection (optional)",
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (collection.isNotBlank())
+                AeroTextField(
+                    collectionOrder,
+                    { collectionOrder = it },
+                    label = "position in collection",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            AeroTextField(
+                release,
+                { release = it },
+                label = "release date · YYYY-MM-DD (optional)",
+                modifier = Modifier.fillMaxWidth(),
+            )
+            AeroButton(
+                onClick = {
+                    selectingSprite = false
+                    imagePicker.launch("image/*")
+                }
+            ) {
+                Text("choose cover image")
+            }
+            if (cover.isNotBlank())
+                Art(
+                    cover,
+                    artwork,
+                    title,
+                    Modifier.clip(RoundedCornerShape(12.dp)),
+                    system = system,
+                    coverBounds = CoverSize(90f, 120f),
+                )
+        }
+        if (shelf == Shelf.HUNTS) {
+            Text(displayPokemonName(pokemon), style = MaterialTheme.typography.titleLarge)
+            AeroButton(onClick = { selectingPokemon = true }) { Text("change Pokémon") }
             Choice(
                 "Pokémon game",
-                huntVersions[version] ?: version,
+                huntVersions[version] ?: "choose a game",
                 huntVersions.values.toList(),
             ) { value ->
                 version = huntVersions.entries.first { it.value == value }.key
+                spriteRequest++
+                busy = false
+                error = null
                 sprite = ""
                 odds = ""
+                title = "Pokémon ${huntVersions.getValue(version)}"
+                system = huntSystem(version)
+                findSprite()
             }
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 AeroButton(
-                    onClick = {
-                        busy = true
-                        error = null
-                        scope.launch {
-                            try {
-                                sprite = catalog.shinySprite(pokemon, version)
-                            } catch (e: Exception) {
-                                error = e.message
-                            } finally {
-                                busy = false
-                            }
-                        }
-                    },
-                    enabled = !busy && pokemon.isNotBlank(),
+                    onClick = { findSprite() },
+                    enabled = !busy && pokemon.isNotBlank() && version.isNotBlank(),
                 ) {
                     Text(if (busy) "finding artwork…" else "find shiny artwork")
                 }
@@ -897,7 +948,18 @@ fun GameForm(
                     Text("choose image")
                 }
             }
-            if (sprite.isNotBlank()) Art(sprite, artwork, pokemon, Modifier.size(100.dp), true)
+            if (sprite.isNotBlank()) {
+                Art(
+                    sprite,
+                    artwork,
+                    pokemon,
+                    Modifier.size(112.dp),
+                    sprite = true,
+                    transparent = true,
+                )
+                if ("serebii.net" in sprite)
+                    Text("Shiny artwork via Serebii", style = MaterialTheme.typography.bodySmall)
+            }
             val methods = huntMethods(version)
             Choice(
                 "hunt method",
@@ -948,6 +1010,9 @@ fun GameForm(
         PinkButton(
             onClick = {
                 try {
+                    require(shelf != Shelf.HUNTS || version in huntVersions) {
+                        "Choose the Pokémon game"
+                    }
                     require(title.isNotBlank()) { "Give this game a title" }
                     require(shelf != Shelf.HUNTS || pokemon.isNotBlank()) {
                         "Enter the Pokémon you are hunting"
@@ -994,7 +1059,7 @@ fun GameForm(
             modifier = Modifier.fillMaxWidth(),
             enabled = !busy,
         ) {
-            Text("save game")
+            Text(if (shelf == Shelf.HUNTS) "save hunt" else "save game")
         }
         AeroButton(onClick = onCancel) { Text("cancel") }
     }
@@ -1008,6 +1073,7 @@ fun AddScreen(
     onResults: (List<CatalogResult>) -> Unit,
     onChoose: (CatalogResult) -> Unit,
     onManual: () -> Unit,
+    onHunt: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
@@ -1061,6 +1127,7 @@ fun AddScreen(
             },
             label = "game title",
             autoFocus = true,
+            onSubmit = { if (query.isNotBlank()) search() },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
@@ -1068,11 +1135,15 @@ fun AddScreen(
             system = if (it == "all systems") "" else it
             nextOffset = null
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             PinkButton(onClick = { search() }, enabled = !busy && query.isNotBlank()) {
                 Text(if (busy && !loadingMore) "searching…" else "search")
             }
             AeroButton(onClick = onManual) { Text("add manually") }
+            AeroButton(onClick = onHunt) { Text("add a hunt") }
         }
         warning?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         LazyColumn(
@@ -1373,7 +1444,8 @@ fun Savepoint(openLater: Boolean) {
     }
     fun saveGame(game: Game) {
         screenStates.removeState("form:${game.id}")
-        val newFinishedGame = games.none { it.id == game.id } && game.place == Place.FINISHED
+        val adding = games.none { it.id == game.id }
+        val newFinishedGame = adding && game.place == Place.FINISHED
         mutate { list ->
             val previous = list.firstOrNull { it.id == game.id }
             val positioned =
@@ -1398,7 +1470,8 @@ fun Savepoint(openLater: Boolean) {
             else list.map { if (it.id == game.id) positioned else it }
         }
         selected = game.id
-        route = if (game.place == Place.FINISHED) "journal" else "details"
+        val destination = if (game.place == Place.FINISHED) "journal" else "details"
+        if (adding) navigation.finishAdding(destination) else route = destination
         if (newFinishedGame) {
             logEntry = Playthrough(finishedAt = null)
             dialog = "entry"
@@ -1412,7 +1485,8 @@ fun Savepoint(openLater: Boolean) {
         destinationChosen = false
         selected = ""
         form = null
-        route = "add"
+        screenStates.removeState("hunt-add")
+        route = if (shelf == Shelf.HUNTS) "hunt-add" else "add"
     }
     fun backRoute(): String = navigation.previous
     fun updateSettings(value: Settings) {
@@ -1569,12 +1643,17 @@ fun Savepoint(openLater: Boolean) {
                         when (route) {
                             "home" -> "Savepoint"
                             "find" -> "search"
+                            "hunt-add" -> "add a hunt"
                             "shelf" -> editingShelf.label
                             "collection" -> "collections"
-                            "details" -> "your game"
+                            "details" ->
+                                if (selectedGame?.shelf == Shelf.HUNTS) "your hunt" else "your game"
                             "catalog",
                             "cover" -> "cover art"
-                            "form" -> if (selectedGame == null) "add game" else "edit game"
+                            "form" ->
+                                if (form?.shelf == Shelf.HUNTS) {
+                                    if (selectedGame == null) "add a hunt" else "edit hunt"
+                                } else if (selectedGame == null) "add game" else "edit game"
                             "log",
                             "journal" -> "play log"
                             else -> route
@@ -1887,6 +1966,24 @@ fun Savepoint(openLater: Boolean) {
                                                     { route = "cover" },
                                                 )
                                             }
+                                        "hunt-add" ->
+                                            Box(
+                                                Modifier.fillMaxSize().padding(horizontal = 20.dp)
+                                            ) {
+                                                PokemonPicker(catalog.pokemon) { pokemon ->
+                                                    form =
+                                                        Game(
+                                                            title = "",
+                                                            shelf = Shelf.HUNTS,
+                                                            place = Place.ACTIVE,
+                                                            pokemon = pokemon.slug,
+                                                            pokemonVersion = "",
+                                                        )
+                                                    selected = ""
+                                                    destinationChosen = true
+                                                    route = "form"
+                                                }
+                                            }
                                         "add" ->
                                             AddScreen(
                                                 catalog,
@@ -1916,6 +2013,7 @@ fun Savepoint(openLater: Boolean) {
                                                     selected = ""
                                                     route = "form"
                                                 },
+                                                onHunt = { startAdding(Shelf.HUNTS, "add") },
                                             )
                                         "cover" ->
                                             selectedGame?.let { game ->

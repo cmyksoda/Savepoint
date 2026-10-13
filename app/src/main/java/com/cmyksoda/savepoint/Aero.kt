@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +33,11 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -46,6 +53,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -388,19 +396,11 @@ fun Modifier.glassMaterial(
             )
         )
         .drawWithContent {
-            val shine =
-                Path().apply {
-                    moveTo(0f, 0f)
-                    lineTo(size.width, 0f)
-                    lineTo(size.width, size.height * .18f)
-                    quadraticTo(size.width * .3f, size.height * .34f, 0f, size.height * .22f)
-                    close()
-                }
-            drawPath(
-                shine,
+            drawRect(
                 Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = if (dark) .08f else .33f), Color.Transparent)
-                ),
+                    listOf(Color.White.copy(alpha = if (dark) .08f else .33f), Color.Transparent),
+                    endY = size.height * .28f,
+                )
             )
             drawContent()
             drawRoundRect(
@@ -514,7 +514,8 @@ private fun AeroControl(
                     .drawWithContent {
                         drawRoundRect(
                             Brush.verticalGradient(
-                                listOf(Color.White.copy(alpha = .2f), Color.Transparent)
+                                listOf(Color.White.copy(alpha = .2f), Color.Transparent),
+                                endY = size.height * .43f,
                             ),
                             topLeft = Offset(2.dp.toPx(), 1.dp.toPx()),
                             size = Size(size.width - 4.dp.toPx(), size.height * .43f),
@@ -609,6 +610,7 @@ fun AeroTextField(
     minLines: Int = 1,
     maxLines: Int = Int.MAX_VALUE,
     autoFocus: Boolean = false,
+    onSubmit: (() -> Unit)? = null,
 ) {
     val dark = LocalAeroDark.current
     val focus = remember { FocusRequester() }
@@ -632,9 +634,22 @@ fun AeroTextField(
                 value,
                 onValueChange,
                 modifier =
-                    Modifier.fillMaxWidth().focusRequester(focus).semantics {
-                        contentDescription = label
-                    },
+                    Modifier.fillMaxWidth()
+                        .focusRequester(focus)
+                        .onPreviewKeyEvent { event ->
+                            if (
+                                onSubmit != null && event.key in listOf(Key.Enter, Key.NumPadEnter)
+                            ) {
+                                if (event.type == KeyEventType.KeyUp) onSubmit()
+                                true
+                            } else false
+                        }
+                        .semantics { contentDescription = label },
+                keyboardOptions =
+                    KeyboardOptions(
+                        imeAction = if (onSubmit != null) ImeAction.Search else ImeAction.Default
+                    ),
+                keyboardActions = KeyboardActions(onSearch = { onSubmit?.invoke() }),
                 singleLine = singleLine,
                 minLines = minLines,
                 maxLines = maxLines,

@@ -85,7 +85,14 @@ fun CoverSelection(
                     launch {
                         loading = loading + provider
                         try {
-                            val found = catalog.covers(game.title, game.system, provider, endpoint)
+                            val found =
+                                catalog.covers(
+                                    game.title,
+                                    game.system,
+                                    provider,
+                                    endpoint,
+                                    refresh = attempt > 0,
+                                )
                             choices = (choices + found).distinctBy { it.url }
                             if (found.isEmpty()) unavailable = unavailable + provider
                         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -174,6 +181,7 @@ fun CoverSelection(
                                                         .find(cover.label)
                                                         ?.groupValues
                                                         ?.get(1) ?: "front cover"
+                                                else if (provider == "GameTDB") cover.label
                                                 else "use this cover",
                                                 style = MaterialTheme.typography.bodySmall,
                                             )

@@ -134,6 +134,8 @@ fun CollectionsScreen(
     onOpenCollection: (String) -> Unit,
     onOpen: (String) -> Unit,
 ) {
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val names = collectionNames(games, settings)
     var creating by rememberSaveable { mutableStateOf(false) }
     var renaming by rememberSaveable { mutableStateOf(false) }
@@ -392,6 +394,10 @@ fun CollectionsScreen(
                         query,
                         { query = it },
                         label = "find a game",
+                        onSubmit = {
+                            focus.clearFocus()
+                            keyboard?.hide()
+                        },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -475,6 +481,10 @@ fun FindGames(
             query,
             { query = it },
             label = "search your games",
+            onSubmit = {
+                focus.clearFocus()
+                keyboard?.hide()
+            },
             autoFocus = true,
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
