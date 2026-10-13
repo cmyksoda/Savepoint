@@ -157,42 +157,42 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
                     Brush.linearGradient(
                         0f to
                             (if (dark) Color(0xFFD0EBF7) else Color.White).copy(
-                                alpha = if (dark) .13f else .34f
+                                alpha = if (dark) .10f else .34f
                             ),
-                        .4f to Color.White.copy(alpha = if (dark) .07f else .20f),
+                        .4f to Color.White.copy(alpha = if (dark) .05f else .20f),
                         1f to Color.Transparent,
                         start = origin,
                         end = end,
                     )
                 path to light
             }
-    val waves =
-        (0..10).map { index ->
-            val phase = index * .28f
-            val level = index * .115f - .08f
-            val amplitude = .046f + .008f * kotlin.math.sin(phase)
-            val path =
-                Path().apply {
-                    for (step in 0..48) {
-                        val t = -.2f + step / 48f * 1.4f
-                        val y = level - .09f * t + amplitude * kotlin.math.sin(t * 4.52f + phase)
-                        if (step == 0) moveTo(t * w, y * h) else lineTo(t * w, y * h)
-                    }
+    val waveIndices = if (dark) listOf(1, 4, 7, 10) else (0..10).toList()
+    val waves = waveIndices.map { index ->
+        val phase = index * .28f
+        val level = index * .115f - .08f
+        val amplitude = .046f + .008f * kotlin.math.sin(phase)
+        val path =
+            Path().apply {
+                for (step in 0..48) {
+                    val t = -.2f + step / 48f * 1.4f
+                    val y = level - .09f * t + amplitude * kotlin.math.sin(t * 4.52f + phase)
+                    if (step == 0) moveTo(t * w, y * h) else lineTo(t * w, y * h)
                 }
-            val shade = Path().apply { addPath(path, Offset(0f, h * .018f)) }
-            val strength = .65f + .35f * kotlin.math.sin(index * .45f)
-            val light =
-                Brush.horizontalGradient(
-                    0f to Color.Transparent,
-                    .2f to Color(0xFFE6D6F6).copy(alpha = strength * if (dark) .05f else .1f),
-                    .55f to Color.White.copy(alpha = strength * if (dark) .14f else .25f),
-                    .85f to Color(0xFFDAEDF8).copy(alpha = strength * if (dark) .07f else .12f),
-                    1f to Color.Transparent,
-                    startX = -w * .2f,
-                    endX = w * 1.2f,
-                )
-            Triple(path, shade, light)
-        }
+            }
+        val shade = Path().apply { addPath(path, Offset(0f, h * .018f)) }
+        val strength = .65f + .35f * kotlin.math.sin(index * .45f)
+        val light =
+            Brush.horizontalGradient(
+                0f to Color.Transparent,
+                .2f to Color(0xFFE6D6F6).copy(alpha = strength * if (dark) .04f else .1f),
+                .55f to Color.White.copy(alpha = strength * if (dark) .095f else .25f),
+                .85f to Color(0xFFDAEDF8).copy(alpha = strength * if (dark) .05f else .12f),
+                1f to Color.Transparent,
+                startX = -w * .2f,
+                endX = w * 1.2f,
+            )
+        Triple(path, shade, light)
+    }
     val glint =
         Brush.horizontalGradient(
             0f to Color.Transparent,
@@ -208,7 +208,7 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
             listOf(
                 Color.Transparent,
                 (if (dark) Color(0xFF0B142E) else Color(0xFFD48CB9)).copy(
-                    alpha = if (dark) .1f else .11f
+                    alpha = if (dark) .06f else .11f
                 ),
                 Color.Transparent,
             ),
@@ -244,12 +244,12 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
         drawRect(roseLight)
         drawRect(blueLight)
         drawRect(lilacLight)
-        for ((path, light) in rays) glow(path, light, w * .06f, w * .035f)
+        for ((path, light) in rays) glow(path, light, w * .06f, w * if (dark) .07f else .035f)
         for ((index, wave) in waves.withIndex()) {
             val (path, shade, light) = wave
-            glow(shade, valley, h * .028f, h * .022f)
-            glow(path, light, h * .026f, h * .020f)
-            if (index in 2..8 && index % 2 == 0) glow(path, glint, h * .0015f, h * .0018f)
+            glow(shade, valley, h * if (dark) .05f else .028f, h * if (dark) .045f else .022f)
+            glow(path, light, h * if (dark) .06f else .026f, h * if (dark) .042f else .020f)
+            if (!dark && index in 2..8 && index % 2 == 0) glow(path, glint, h * .0015f, h * .0018f)
         }
     }
     onDrawBehind {

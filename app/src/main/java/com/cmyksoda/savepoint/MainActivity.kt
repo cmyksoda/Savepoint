@@ -525,7 +525,11 @@ fun GameDetails(
             }
         }
         if (game.source == "gametdb")
-            Text("Title and cover source: GameTDB", style = MaterialTheme.typography.bodySmall)
+            Text(
+                if (game.cover == deltarunePublisherCover) "Title source: GameTDB"
+                else "Title and cover source: GameTDB",
+                style = MaterialTheme.typography.bodySmall,
+            )
         if (game.source == "igdb")
             Text("Game data provided by IGDB", style = MaterialTheme.typography.bodySmall)
         bundledCovers
@@ -1104,8 +1108,8 @@ fun Savepoint(openLater: Boolean) {
         try {
             artwork.installBundledCovers()
             library.load()
-            if (fillMissingStarterCovers(library.games.value) != library.games.value)
-                library.change(::fillMissingStarterCovers)
+            if (updateStarterArtwork(library.games.value) != library.games.value)
+                library.change(::updateStarterArtwork)
             settings = settingsStore.read()
             loaded = true
             if (route == "finished") route = "log"
@@ -1585,7 +1589,7 @@ fun Savepoint(openLater: Boolean) {
                                         val previousSettings = settings
                                         try {
                                             library.change {
-                                                fillMissingStarterCovers(backup.games)
+                                                updateStarterArtwork(backup.games)
                                             }
                                             settings = settingsStore.change { backup.settings }
                                         } catch (e: Exception) {

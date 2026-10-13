@@ -67,4 +67,67 @@ class StarterLibraryTest {
         assertEquals(updated, fillMissingStarterCovers(updated))
         assertEquals(game.id, updated.single().id)
     }
+
+    @Test
+    fun deltaruneStarterUsesBlackPublisherArtworkAndSwitch2() {
+        val game = starterGames().first { it.title == "DELTARUNE" }
+        assertEquals("Nintendo Switch 2", game.system)
+        assertEquals(deltarunePublisherCover, game.cover)
+    }
+
+    @Test
+    fun legacyDeltaruneUpgradePreservesEveryPersonalField() {
+        val old =
+            Game(
+                title = "DELTARUNE",
+                system = "Nintendo Switch",
+                source = "gametdb",
+                sourceId = "BN5WA",
+                cover = "https://art.gametdb.com/switch/cover/US/BN5WA.jpg",
+                place = Place.PAUSED,
+                position = 3,
+                notes = "next room",
+                pauseNote = "take your time",
+                replayCount = 2,
+                playthroughs =
+                    listOf(
+                        Playthrough(feeling = Feeling.LOVED, thoughts = "wonderful", hours = 7.5)
+                    ),
+            )
+        val updated = updateStarterArtwork(listOf(old)).single()
+        assertEquals("Nintendo Switch 2", updated.system)
+        assertEquals(deltarunePublisherCover, updated.cover)
+        assertEquals(
+            old,
+            updated.copy(
+                system = old.system,
+                cover = old.cover,
+                source = old.source,
+                sourceId = old.sourceId,
+            ),
+        )
+        assertEquals(listOf(updated), updateStarterArtwork(listOf(updated)))
+    }
+
+    @Test
+    fun deltaruneCustomArtworkAndExplicitCatalogPlatformArePreserved() {
+        val legacy =
+            Game(
+                title = "DELTARUNE",
+                system = "Nintendo Switch",
+                source = "gametdb",
+                sourceId = "BN5WA",
+            )
+        for (cover in listOf("local:chosen.image", "https://example.com/cover.jpg")) {
+            val game = legacy.copy(cover = cover)
+            assertEquals(listOf(game), updateStarterArtwork(listOf(game)))
+        }
+        val catalog =
+            preferPublisherCover(
+                legacy.copy(cover = "https://art.gametdb.com/switch/cover/US/BN5WA.jpg")
+            )
+        assertEquals("Nintendo Switch", catalog.system)
+        assertEquals(deltarunePublisherCover, catalog.cover)
+        assertEquals(listOf(catalog), updateStarterArtwork(listOf(catalog)))
+    }
 }

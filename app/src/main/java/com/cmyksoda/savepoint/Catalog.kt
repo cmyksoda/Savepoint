@@ -197,6 +197,7 @@ class Catalog(private val context: Context) {
                 }
             }
             found
+                .map(::preferPublisherCover)
                 .distinctBy { Triple(it.title.lowercase(), it.system, it.source) }
                 .sortedWith(
                     compareBy<Game> { !it.title.equals(query, true) }.thenBy { it.title.length }
