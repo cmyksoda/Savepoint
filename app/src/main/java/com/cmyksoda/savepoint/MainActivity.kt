@@ -11,9 +11,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -29,7 +29,9 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -43,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import java.io.File
 import java.net.URI
 import java.time.LocalDate
@@ -60,119 +63,57 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Glass(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    val dark = MaterialTheme.colorScheme.background.red < 0.3f
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, if (dark) Color(0xFF9C6688).copy(alpha = .5f) else Color.White),
-        shadowElevation = 3.dp,
-    ) {
-        Column(
-            modifier =
-                Modifier.background(
-                    Brush.verticalGradient(
-                        if (dark) listOf(Color(0xEF68405C), Color(0xDB3D253B))
-                        else listOf(Color(0xF5FFFFFF), Color(0xCFFFE5F1))
-                    )
-                ),
-            content = content,
-        )
-    }
-}
-
-@Composable
-fun PinkButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    content: @Composable RowScope.() -> Unit,
-) {
-    val dark = MaterialTheme.colorScheme.background.red < 0.3f
-    val shape = RoundedCornerShape(18.dp)
-    val gradient =
-        if (dark) listOf(Color(0xFFFFD6E9), Color(0xFFEE94BD))
-        else listOf(Color(0xFFBB638B), Color(0xFF94315E))
-    Button(
-        onClick = onClick,
-        modifier = modifier.background(Brush.verticalGradient(gradient), shape),
-        enabled = enabled,
-        shape = shape,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = .45f)),
-        colors =
-            ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent,
-                contentColor = if (dark) Color(0xFF47132C) else Color.White,
-                disabledContainerColor = Color(0x99775168),
-            ),
-        content = content,
-    )
-}
-
-@Composable
-fun Choice(label: String, value: String, options: List<String>, onSelect: (String) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Column {
-        Text(label, style = MaterialTheme.typography.labelLarge)
-        Box {
-            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-                Text(value, modifier = Modifier.weight(1f), maxLines = 2)
-                Text("⌄")
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.heightIn(max = 360.dp),
-            ) {
-                options.forEach { item ->
-                    DropdownMenuItem(
-                        text = { Text(item) },
-                        onClick = {
-                            expanded = false
-                            onSelect(item)
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun Art(
     url: String,
     artwork: Artwork,
     title: String,
     modifier: Modifier = Modifier,
     sprite: Boolean = false,
+    showPlaceholderTitle: Boolean = true,
 ) {
     var bitmap by remember(url) { mutableStateOf<android.graphics.Bitmap?>(null) }
-    LaunchedEffect(url) { bitmap = runCatching { artwork.bitmap(url) }.getOrNull() }
+    LaunchedEffect(url) {
+        bitmap = runCatching { artwork.cachedBitmap(url) }.getOrNull()
+        val preferred = preferredCoverUrl(url)
+        bitmap =
+            runCatching { artwork.bitmap(preferred) }.getOrNull()
+                ?: bitmap
+                ?: runCatching { artwork.bitmap(url) }.getOrNull()
+    }
     Box(
-        modifier.background(Brush.linearGradient(listOf(Color(0xFFDD9BBE), Color(0xFF774E83)))),
+        modifier.background(Brush.linearGradient(listOf(Color(0xFFC677A4), Color(0xFF59496F)))),
         contentAlignment = Alignment.Center,
     ) {
-        if (bitmap != null)
+        if (bitmap != null) {
+            if (!sprite) {
+                Image(
+                    bitmap!!.asImageBitmap(),
+                    null,
+                    Modifier.fillMaxSize().blur(18.dp),
+                    contentScale = ContentScale.Crop,
+                )
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .18f)))
+            }
             Image(
                 bitmap!!.asImageBitmap(),
                 title,
                 Modifier.fillMaxSize().then(if (sprite) Modifier.padding(12.dp) else Modifier),
-                contentScale = if (sprite) ContentScale.Fit else ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 filterQuality =
                     if (sprite) androidx.compose.ui.graphics.FilterQuality.None
                     else androidx.compose.ui.graphics.FilterQuality.Medium,
             )
-        else
+        } else
             Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Image(painterResource(R.drawable.icon_memory_card), null, Modifier.size(48.dp))
-                Text(
-                    title,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                if (showPlaceholderTitle)
+                    Text(
+                        title,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                    )
             }
     }
 }
@@ -180,12 +121,14 @@ fun Art(
 @Composable
 fun GameCover(game: Game, artwork: Artwork, focus: Boolean, onOpen: () -> Unit) {
     val hunt = game.shelf == Shelf.HUNTS
-    val width = if (focus) 166.dp else if (hunt) 142.dp else 116.dp
-    val height = if (focus) 218.dp else if (hunt) 154.dp else 168.dp
+    val width = if (focus) 156.dp else if (hunt) 142.dp else 108.dp
+    val height = if (focus) 244.dp else if (hunt) 154.dp else 176.dp
     Box(
         Modifier.width(width)
             .height(height)
-            .clip(RoundedCornerShape(17.dp))
+            .shadow(8.dp, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, Color.White.copy(alpha = .65f), RoundedCornerShape(16.dp))
             .clickable(onClick = onOpen)
             .semantics { contentDescription = "${game.title}${if (focus) ", playing now" else ""}" }
     ) {
@@ -199,7 +142,7 @@ fun GameCover(game: Game, artwork: Artwork, focus: Boolean, onOpen: () -> Unit) 
         if (focus)
             Surface(
                 Modifier.align(Alignment.TopStart).padding(8.dp),
-                color = Color(0xCC31152E),
+                color = Color(0xE0212A40),
                 shape = RoundedCornerShape(12.dp),
             ) {
                 Text(
@@ -212,7 +155,7 @@ fun GameCover(game: Game, artwork: Artwork, focus: Boolean, onOpen: () -> Unit) 
         if (hunt)
             Surface(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-                color = Color(0xCC31152E),
+                color = Color(0xE0212A40),
             ) {
                 Column(Modifier.padding(8.dp)) {
                     Text(
@@ -256,7 +199,7 @@ fun Home(
                     ) {
                         Text(
                             "a place for your games",
-                            fontSize = 25.sp,
+                            fontSize = 22.sp,
                             fontFamily = FontFamily.SansSerif,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -280,23 +223,22 @@ fun Home(
                         ) {
                             Text(
                                 shelf.label,
-                                fontSize = 23.sp,
+                                fontSize = 19.sp,
                                 fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Medium,
                                 modifier = Modifier.weight(1f),
                             )
-                            TextButton(
-                                onClick = { onEditShelf(shelf) },
-                                modifier =
-                                    Modifier.semantics {
-                                        contentDescription = "edit ${shelf.label} shelf"
-                                    },
-                            ) {
-                                Text("›", fontSize = 28.sp)
-                            }
+                            AeroIconButton(
+                                AeroSymbol.NEXT,
+                                "edit ${shelf.label} shelf",
+                                { onEditShelf(shelf) },
+                                compact = true,
+                            )
                         }
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            modifier = Modifier.fillMaxWidth().glassShelf(LocalAeroDark.current),
+                            contentPadding =
+                                PaddingValues(start = 20.dp, end = 20.dp, bottom = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.Bottom,
                         ) {
@@ -344,10 +286,10 @@ fun LibraryList(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        OutlinedTextField(
+        AeroTextField(
             query,
             { query = it },
-            label = { Text("find a game") },
+            label = "find a game",
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
@@ -415,7 +357,11 @@ fun LibraryList(
                                     modifier = Modifier.padding(top = 6.dp),
                                 )
                         }
-                        Text("›")
+                        AeroIcon(
+                            AeroSymbol.NEXT,
+                            Modifier.size(16.dp),
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
@@ -451,7 +397,7 @@ fun ShelfEditor(
                     TextButton(onClick = { onOpen(game.id) }) {
                         Text(game.title, fontWeight = FontWeight.SemiBold)
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    FlowRow(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         TextButton(
                             onClick = { onMove(game.id, -1) },
                             enabled = row.first().id != game.id,
@@ -489,51 +435,49 @@ fun GameDetails(
 ) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Art(
-            if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
-            artwork,
-            if (game.shelf == Shelf.HUNTS) game.pokemon else game.title,
-            Modifier.align(Alignment.CenterHorizontally)
-                .size(184.dp, 232.dp)
-                .clip(RoundedCornerShape(22.dp)),
-            game.shelf == Shelf.HUNTS,
-        )
-        Text(
-            if (game.shelf == Shelf.HUNTS) game.pokemon.ifBlank { "shiny hunt" } else game.title,
-            fontSize = 28.sp,
-            fontFamily = FontFamily.SansSerif,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            if (game.shelf == Shelf.HUNTS) "${game.title} · ${game.system}"
-            else "${game.system} · ${game.shelf.label}"
-        )
+        GameIdentity(game, artwork, showShelf = true)
         if (game.pauseNote.isNotBlank())
             Glass(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("for when you return", fontWeight = FontWeight.SemiBold)
                     Text(game.pauseNote)
                 }
             }
-        OutlinedButton(onClick = onNotes, modifier = Modifier.fillMaxWidth()) { Text("notes") }
+        AeroActionRow(
+            first = {
+                AeroButton(onClick = onNotes) {
+                    AeroIcon(AeroSymbol.LOG, Modifier.size(17.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("notes")
+                }
+            },
+            second = {
+                AeroButton(onClick = onEdit) {
+                    AeroIcon(AeroSymbol.EDIT, Modifier.size(17.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("edit game")
+                }
+            },
+        )
         if (game.inPlayLog)
-            OutlinedButton(onClick = onPlayLog, modifier = Modifier.fillMaxWidth()) {
+            AeroButton(onClick = onPlayLog, modifier = Modifier.fillMaxWidth()) {
                 Text("view play log")
             }
         if (game.shelf == Shelf.HUNTS) {
             val odds = calculatedOdds(game)
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("${game.encounters} encounters", fontSize = 28.sp)
+                    Text("${game.encounters} encounters", fontSize = 24.sp)
                     Text(game.method)
                     Text(odds.first?.let { "1 in $it · ${odds.second}" } ?: odds.second)
                     Text(huntVersions[game.pokemonVersion] ?: game.pokemonVersion)
                     if (game.shinyCharm) Text("shiny charm enabled")
                     PinkButton(
                         onClick = { if (game.encounters < Long.MAX_VALUE) onEncounter(1) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        minHeight = 64.dp,
                     ) {
                         Text("+1 encounter", fontSize = 20.sp)
                     }
@@ -549,12 +493,14 @@ fun GameDetails(
                 ) {
                     Text("play now")
                 }
-            OutlinedButton(onClick = onPause, modifier = Modifier.fillMaxWidth()) {
-                Text("take a break from this game")
-            }
-            TextButton(onClick = onFinish) {
-                Text(if (game.shelf == Shelf.HUNTS) "mark hunt complete" else "mark finished")
-            }
+            AeroActionRow(
+                first = { AeroButton(onClick = onPause) { Text("pause this game") } },
+                second = {
+                    AeroButton(onClick = onFinish) {
+                        Text(if (game.shelf == Shelf.HUNTS) "complete hunt" else "mark finished")
+                    }
+                },
+            )
         } else {
             if (game.shelf == Shelf.PLAY_THROUGH)
                 PinkButton(
@@ -563,7 +509,7 @@ fun GameDetails(
                 ) {
                     Text(if (game.inPlayLog) "replay now" else "play now")
                 }
-            OutlinedButton(
+            AeroButton(
                 onClick = { onMove(Place.ACTIVE, false) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -574,7 +520,6 @@ fun GameDetails(
                 )
             }
         }
-        TextButton(onClick = onEdit) { Text("edit game & artwork") }
         if (game.source == "gametdb")
             Text("Title and cover source: GameTDB", style = MaterialTheme.typography.bodySmall)
         if (game.source == "igdb")
@@ -642,33 +587,33 @@ fun GameForm(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        OutlinedTextField(
+        AeroTextField(
             title,
             { title = it },
-            label = { Text(if (shelf == Shelf.HUNTS) "game title" else "title") },
+            label = if (shelf == Shelf.HUNTS) "game title" else "title",
             modifier = Modifier.fillMaxWidth(),
         )
         Choice("system", system, systems) { system = it }
         Choice("shelf", shelf.label, Shelf.entries.map { it.label }) { label ->
             shelf = Shelf.entries.first { it.label == label }
         }
-        OutlinedTextField(
+        AeroTextField(
             collection,
             { collection = it },
-            label = { Text("collection (optional)") },
+            label = "collection (optional)",
             modifier = Modifier.fillMaxWidth(),
         )
         if (collection.isNotBlank())
-            OutlinedTextField(
+            AeroTextField(
                 collectionOrder,
                 { collectionOrder = it },
-                label = { Text("position in collection") },
+                label = "position in collection",
                 modifier = Modifier.fillMaxWidth(),
             )
-        OutlinedTextField(
+        AeroTextField(
             release,
             { release = it },
-            label = { Text("release date · YYYY-MM-DD (optional)") },
+            label = "release date · YYYY-MM-DD (optional)",
             modifier = Modifier.fillMaxWidth(),
         )
         TextButton(
@@ -682,13 +627,13 @@ fun GameForm(
         if (cover.isNotBlank())
             Art(cover, artwork, title, Modifier.size(90.dp, 120.dp).clip(RoundedCornerShape(12.dp)))
         if (shelf == Shelf.HUNTS) {
-            OutlinedTextField(
+            AeroTextField(
                 pokemon,
                 {
                     pokemon = it
                     sprite = ""
                 },
-                label = { Text("Pokémon name or form slug") },
+                label = "Pokémon name or form slug",
                 modifier = Modifier.fillMaxWidth(),
             )
             Choice(
@@ -729,19 +674,19 @@ fun GameForm(
                 }
             }
             if (sprite.isNotBlank()) Art(sprite, artwork, pokemon, Modifier.size(100.dp), true)
-            OutlinedTextField(
+            AeroTextField(
                 method,
                 {
                     method = it
                     odds = ""
                 },
-                label = { Text("hunt method") },
+                label = "hunt method",
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            AeroTextField(
                 count,
                 { count = it },
-                label = { Text("encounters") },
+                label = "encounters",
                 modifier = Modifier.fillMaxWidth(),
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -754,10 +699,10 @@ fun GameForm(
                 )
                 Text("shiny charm")
             }
-            OutlinedTextField(
+            AeroTextField(
                 odds,
                 { odds = it },
-                label = { Text("verified odds · 1 in… (optional)") },
+                label = "verified odds · 1 in… (optional)",
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
@@ -829,10 +774,10 @@ fun AddScreen(catalog: Catalog, endpoint: String, onChoose: (Game) -> Unit, onMa
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        OutlinedTextField(
+        AeroTextField(
             query,
             { query = it },
-            label = { Text("game title") },
+            label = "game title",
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
@@ -922,7 +867,7 @@ fun SettingsScreen(
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     "time for yourself",
-                    fontSize = 23.sp,
+                    fontSize = 19.sp,
                     fontFamily = FontFamily.SansSerif,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -984,17 +929,17 @@ fun SettingsScreen(
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     "catalog search",
-                    fontSize = 23.sp,
+                    fontSize = 19.sp,
                     fontFamily = FontFamily.SansSerif,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
                     "GameTDB works without an account. Your search service adds broader Nintendo and PC results."
                 )
-                OutlinedTextField(
+                AeroTextField(
                     endpoint,
                     { endpoint = it },
-                    label = { Text("catalog service HTTPS address") },
+                    label = "catalog service HTTPS address",
                     modifier = Modifier.fillMaxWidth(),
                 )
                 TextButton(
@@ -1026,14 +971,14 @@ fun SettingsScreen(
             }
         }
         endpointError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) {
+        AeroButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) {
             Text("export backup")
         }
-        OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
+        AeroButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
             Text("import backup")
         }
         Text(
-            "savepoint · 0.2.0\nOriginal code © cmyksoda · GPLv3\nGame artwork belongs to its respective owners.",
+            "savepoint · 0.3.0\nOriginal code © cmyksoda · GPLv3\nGame artwork belongs to its respective owners.",
             style = MaterialTheme.typography.bodySmall,
         )
     }
@@ -1178,57 +1123,45 @@ fun Savepoint(openLater: Boolean) {
             statusBarStyle = style,
             navigationBarStyle = style,
         )
+        (context as? ComponentActivity)?.window?.let { window ->
+            WindowCompat.getInsetsController(window, window.decorView)
+                .isAppearanceLightNavigationBars = !dark
+            if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
+        }
     }
-    val colors =
-        if (dark)
-            darkColorScheme(
-                primary = Color(0xFFFFAFD0),
-                background = Color(0xFF241324),
-                surface = Color(0xFF3C2237),
-                onSurface = Color(0xFFFFEAF4),
-                onBackground = Color(0xFFFFEAF4),
-                onPrimary = Color(0xFF47132C),
-            )
-        else
-            lightColorScheme(
-                primary = Color(0xFF9A315F),
-                background = Color(0xFFF9DFEC),
-                surface = Color(0xFFFFF4F9),
-                onSurface = Color(0xFF3E2335),
-                onBackground = Color(0xFF3E2335),
-            )
-    MaterialTheme(colorScheme = colors) {
-        CompositionLocalProvider(LocalContentColor provides colors.onBackground) {
+    val colors = aeroColors(dark)
+    MaterialTheme(colorScheme = colors, typography = AeroTypography) {
+        CompositionLocalProvider(
+            LocalContentColor provides colors.onBackground,
+            LocalAeroDark provides dark,
+        ) {
             BackHandler(route != "home" || dialog.isNotBlank()) {
                 if (dialog.isNotBlank()) dialog = ""
                 else if (route == "form" && selectedGame != null) route = "details"
                 else if (route == "journal") route = "log" else route = "home"
             }
-            Column(
-                Modifier.fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            if (dark)
-                                listOf(Color(0xFF43203B), Color(0xFF211322), Color(0xFF342039))
-                            else listOf(Color(0xFFFFEDF5), Color(0xFFF4D3E4), Color(0xFFEACFE9))
-                        )
-                    )
-                    .safeDrawingPadding()
-            ) {
+            Column(Modifier.fillMaxSize().aeroBackdrop(dark).safeDrawingPadding()) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (route != "home")
-                        TextButton(
+                        AeroIconButton(
+                            AeroSymbol.BACK,
+                            "back",
                             onClick = {
                                 route =
                                     if (route == "form" && selectedGame != null) "details"
                                     else if (route == "journal") "log" else "home"
-                            }
-                        ) {
-                            Text("‹ back")
-                        }
+                            },
+                        )
+                    else
+                        Image(
+                            painterResource(R.drawable.icon_memory_card),
+                            null,
+                            Modifier.size(32.dp),
+                        )
                     Text(
                         when (route) {
                             "home" -> "savepoint"
@@ -1239,13 +1172,12 @@ fun Savepoint(openLater: Boolean) {
                             "journal" -> "play log"
                             else -> route
                         },
-                        fontFamily = FontFamily.SansSerif,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 22.sp,
                         modifier = Modifier.weight(1f),
                     )
                     if (route == "home")
-                        TextButton(onClick = { route = "settings" }) { Text("settings") }
+                        AeroIconButton(AeroSymbol.SETTINGS, "settings", { route = "settings" })
                 }
                 Box(Modifier.weight(1f)) {
                     if (!loaded) CircularProgressIndicator(Modifier.align(Alignment.Center))
@@ -1530,40 +1462,14 @@ fun Savepoint(openLater: Boolean) {
                         }
                 }
                 if (route == "home" || route == "backlog" || route == "paused" || route == "log")
-                    Glass(Modifier.padding(horizontal = 14.dp, vertical = 10.dp).fillMaxWidth()) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            listOf(
-                                    "home" to "shelves",
-                                    "backlog" to "backlog",
-                                    "paused" to "paused",
-                                    "log" to "play log",
-                                )
-                                .forEach { (destination, label) ->
-                                    TextButton(
-                                        onClick = { route = destination },
-                                        modifier = Modifier.weight(1f),
-                                        contentPadding =
-                                            PaddingValues(horizontal = 4.dp, vertical = 8.dp),
-                                    ) {
-                                        Text(label)
-                                    }
-                                }
-                            TextButton(
-                                onClick = {
-                                    selected = ""
-                                    route = "add"
-                                },
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
-                            ) {
-                                Text("+ add")
-                            }
-                        }
-                    }
+                    AeroDock(
+                        route,
+                        { route = it },
+                        {
+                            selected = ""
+                            route = "add"
+                        },
+                    )
             }
             if (
                 (dialog == "finish" || dialog == "entry") &&
@@ -1590,7 +1496,7 @@ fun Savepoint(openLater: Boolean) {
                 )
             }
             if (dialog == "notes" || dialog == "pause")
-                AlertDialog(
+                AeroDialog(
                     onDismissRequest = { dialog = "" },
                     title = {
                         Text(if (dialog == "notes") "notes" else "pause ${selectedGame?.title}?")
@@ -1601,23 +1507,20 @@ fun Savepoint(openLater: Boolean) {
                                 Text(
                                     "Leave yourself something for when you return. This stays separate from your general notes."
                                 )
-                            OutlinedTextField(
+                            AeroTextField(
                                 note,
                                 { note = it },
                                 minLines = 4,
                                 maxLines = 8,
                                 modifier = Modifier.fillMaxWidth(),
-                                label = {
-                                    Text(
-                                        if (dialog == "notes") "general notes"
-                                        else "pause note (optional)"
-                                    )
-                                },
+                                label =
+                                    if (dialog == "notes") "general notes"
+                                    else "pause note (optional)",
                             )
                         }
                     },
                     confirmButton = {
-                        TextButton(
+                        PinkButton(
                             onClick = {
                                 val id = selected
                                 if (dialog == "pause") {
@@ -1633,10 +1536,10 @@ fun Savepoint(openLater: Boolean) {
                             Text(if (dialog == "notes") "save" else "save & pause")
                         }
                     },
-                    dismissButton = { TextButton(onClick = { dialog = "" }) { Text("cancel") } },
+                    dismissButton = { QuietAction(onClick = { dialog = "" }) { Text("cancel") } },
                 )
             if (dialog == "later")
-                AlertDialog(
+                AeroDialog(
                     onDismissRequest = { dialog = "" },
                     title = { Text("another time today?") },
                     text = {
@@ -1645,7 +1548,7 @@ fun Savepoint(openLater: Boolean) {
                         )
                     },
                     confirmButton = {
-                        TextButton(
+                        PinkButton(
                             onClick = {
                                 val current = java.time.LocalTime.now().plusMinutes(30)
                                 TimePickerDialog(
@@ -1681,10 +1584,10 @@ fun Savepoint(openLater: Boolean) {
                             Text("choose time")
                         }
                     },
-                    dismissButton = { TextButton(onClick = { dialog = "" }) { Text("cancel") } },
+                    dismissButton = { QuietAction(onClick = { dialog = "" }) { Text("cancel") } },
                 )
             if (dialog == "restore" && restored != null)
-                AlertDialog(
+                AeroDialog(
                     onDismissRequest = {
                         restored?.artwork?.deleteRecursively()
                         restored = null
@@ -1697,7 +1600,7 @@ fun Savepoint(openLater: Boolean) {
                         )
                     },
                     confirmButton = {
-                        TextButton(
+                        PinkButton(
                             onClick = {
                                 val backup = restored!!
                                 scope.launch {
@@ -1734,7 +1637,7 @@ fun Savepoint(openLater: Boolean) {
                         }
                     },
                     dismissButton = {
-                        TextButton(
+                        QuietAction(
                             onClick = {
                                 restored?.artwork?.deleteRecursively()
                                 restored = null
@@ -1746,7 +1649,7 @@ fun Savepoint(openLater: Boolean) {
                     },
                 )
             error?.let { message ->
-                AlertDialog(
+                AeroDialog(
                     onDismissRequest = { error = null },
                     text = { Text(message) },
                     confirmButton = { TextButton(onClick = { error = null }) { Text("okay") } },

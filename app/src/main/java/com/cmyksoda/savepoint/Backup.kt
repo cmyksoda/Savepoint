@@ -34,7 +34,7 @@ object Backup {
                 zip.closeEntry()
                 val names =
                     games
-                        .flatMap { listOf(it.cover, it.sprite) }
+                        .flatMap { listOf(it.cover, preferredCoverUrl(it.cover), it.sprite) }
                         .filter { it.isNotBlank() }
                         .map {
                             if (it.startsWith("local:")) it.removePrefix("local:")

@@ -109,6 +109,53 @@ class BackupInstrumentedTest {
     }
 
     @Test
+    fun remoteCoverBackupKeepsBothQualityAndOfflineFallback() = runBlocking {
+        val artwork = Artwork(context)
+        val url = "https://art.gametdb.com/switch/cover/US/TESTA.jpg"
+        val preferred = preferredCoverUrl(url)
+        assertEquals("https://art.gametdb.com/switch/coverHQ/US/TESTA.jpg", preferred)
+        assertEquals("local:cover", preferredCoverUrl("local:cover"))
+        val fallback = File(artwork.directory, artwork.filename(url))
+        val quality = File(artwork.directory, artwork.filename(preferred))
+        val archive = File(context.cacheDir, "test-${UUID.randomUUID()}.zip")
+        try {
+            for ((file, width) in listOf(fallback to 2, quality to 8)) {
+                file.outputStream().use {
+                    Bitmap.createBitmap(width, 2, Bitmap.Config.ARGB_8888)
+                        .compress(Bitmap.CompressFormat.PNG, 100, it)
+                }
+            }
+            assertEquals(2, artwork.cachedBitmap(url)!!.width)
+            assertEquals(8, artwork.bitmap(preferred)!!.width)
+            Backup.export(
+                context,
+                Uri.fromFile(archive),
+                listOf(Game(title = "Test game", cover = url)),
+                Settings(),
+                artwork,
+            )
+            val restored = Backup.inspect(context, Uri.fromFile(archive))
+            try {
+                assertArrayEquals(
+                    fallback.readBytes(),
+                    File(restored.artwork, "artwork/${fallback.name}").readBytes(),
+                )
+                assertArrayEquals(
+                    quality.readBytes(),
+                    File(restored.artwork, "artwork/${quality.name}").readBytes(),
+                )
+                assertEquals(url, restored.games.single().cover)
+            } finally {
+                restored.artwork.deleteRecursively()
+            }
+        } finally {
+            fallback.delete()
+            quality.delete()
+            archive.delete()
+        }
+    }
+
+    @Test
     fun traversalArchiveIsRejectedWithoutWritingOutsideStaging() = runBlocking {
         val archive = File(context.cacheDir, "test-${UUID.randomUUID()}.zip")
         try {

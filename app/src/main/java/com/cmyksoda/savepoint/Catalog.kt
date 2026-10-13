@@ -30,6 +30,19 @@ fun fetchBytes(url: String): ByteArray {
     }
 }
 
+fun preferredCoverUrl(url: String): String {
+    val uri = runCatching { URI(url) }.getOrNull() ?: return url
+    return if (
+        uri.scheme == "https" &&
+            uri.host == "art.gametdb.com" &&
+            uri.path.matches(
+                Regex("/(switch|wiiu|wii|3ds|ds)/cover/[A-Z]{2}/[A-Za-z0-9]+\\.(jpg|png)")
+            )
+    )
+        url.replace("/cover/", "/coverHQ/")
+    else url
+}
+
 class Artwork(private val context: Context) {
     val directory = File(context.filesDir, "artwork").apply { mkdirs() }
 
@@ -38,21 +51,35 @@ class Artwork(private val context: Context) {
             "%02x".format(it)
         } + ".image"
 
+    private fun fileFor(url: String): File {
+        val file =
+            if (url.startsWith("local:")) File(directory, url.removePrefix("local:"))
+            else File(directory, filename(url))
+        require(file.canonicalFile.parentFile == directory.canonicalFile)
+        return file
+    }
+
+    suspend fun cachedBitmap(url: String): Bitmap? =
+        withContext(Dispatchers.IO) {
+            if (url.isBlank()) null else BitmapFactory.decodeFile(fileFor(url).path)
+        }
+
     suspend fun bitmap(url: String): Bitmap? =
         withContext(Dispatchers.IO) {
             if (url.isBlank()) return@withContext null
-            val file =
-                if (url.startsWith("local:")) File(directory, url.removePrefix("local:"))
-                else File(directory, filename(url))
-            require(file.canonicalFile.parentFile == directory.canonicalFile)
+            val file = fileFor(url)
             if (!file.exists() && !url.startsWith("local:")) {
                 val bytes = fetchBytes(url)
                 require(BitmapFactory.decodeByteArray(bytes, 0, bytes.size) != null) {
                     "Artwork is not an image"
                 }
-                val temporary = File(directory, "${file.name}.tmp")
-                temporary.writeBytes(bytes)
-                require(temporary.renameTo(file)) { "Could not save artwork" }
+                val temporary = File.createTempFile("artwork-", ".tmp", directory)
+                try {
+                    temporary.writeBytes(bytes)
+                    require(temporary.renameTo(file)) { "Could not save artwork" }
+                } finally {
+                    temporary.delete()
+                }
             }
             BitmapFactory.decodeFile(file.path)
         }

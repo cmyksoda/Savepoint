@@ -1,5 +1,6 @@
 package com.cmyksoda.savepoint
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +14,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -30,29 +32,63 @@ fun formatHours(hours: Double): String =
         }
         .format(hours)
 
+private fun feelingSymbol(feeling: Feeling): AeroSymbol =
+    when (feeling) {
+        Feeling.DIDNT_LIKE -> AeroSymbol.THUMB_DOWN
+        Feeling.LIKED -> AeroSymbol.THUMB_UP
+        Feeling.LOVED -> AeroSymbol.HEART
+    }
+
 @Composable
-fun PlaythroughContent(entry: Playthrough?) {
-    entry?.feeling?.let { feeling ->
+fun FeelingBadge(feeling: Feeling) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        AeroIcon(feelingSymbol(feeling), Modifier.size(17.dp), MaterialTheme.colorScheme.primary)
         Text(
-            if (feeling == Feeling.LOVED) "♥ ${feeling.label}" else feeling.label,
+            feeling.label,
             color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
         )
     }
-    if (!entry?.thoughts.isNullOrBlank()) Text(entry!!.thoughts)
+}
+
+@Composable
+fun PlaythroughContent(entry: Playthrough?) {
+    entry?.feeling?.let { FeelingBadge(it) }
+    if (!entry?.thoughts.isNullOrBlank()) Text(entry.thoughts)
+}
+
+@Composable
+fun LogMetric(symbol: AeroSymbol, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        AeroIcon(symbol, Modifier.size(14.dp), MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable
 fun LogExtras(game: Game) {
-    game.recordedHours?.let {
-        Text("${formatHours(it)} hours recorded", style = MaterialTheme.typography.bodySmall)
-    }
-    game.replayCount?.let {
-        Text(
-            "$it ${if (it == 1) "replay" else "replays"}",
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
+    if (game.recordedHours != null || game.replayCount != null)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            game.recordedHours?.let {
+                LogMetric(AeroSymbol.CLOCK, "${formatHours(it)} hours recorded")
+            }
+            game.replayCount?.let {
+                LogMetric(AeroSymbol.REPLAY, "$it ${if (it == 1) "replay" else "replays"}")
+            }
+        }
 }
 
 @Composable
@@ -75,10 +111,10 @@ fun PlayLogList(games: List<Game>, artwork: Artwork, onOpen: (String) -> Unit) {
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        OutlinedTextField(
+        AeroTextField(
             query,
             { query = it },
-            label = { Text("find a game") },
+            label = "find a game",
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -117,7 +153,11 @@ fun PlayLogList(games: List<Game>, artwork: Artwork, onOpen: (String) -> Unit) {
                             PlaythroughContent(game.playthroughs.lastOrNull())
                             LogExtras(game)
                         }
-                        Text("›")
+                        AeroIcon(
+                            AeroSymbol.NEXT,
+                            Modifier.size(16.dp),
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
@@ -139,47 +179,48 @@ fun GameJournal(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Art(
-                if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
-                artwork,
-                game.title,
-                Modifier.size(108.dp, 146.dp).clip(RoundedCornerShape(16.dp)),
-                game.shelf == Shelf.HUNTS,
-            )
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(game.title, fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
-                Text(game.system, style = MaterialTheme.typography.bodySmall)
-            }
-        }
+        GameIdentity(game, artwork)
         Glass(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(
-                        onClick = { onEdit(latest ?: Playthrough(finishedAt = null)) },
-                        modifier =
-                            Modifier.semantics { contentDescription = "edit thoughts and extras" },
-                    ) {
-                        Text("✎", fontSize = 22.sp)
+            Box(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.fillMaxWidth().padding(end = 42.dp)) {
+                        latest?.feeling?.let { FeelingBadge(it) }
+                            ?: Text(
+                                "thoughts",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                     }
+                    if (!latest?.thoughts.isNullOrBlank()) Text(latest.thoughts)
+                    LogExtras(game)
                 }
-                PlaythroughContent(latest)
-                LogExtras(game)
+                AeroIconButton(
+                    AeroSymbol.EDIT,
+                    "edit thoughts and extras",
+                    { onEdit(latest ?: Playthrough(finishedAt = null)) },
+                    Modifier.align(Alignment.TopEnd).padding(top = 5.dp, end = 8.dp),
+                    compact = true,
+                )
             }
         }
         if (game.playthroughs.size > 1) {
-            TextButton(onClick = { showHistory = !showHistory }) {
+            TextButton(
+                onClick = { showHistory = !showHistory },
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            ) {
                 Text(if (showHistory) "hide earlier playthroughs" else "earlier playthroughs")
             }
             if (showHistory)
                 game.playthroughs.dropLast(1).asReversed().forEach { entry ->
                     Glass(Modifier.fillMaxWidth()) {
                         Column(
-                            Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            Modifier.padding(
+                                start = 18.dp,
+                                end = 12.dp,
+                                top = 6.dp,
+                                bottom = 18.dp,
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 entry.finishedAt?.let { timestamp ->
@@ -191,36 +232,32 @@ fun GameJournal(
                                         style = MaterialTheme.typography.bodySmall,
                                     )
                                 } ?: Spacer(Modifier.weight(1f))
-                                TextButton(
-                                    onClick = { onEdit(entry) },
-                                    modifier =
-                                        Modifier.semantics {
-                                            contentDescription = "edit earlier playthrough"
-                                        },
-                                ) {
-                                    Text("✎", fontSize = 22.sp)
-                                }
+                                AeroIconButton(
+                                    AeroSymbol.EDIT,
+                                    "edit earlier playthrough",
+                                    { onEdit(entry) },
+                                    compact = true,
+                                )
                             }
                             PlaythroughContent(entry)
                             entry.hours?.let {
-                                Text(
-                                    "${formatHours(it)} hours recorded",
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
+                                LogMetric(AeroSymbol.CLOCK, "${formatHours(it)} hours recorded")
                             }
                         }
                     }
                 }
         }
         if (game.place == Place.ACTIVE) {
-            OutlinedButton(onClick = onCurrentGame, modifier = Modifier.fillMaxWidth()) {
+            AeroButton(onClick = onCurrentGame, modifier = Modifier.fillMaxWidth()) {
                 Text("open current game")
             }
         } else {
             PinkButton(onClick = { onReplay(true) }, modifier = Modifier.fillMaxWidth()) {
+                AeroIcon(AeroSymbol.REPLAY, Modifier.size(18.dp))
+                Spacer(Modifier.width(9.dp))
                 Text("replay now")
             }
-            OutlinedButton(onClick = { onReplay(false) }, modifier = Modifier.fillMaxWidth()) {
+            AeroButton(onClick = { onReplay(false) }, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     if (game.shelf == Shelf.PLAY_THROUGH) "queue a replay"
                     else "return to ${game.shelf.label}"
@@ -253,28 +290,49 @@ fun PlaythroughEditor(
     var showExtras by
         rememberSaveable(initial.id) { mutableStateOf(!isNew || initial.hours != null) }
     var error by remember { mutableStateOf<String?>(null) }
-    AlertDialog(
+    AeroDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isNew) "finished ${game.title}?" else "thoughts & details") },
         text = {
-            Column(
-                Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (isNew)
                     Text("Leave a thought if you'd like. Your earlier playthroughs stay saved.")
                 Text("how did it feel?", style = MaterialTheme.typography.labelLarge)
-                Feeling.entries.forEach { option ->
-                    FilterChip(
-                        selected = feeling == option,
-                        onClick = { feeling = if (feeling == option) null else option },
-                        label = { Text(option.label) },
-                    )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Feeling.entries.forEach { option ->
+                        val selected = feeling == option
+                        FilterChip(
+                            selected = selected,
+                            onClick = { feeling = if (selected) null else option },
+                            leadingIcon = { AeroIcon(feelingSymbol(option), Modifier.size(18.dp)) },
+                            label = { Text(option.label, fontSize = 13.sp, lineHeight = 18.sp) },
+                            shape = RoundedCornerShape(10.dp),
+                            border =
+                                BorderStroke(
+                                    1.dp,
+                                    if (selected)
+                                        MaterialTheme.colorScheme.primary.copy(alpha = .7f)
+                                    else MaterialTheme.colorScheme.outline.copy(alpha = .8f),
+                                ),
+                            colors =
+                                FilterChipDefaults.filterChipColors(
+                                    containerColor =
+                                        MaterialTheme.colorScheme.surface.copy(alpha = .7f),
+                                    labelColor = MaterialTheme.colorScheme.onSurface,
+                                    selectedContainerColor =
+                                        if (LocalAeroDark.current) Color(0xFF403149)
+                                        else Color(0xFFF0C9DF),
+                                    selectedLabelColor = MaterialTheme.colorScheme.primary,
+                                    selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
+                                    iconColor = MaterialTheme.colorScheme.onSurface,
+                                ),
+                        )
+                    }
                 }
-                OutlinedTextField(
+                AeroTextField(
                     thoughts,
                     { thoughts = it },
-                    label = { Text("thoughts (optional)") },
+                    label = "thoughts (optional)",
                     minLines = 2,
                     maxLines = 5,
                     modifier = Modifier.fillMaxWidth(),
@@ -285,20 +343,22 @@ fun PlaythroughEditor(
                         modifier =
                             Modifier.semantics { contentDescription = "add optional details" },
                     ) {
-                        Text("✎ optional details")
+                        AeroIcon(AeroSymbol.EDIT, Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("optional details")
                     }
                 if (showExtras) {
-                    OutlinedTextField(
+                    AeroTextField(
                         hours,
                         { hours = it },
-                        label = { Text("hours for this playthrough (optional)") },
+                        label = "hours for this playthrough (optional)",
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
+                    AeroTextField(
                         replays,
                         { replays = it },
-                        label = { Text("replays overall (optional)") },
+                        label = "replays overall (optional)",
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -307,7 +367,7 @@ fun PlaythroughEditor(
             }
         },
         confirmButton = {
-            TextButton(
+            PinkButton(
                 onClick = {
                     try {
                         val parsedHours =
@@ -338,6 +398,6 @@ fun PlaythroughEditor(
                 Text(if (isNew) "finish & save" else "save")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("cancel") } },
+        dismissButton = { QuietAction(onClick = onDismiss) { Text("cancel") } },
     )
 }

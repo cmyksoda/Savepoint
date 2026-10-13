@@ -22,12 +22,16 @@ def adb(*arguments):
 
 def nodes():
     adb("shell", "rm", "-f", "/sdcard/savepoint-ui.xml")
-    adb("shell", "uiautomator", "dump", "/sdcard/savepoint-ui.xml")
+    subprocess.run(["adb", "-s", args.serial, "shell", "uiautomator", "dump", "/sdcard/savepoint-ui.xml"],
+                   capture_output=True, timeout=20)
     result = subprocess.run(
         ["adb", "-s", args.serial, "exec-out", "cat", "/sdcard/savepoint-ui.xml"],
         capture_output=True, timeout=20,
     )
-    return list(ET.fromstring(result.stdout).iter("node")) if result.returncode == 0 else []
+    try:
+        return list(ET.fromstring(result.stdout).iter("node")) if result.returncode == 0 else []
+    except ET.ParseError:
+        return []
 
 
 def wait_for(label, description=False):
@@ -53,9 +57,9 @@ def enter(label, text):
     deadline = time.monotonic() + 25
     while time.monotonic() < deadline:
         for node in nodes():
-            if node.get("class") == "android.widget.EditText" and any(
-                child.get("text") == label for child in node.iter("node")
-            ):
+            if node.get("class") == "android.widget.EditText" and (node.get("content-desc") == label or any(
+                child.get("text") == label or child.get("content-desc") == label for child in node.iter("node")
+            )):
                 tap_node(node)
                 adb("shell", "input", "text", text)
                 adb("shell", "input", "keyevent", "KEYCODE_BACK")
@@ -64,6 +68,8 @@ def enter(label, text):
 
 
 def screenshot(name):
+    nodes()
+    time.sleep(0.35)
     (args.screenshots / name).write_bytes(adb("exec-out", "screencap", "-p"))
 
 
@@ -74,7 +80,7 @@ tap("loved")
 enter("thoughts (optional)", "thoughts-first-ui")
 tap("finish & save")
 wait_for("thoughts-first-ui")
-tap("‹ back")
+tap("back", description=True)
 wait_for("thoughts-first-ui")
 texts = [node.get("text", "") for node in nodes()]
 assert not any("hours recorded" in text or re.fullmatch(r"\d+ replays?", text) for text in texts)
@@ -89,7 +95,7 @@ tap("open current game")
 tap("mark finished")
 tap("liked")
 enter("thoughts (optional)", "thoughts-replay-ui")
-tap("✎ optional details")
+tap("add optional details", description=True)
 enter("hours for this playthrough (optional)", "2.5")
 enter("replays overall (optional)", "1")
 tap("finish & save")

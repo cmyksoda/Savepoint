@@ -21,8 +21,17 @@ def adb(*arguments):
 
 
 def nodes():
-    adb("shell", "uiautomator", "dump", "/sdcard/savepoint-ui.xml")
-    return list(ET.fromstring(adb("exec-out", "cat", "/sdcard/savepoint-ui.xml")).iter("node"))
+    adb("shell", "rm", "-f", "/sdcard/savepoint-ui.xml")
+    subprocess.run(["adb", "-s", args.serial, "shell", "uiautomator", "dump", "/sdcard/savepoint-ui.xml"],
+                   capture_output=True, timeout=20)
+    result = subprocess.run(
+        ["adb", "-s", args.serial, "exec-out", "cat", "/sdcard/savepoint-ui.xml"],
+        capture_output=True, timeout=20,
+    )
+    try:
+        return list(ET.fromstring(result.stdout).iter("node")) if result.returncode == 0 else []
+    except ET.ParseError:
+        return []
 
 
 def wait_for(label, description=False):
@@ -45,13 +54,19 @@ def tap(label, description=False):
 
 
 def enter_note(text):
-    editor = next(node for node in nodes() if node.get("class") == "android.widget.EditText")
+    deadline = time.monotonic() + 20
+    editor = None
+    while editor is None and time.monotonic() < deadline:
+        editor = next((node for node in nodes() if node.get("class") == "android.widget.EditText"), None)
+    assert editor is not None, "Note editor missing"
     tap_node(editor)
     adb("shell", "input", "text", text)
     adb("shell", "input", "keyevent", "KEYCODE_BACK")
 
 
 def screenshot(name):
+    nodes()
+    time.sleep(0.35)
     (args.screenshots / name).write_bytes(adb("exec-out", "screencap", "-p"))
 
 
@@ -59,7 +74,7 @@ tap("Rhythm Heaven Groove, playing now", description=True)
 tap("notes")
 enter_note("general-note-ui")
 tap("save")
-tap("take a break from this game")
+tap("pause this game")
 enter_note("pause-note-ui")
 screenshot("pause-dialog.png")
 tap("save & pause")
