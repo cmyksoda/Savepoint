@@ -1,0 +1,33 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { normalize, server } from './server.mjs';
+
+test('release dates follow the chosen system rather than the earliest unrelated release', () => {
+  const results = normalize([{
+    id: 42, name: 'A game', cover: { image_id: 'cover42' },
+    platforms: [{ id: 6, name: 'PC' }, { id: 130, name: 'Nintendo Switch' }],
+    release_dates: [{ platform: 6, date: 100 }, { platform: 130, date: 500 }],
+  }]);
+  assert.equal(results[0].release, 100000);
+  assert.equal(results[1].release, 500000);
+  assert.match(results[0].cover, /^https:\/\/images\.igdb\.com\//);
+});
+
+test('missing dates remain unknown and newer platform names survive', () => {
+  const results = normalize([{ id: 1, name: 'New game', platforms: [{ id: 99999, name: 'Nintendo Switch 2' }] }]);
+  assert.equal(results[0].system, 'Nintendo Switch 2');
+  assert.equal(results[0].release, null);
+  assert.equal(results[0].cover, '');
+});
+
+test('service validates input and does not expose credential errors', async () => {
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    assert.equal((await fetch(`${base}/search`)).status, 400);
+    assert.equal((await fetch(`${base}/unknown`)).status, 404);
+    const unavailable = await fetch(`${base}/search?q=metroid`);
+    assert.equal(unavailable.status, 503);
+    assert.doesNotMatch(await unavailable.text(), /secret|access_token/i);
+  } finally { await new Promise(resolve => server.close(resolve)); }
+});
