@@ -3,10 +3,10 @@ package com.cmyksoda.savepoint
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.*
+import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -26,23 +26,25 @@ fun LibraryBrowser(
     card: @Composable (Game, Boolean, Modifier) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    val gridState = rememberLazyGridState()
+    val gridState = rememberLazyStaggeredGridState()
     val modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)
     if (grid)
-        LazyVerticalGrid(
-            GridCells.Adaptive(160.dp),
+        LazyVerticalStaggeredGrid(
+            StaggeredGridCells.Adaptive(160.dp),
             modifier,
             state = gridState,
             contentPadding = PaddingValues(bottom = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalItemSpacing = 10.dp,
         ) {
-            item(key = "controls", span = { GridItemSpan(maxLineSpan) }) { controls() }
+            item(key = "controls", span = StaggeredGridItemSpan.FullLine) { controls() }
             if (games.isEmpty())
-                item(span = { GridItemSpan(maxLineSpan) }) {
+                item(span = StaggeredGridItemSpan.FullLine) {
                     Text(emptyMessage, Modifier.padding(vertical = 20.dp))
                 }
-            gridItems(games, key = { it.id }) { game -> card(game, true, Modifier.animateItem()) }
+            staggeredItems(games, key = { it.id }) { game ->
+                card(game, true, Modifier.animateItem())
+            }
         }
     else
         LazyColumn(

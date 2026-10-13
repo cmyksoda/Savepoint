@@ -351,7 +351,11 @@ fun Home(
                                     )
                                     .glassShelf(LocalAeroDark.current),
                             contentPadding =
-                                PaddingValues(start = 20.dp, end = 20.dp, bottom = 18.dp),
+                                PaddingValues(
+                                    start = 20.dp,
+                                    end = 20.dp,
+                                    bottom = if (shelf == Shelf.HUNTS) 18.dp else ShelfSurfaceInset,
+                                ),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.Bottom,
                         ) {

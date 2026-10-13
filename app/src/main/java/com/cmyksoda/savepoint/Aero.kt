@@ -46,7 +46,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -265,88 +264,44 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
     }
 }
 
-fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
-    val x = 0f
-    val height = 6.dp.toPx()
-    val y = size.height - 14.dp.toPx()
-    val width = size.width - x * 2
-    val shadowHeight = 34.dp.toPx()
-    val shadowWidth = minOf(size.width.toInt(), 720).coerceAtLeast(1)
-    val scale = shadowWidth / size.width.coerceAtLeast(1f)
-    val shadow = ImageBitmap(shadowWidth, (shadowHeight * scale).toInt().coerceAtLeast(1))
-    CanvasDrawScope().draw(
-        this,
-        layoutDirection,
-        androidx.compose.ui.graphics.Canvas(shadow),
-        Size(shadowWidth.toFloat(), shadow.height.toFloat()),
-    ) {
-        drawIntoCanvas { canvas ->
-            val paint =
-                Paint().apply {
-                    color = Color(0xFF19132C).copy(alpha = if (dark) .12f else .08f)
-                    isAntiAlias = true
-                    asFrameworkPaint().maskFilter =
-                        android.graphics.BlurMaskFilter(
-                            10.dp.toPx() * scale,
-                            android.graphics.BlurMaskFilter.Blur.NORMAL,
-                        )
-                }
-            val glow =
-                Paint().apply {
-                    color =
-                        if (dark) Color(0xFFFFC9E3).copy(alpha = .44f)
-                        else Color(0xFFFFF0FA).copy(alpha = .85f)
-                    isAntiAlias = true
-                    asFrameworkPaint().maskFilter =
-                        android.graphics.BlurMaskFilter(
-                            7.dp.toPx() * scale,
-                            android.graphics.BlurMaskFilter.Blur.NORMAL,
-                        )
-                }
-            canvas.drawRoundRect(
-                x * scale,
-                6.dp.toPx() * scale,
-                (size.width - x) * scale,
-                11.dp.toPx() * scale,
-                5.dp.toPx() * scale,
-                5.dp.toPx() * scale,
-                glow,
+val ShelfSurfaceInset = 14.dp
+
+fun Modifier.glassShelf(dark: Boolean): Modifier {
+    return drawWithCache {
+        val height = 6.dp.toPx()
+        val y = size.height - ShelfSurfaceInset.toPx()
+        val bottom = y + height
+        onDrawBehind {
+            drawRect(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF21152F).copy(alpha = if (dark) .24f else .16f),
+                        Color(0xFF21152F).copy(alpha = if (dark) .08f else .05f),
+                        Color.Transparent,
+                    ),
+                    startY = bottom,
+                    endY = bottom + 16.dp.toPx(),
+                ),
+                topLeft = Offset(0f, bottom),
+                size = Size(size.width, 16.dp.toPx()),
             )
-            canvas.drawRoundRect(
-                x * scale,
-                12.dp.toPx() * scale,
-                (size.width - x) * scale,
-                20.dp.toPx() * scale,
-                5.dp.toPx() * scale,
-                5.dp.toPx() * scale,
-                paint,
+            drawRect(
+                Brush.verticalGradient(
+                    if (dark) listOf(Color(0xDDBAC3D9), Color(0xAA777CA5), Color(0xAA45425C))
+                    else listOf(Color.White, Color(0xFFE4CDE0), Color(0xCCAD7DA3)),
+                    startY = y,
+                    endY = bottom,
+                ),
+                topLeft = Offset(0f, y),
+                size = Size(size.width, height),
+            )
+            drawLine(
+                Color.White.copy(alpha = if (dark) .55f else .95f),
+                Offset(0f, y),
+                Offset(size.width, y),
+                strokeWidth = 1.dp.toPx(),
             )
         }
-    }
-    onDrawBehind {
-        drawImage(
-            shadow,
-            dstOffset = IntOffset(0, (y - 8.dp.toPx()).toInt()),
-            dstSize = IntSize(size.width.toInt(), shadowHeight.toInt()),
-            filterQuality = FilterQuality.High,
-        )
-        drawRoundRect(
-            Brush.verticalGradient(
-                if (dark) listOf(Color(0xDDBAC3D9), Color(0xAA777CA5), Color(0xAA45425C))
-                else listOf(Color.White, Color(0xFFE4CDE0), Color(0xCCAD7DA3)),
-                startY = y,
-                endY = y + height,
-            ),
-            Offset(x, y),
-            Size(width, height),
-            CornerRadius.Zero,
-        )
-        drawLine(
-            Color.White.copy(alpha = if (dark) .55f else .95f),
-            Offset(x, y),
-            Offset(size.width - x, y),
-            strokeWidth = 1.dp.toPx(),
-        )
     }
 }
 
