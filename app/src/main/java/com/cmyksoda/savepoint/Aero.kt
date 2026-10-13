@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
@@ -43,6 +42,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -94,8 +94,7 @@ val AeroTypography =
             TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp),
         labelMedium =
             TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, lineHeight = 16.sp),
-        titleLarge =
-            TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium, lineHeight = 26.sp),
+        titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium, lineHeight = 26.sp),
     )
 
 fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
@@ -167,32 +166,33 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
                 path to light
             }
     val waveIndices = if (dark) listOf(1, 4, 7, 10) else (0..10).toList()
-    val waves = waveIndices.map { index ->
-        val phase = index * .28f
-        val level = index * .115f - .08f
-        val amplitude = .046f + .008f * kotlin.math.sin(phase)
-        val path =
-            Path().apply {
-                for (step in 0..48) {
-                    val t = -.2f + step / 48f * 1.4f
-                    val y = level - .09f * t + amplitude * kotlin.math.sin(t * 4.52f + phase)
-                    if (step == 0) moveTo(t * w, y * h) else lineTo(t * w, y * h)
+    val waves =
+        waveIndices.map { index ->
+            val phase = index * .28f
+            val level = index * .115f - .08f
+            val amplitude = .046f + .008f * kotlin.math.sin(phase)
+            val path =
+                Path().apply {
+                    for (step in 0..48) {
+                        val t = -.2f + step / 48f * 1.4f
+                        val y = level - .09f * t + amplitude * kotlin.math.sin(t * 4.52f + phase)
+                        if (step == 0) moveTo(t * w, y * h) else lineTo(t * w, y * h)
+                    }
                 }
-            }
-        val shade = Path().apply { addPath(path, Offset(0f, h * .018f)) }
-        val strength = .65f + .35f * kotlin.math.sin(index * .45f)
-        val light =
-            Brush.horizontalGradient(
-                0f to Color.Transparent,
-                .2f to Color(0xFFE6D6F6).copy(alpha = strength * if (dark) .04f else .1f),
-                .55f to Color.White.copy(alpha = strength * if (dark) .095f else .25f),
-                .85f to Color(0xFFDAEDF8).copy(alpha = strength * if (dark) .05f else .12f),
-                1f to Color.Transparent,
-                startX = -w * .2f,
-                endX = w * 1.2f,
-            )
-        Triple(path, shade, light)
-    }
+            val shade = Path().apply { addPath(path, Offset(0f, h * .018f)) }
+            val strength = .65f + .35f * kotlin.math.sin(index * .45f)
+            val light =
+                Brush.horizontalGradient(
+                    0f to Color.Transparent,
+                    .2f to Color(0xFFE6D6F6).copy(alpha = strength * if (dark) .04f else .1f),
+                    .55f to Color.White.copy(alpha = strength * if (dark) .095f else .25f),
+                    .85f to Color(0xFFDAEDF8).copy(alpha = strength * if (dark) .05f else .12f),
+                    1f to Color.Transparent,
+                    startX = -w * .2f,
+                    endX = w * 1.2f,
+                )
+            Triple(path, shade, light)
+        }
     val glint =
         Brush.horizontalGradient(
             0f to Color.Transparent,
@@ -261,32 +261,68 @@ fun Modifier.aeroBackdrop(dark: Boolean): Modifier = drawWithCache {
     }
 }
 
-fun Modifier.glassShelf(dark: Boolean): Modifier = drawBehind {
+fun Modifier.glassShelf(dark: Boolean): Modifier = drawWithCache {
     val x = 12.dp.toPx()
-    val height = 10.dp.toPx()
-    val y = size.height - height
+    val height = 6.dp.toPx()
+    val y = size.height - 10.dp.toPx()
     val width = size.width - x * 2
-    drawRoundRect(
-        Color(0xFF19132C).copy(alpha = if (dark) .25f else .12f),
-        Offset(x, y + 3.dp.toPx()),
-        Size(width, height),
-        CornerRadius(5.dp.toPx()),
-    )
-    drawRoundRect(
-        Brush.verticalGradient(
-            if (dark) listOf(Color(0xAA8293B3), Color(0x55545A84), Color(0xAA38384F))
-            else listOf(Color(0xDDFFFFFF), Color(0x99D9C4DA), Color(0xBBB590B1))
-        ),
-        Offset(x, y),
-        Size(width, height),
-        CornerRadius(5.dp.toPx()),
-    )
-    drawLine(
-        Color.White.copy(alpha = if (dark) .55f else .95f),
-        Offset(x + 5.dp.toPx(), y),
-        Offset(size.width - x - 5.dp.toPx(), y),
-        strokeWidth = 1.dp.toPx(),
-    )
+    val shadowHeight = 34.dp.toPx()
+    val shadowWidth = minOf(size.width.toInt(), 720).coerceAtLeast(1)
+    val scale = shadowWidth / size.width.coerceAtLeast(1f)
+    val shadow = ImageBitmap(shadowWidth, (shadowHeight * scale).toInt().coerceAtLeast(1))
+    CanvasDrawScope().draw(
+        this,
+        layoutDirection,
+        androidx.compose.ui.graphics.Canvas(shadow),
+        Size(shadowWidth.toFloat(), shadow.height.toFloat()),
+    ) {
+        drawIntoCanvas { canvas ->
+            val paint =
+                Paint().apply {
+                    color = Color(0xFF19132C).copy(alpha = if (dark) .23f else .14f)
+                    isAntiAlias = true
+                    asFrameworkPaint().maskFilter =
+                        android.graphics.BlurMaskFilter(
+                            6.dp.toPx() * scale,
+                            android.graphics.BlurMaskFilter.Blur.NORMAL,
+                        )
+                }
+            canvas.drawRoundRect(
+                x * scale,
+                12.dp.toPx() * scale,
+                (size.width / scale - x) * scale,
+                20.dp.toPx() * scale,
+                5.dp.toPx() * scale,
+                5.dp.toPx() * scale,
+                paint,
+            )
+        }
+    }
+    onDrawBehind {
+        drawImage(
+            shadow,
+            dstOffset = IntOffset(0, (y - 8.dp.toPx()).toInt()),
+            dstSize = IntSize(size.width.toInt(), shadowHeight.toInt()),
+            filterQuality = FilterQuality.High,
+        )
+        drawRoundRect(
+            Brush.verticalGradient(
+                if (dark) listOf(Color(0xAA8293B3), Color(0x55545A84), Color(0xAA38384F))
+                else listOf(Color(0xDDFFFFFF), Color(0x99D9C4DA), Color(0x66B590B1)),
+                startY = y,
+                endY = y + height,
+            ),
+            Offset(x, y),
+            Size(width, height),
+            CornerRadius(5.dp.toPx()),
+        )
+        drawLine(
+            Color.White.copy(alpha = if (dark) .55f else .95f),
+            Offset(x + 5.dp.toPx(), y),
+            Offset(size.width - x - 5.dp.toPx(), y),
+            strokeWidth = 1.dp.toPx(),
+        )
+    }
 }
 
 fun Modifier.glassMaterial(

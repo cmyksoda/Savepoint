@@ -82,9 +82,11 @@ fun Art(
                 ?: bitmap
                 ?: runCatching { artwork.bitmap(url) }.getOrNull()
     }
-    val frame = coverBounds?.let {
-        if (sprite) it else fitCover(coverAspectRatio(system, bitmap?.width, bitmap?.height), it)
-    }
+    val frame =
+        coverBounds?.let {
+            if (sprite) it
+            else fitCover(coverAspectRatio(system, bitmap?.width, bitmap?.height), it)
+        }
     val size = frame?.let { Modifier.size(it.width.dp, it.height.dp) } ?: Modifier
     Box(
         size
@@ -104,7 +106,7 @@ fun Art(
             )
         } else
             Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(painterResource(R.drawable.icon_memory_card), null, Modifier.size(48.dp))
+                Image(painterResource(R.drawable.icon_handheld), null, Modifier.size(48.dp))
                 if (showPlaceholderTitle)
                     Text(
                         title,
@@ -381,6 +383,7 @@ fun ShelfEditor(
     onOpen: (String) -> Unit,
     onBacklog: (String) -> Unit,
     onAdd: () -> Unit,
+    onChooseBacklog: () -> Unit,
 ) {
     val row =
         games.filter { it.place == Place.ACTIVE && it.shelf == shelf }.sortedBy { it.position }
@@ -394,6 +397,15 @@ fun ShelfEditor(
                     "First is playing now. The rest are your near-future queue."
                 else "Arrange this shelf however you like."
             )
+        }
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PinkButton(onClick = onAdd) { Text("add a game") }
+                TextButton(onClick = onChooseBacklog) { Text("from backlog") }
+            }
         }
         items(row, key = { it.id }) { game ->
             Glass(Modifier.fillMaxWidth()) {
@@ -419,7 +431,6 @@ fun ShelfEditor(
                 }
             }
         }
-        item { PinkButton(onClick = onAdd) { Text("add from backlog") } }
     }
 }
 
@@ -781,7 +792,14 @@ fun GameForm(
 }
 
 @Composable
-fun AddScreen(catalog: Catalog, endpoint: String, onChoose: (Game) -> Unit, onManual: () -> Unit) {
+fun AddScreen(
+    catalog: Catalog,
+    endpoint: String,
+    shelf: Shelf?,
+    onShelf: (Shelf?) -> Unit,
+    onChoose: (Game) -> Unit,
+    onManual: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     var query by rememberSaveable { mutableStateOf("") }
     var system by rememberSaveable { mutableStateOf("") }
@@ -792,6 +810,10 @@ fun AddScreen(catalog: Catalog, endpoint: String, onChoose: (Game) -> Unit, onMa
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Choice("add to", shelf?.label ?: "backlog", Shelf.entries.map { it.label } + "backlog") {
+            label ->
+            onShelf(Shelf.entries.firstOrNull { it.label == label })
+        }
         AeroTextField(
             query,
             { query = it },
@@ -989,14 +1011,10 @@ fun SettingsScreen(
             }
         }
         endpointError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        AeroButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) {
-            Text("export backup")
-        }
-        AeroButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
-            Text("import backup")
-        }
+        AeroButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) { Text("export backup") }
+        AeroButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("import backup") }
         Text(
-            "savepoint · 0.3.0\nOriginal code © cmyksoda · GPLv3\nGame artwork belongs to its respective owners.",
+            "Savepoint · ${LocalContext.current.packageManager.getPackageInfo(LocalContext.current.packageName, 0).versionName}\nOriginal code © cmyksoda · GPLv3\nGame artwork belongs to its respective owners.",
             style = MaterialTheme.typography.bodySmall,
         )
     }
@@ -1020,6 +1038,8 @@ fun Savepoint(openLater: Boolean) {
     var route by rememberSaveable { mutableStateOf("home") }
     var selected by rememberSaveable { mutableStateOf("") }
     var editingShelf by rememberSaveable { mutableStateOf(Shelf.PLAY_THROUGH) }
+    var addShelf by rememberSaveable { mutableStateOf<Shelf?>(Shelf.PLAY_THROUGH) }
+    var addReturn by rememberSaveable { mutableStateOf("home") }
     var form by
         rememberSaveable(
             stateSaver =
@@ -1056,13 +1076,26 @@ fun Savepoint(openLater: Boolean) {
             }
         }
     }
+    fun startAdding(shelf: Shelf?, from: String) {
+        addShelf = shelf
+        addReturn = from
+        selected = ""
+        form = null
+        route = "add"
+    }
+    fun backRoute(): String =
+        when {
+            route == "form" -> if (selectedGame != null) "details" else "add"
+            route == "add" -> addReturn
+            route == "journal" -> "log"
+            else -> "home"
+        }
     fun updateSettings(value: Settings) {
         val previous = settings
         scope.launch {
             try {
-                settings = settingsStore.change { current ->
-                    mergeSettings(current, previous, value)
-                }
+                settings =
+                    settingsStore.change { current -> mergeSettings(current, previous, value) }
                 Reminders.schedule(context, settings)
                 if (!settings.reminders || settings.skipDate == LocalDate.now().toString())
                     Reminders.clear(context)
@@ -1157,9 +1190,7 @@ fun Savepoint(openLater: Boolean) {
             LocalAeroDark provides dark,
         ) {
             BackHandler(route != "home" || dialog.isNotBlank()) {
-                if (dialog.isNotBlank()) dialog = ""
-                else if (route == "form" && selectedGame != null) route = "details"
-                else if (route == "journal") route = "log" else route = "home"
+                if (dialog.isNotBlank()) dialog = "" else route = backRoute()
             }
             Column(Modifier.fillMaxSize().aeroBackdrop(dark).safeDrawingPadding()) {
                 Row(
@@ -1168,27 +1199,15 @@ fun Savepoint(openLater: Boolean) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (route != "home")
-                        AeroIconButton(
-                            AeroSymbol.BACK,
-                            "back",
-                            onClick = {
-                                route =
-                                    if (route == "form" && selectedGame != null) "details"
-                                    else if (route == "journal") "log" else "home"
-                            },
-                        )
+                        AeroIconButton(AeroSymbol.BACK, "back", onClick = { route = backRoute() })
                     else
-                        Image(
-                            painterResource(R.drawable.icon_memory_card),
-                            null,
-                            Modifier.size(32.dp),
-                        )
+                        Image(painterResource(R.drawable.icon_handheld), null, Modifier.size(32.dp))
                     Text(
                         when (route) {
-                            "home" -> "savepoint"
+                            "home" -> "Savepoint"
                             "shelf" -> editingShelf.label
                             "details" -> "your game"
-                            "form" -> "edit game"
+                            "form" -> if (selectedGame == null) "add game" else "edit game"
                             "log",
                             "journal" -> "play log"
                             else -> route
@@ -1216,13 +1235,8 @@ fun Savepoint(openLater: Boolean) {
                                         editingShelf = it
                                         route = "shelf"
                                     },
-                                    {
-                                        selected = ""
-                                        route = "add"
-                                    },
-                                    {
-                                        mutate { old -> old + starterGames() }
-                                    },
+                                    { startAdding(Shelf.PLAY_THROUGH, "home") },
+                                    { mutate { old -> old + starterGames() } },
                                 )
                             "backlog",
                             "paused" ->
@@ -1279,6 +1293,7 @@ fun Savepoint(openLater: Boolean) {
                                         route = "details"
                                     },
                                     { id -> mutate { LibraryRules.move(it, id, Place.BACKLOG) } },
+                                    { startAdding(editingShelf, "shelf") },
                                     { route = "backlog" },
                                 )
                             "details" ->
@@ -1358,13 +1373,28 @@ fun Savepoint(openLater: Boolean) {
                                 AddScreen(
                                     catalog,
                                     settings.catalogUrl,
+                                    addShelf,
+                                    { addShelf = it },
                                     {
-                                        form = it
+                                        form =
+                                            it.copy(
+                                                shelf = addShelf ?: Shelf.PLAY_THROUGH,
+                                                place =
+                                                    if (addShelf == null) Place.BACKLOG
+                                                    else Place.ACTIVE,
+                                            )
                                         selected = ""
                                         route = "form"
                                     },
                                     {
-                                        form = Game(title = "")
+                                        form =
+                                            Game(
+                                                title = "",
+                                                shelf = addShelf ?: Shelf.PLAY_THROUGH,
+                                                place =
+                                                    if (addShelf == null) Place.BACKLOG
+                                                    else Place.ACTIVE,
+                                            )
                                         selected = ""
                                         route = "form"
                                     },
@@ -1441,10 +1471,7 @@ fun Savepoint(openLater: Boolean) {
                     AeroDock(
                         route,
                         { route = it },
-                        {
-                            selected = ""
-                            route = "add"
-                        },
+                        { startAdding(if (route == "backlog") null else Shelf.PLAY_THROUGH, route) },
                     )
             }
             if (
@@ -1588,9 +1615,7 @@ fun Savepoint(openLater: Boolean) {
                                         val previous = games
                                         val previousSettings = settings
                                         try {
-                                            library.change {
-                                                updateStarterArtwork(backup.games)
-                                            }
+                                            library.change { updateStarterArtwork(backup.games) }
                                             settings = settingsStore.change { backup.settings }
                                         } catch (e: Exception) {
                                             library.change { previous }
