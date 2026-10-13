@@ -4,7 +4,7 @@
         <aapt:attr name="android:fillColor"><gradient android:type="linear" android:startX="32" android:startY="24" android:endX="76" android:endY="84" android:startColor="#FFF0F8" android:endColor="#CC6BA2" /></aapt:attr>
     </path>
     <path android:fillColor="#694A65" android:pathData="M38,32 H70 V54 H38 Z" />
-    <path android:fillColor="#FFBEDD" android:pathData="M54,50.5 C52.7,50.5 47,44.8 47,40.6 C47,36.5 51.7,35.6 54,39.6 C56.3,35.6 61,36.5 61,40.6 C61,44.8 55.3,50.5 54,50.5 Z" />
+    <path android:fillColor="#FFBEDD" android:pathData="M54,48.989 C52.7,48.989 47,43.924 47,40.191 C47,36.547 51.7,35.748 54,39.302 C56.3,35.748 61,36.547 61,40.191 C61,43.924 55.3,48.989 54,48.989 Z" />
     <path android:fillColor="#733655" android:pathData="M42,63 H46 V59 H50 V63 H54 V67 H50 V71 H46 V67 H42 Z M64,61 A3,3 0,1 0,64,67 A3,3 0,1 0,64,61 Z M69,69 A3,3 0,1 0,69,75 A3,3 0,1 0,69,69 Z" />
     <path android:fillColor="#FFFFFF" android:fillAlpha="0.25" android:pathData="M38,25 H70 Q75,25 75,30 V35 Q51,26 33,40 V30 Q33,25 38,25 Z" />
     </group>
