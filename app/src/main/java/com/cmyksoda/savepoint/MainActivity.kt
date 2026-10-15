@@ -611,7 +611,6 @@ fun GameDetails(
     onRelocate: () -> Unit,
     onDelete: () -> Unit,
     onCover: () -> Unit,
-    onLogDay: () -> Unit,
 ) {
     Column(
         Modifier.fillMaxSize()
@@ -620,11 +619,6 @@ fun GameDetails(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         GameIdentity(game, artwork, showShelf = true, prominent = true)
-        PinkButton(onClick = onLogDay, modifier = Modifier.fillMaxWidth()) {
-            AeroIcon(AeroSymbol.CALENDAR, Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("log play")
-        }
         if (game.shelf != Shelf.HUNTS && game.pauseNote.isNotBlank())
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1785,6 +1779,15 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                     )
                     if (route == "home")
                         AeroIconButton(AeroSymbol.SETTINGS, "settings", { route = "settings" })
+                    if (route == "details" && selectedGame != null)
+                        AeroIconButton(
+                            AeroSymbol.CALENDAR,
+                            "log play",
+                            {
+                                dailyDate = LocalDate.now().toString()
+                                openDaily(selectedGame.id)
+                            },
+                        )
                     if (route in listOf("backlog", "paused", "finished"))
                         AeroIconButton(
                             if ((if (route == "finished") "log" else route) in settings.gridViews)
@@ -2120,10 +2123,6 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                                                     },
                                                     { dialog = "delete" },
                                                     { route = "cover" },
-                                                    {
-                                                        dailyDate = LocalDate.now().toString()
-                                                        openDaily(game.id)
-                                                    },
                                                 )
                                             }
                                         "hunt-add" ->
