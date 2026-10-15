@@ -1,6 +1,7 @@
 name: savepoint-catalog
 services:
   tailscale:
+    container_name: tailscale-savepoint-catalog
     image: tailscale/tailscale:stable
     hostname: savepoint-catalog
     environment:
@@ -28,6 +29,7 @@ services:
         max-size: 5m
         max-file: "2"
   catalog:
+    container_name: savepoint-catalog
     build: .
     network_mode: service:tailscale
     depends_on:

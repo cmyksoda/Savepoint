@@ -90,6 +90,7 @@ class BackupInstrumentedTest {
             legacy.remove("playthroughs")
             legacy.remove("hasPlayed")
             legacy.remove("replayCount")
+            legacy.remove("dailyPlays")
             val manifest =
                 JSONObject()
                     .put("version", 1)
@@ -104,6 +105,7 @@ class BackupInstrumentedTest {
             try {
                 assertTrue(restored.games.single().inPlayLog)
                 assertTrue(restored.games.single().playthroughs.isEmpty())
+                assertTrue(restored.games.single().dailyPlays.isEmpty())
                 assertEquals("keep these notes", restored.games.single().notes)
             } finally {
                 restored.artwork.deleteRecursively()
@@ -127,6 +129,7 @@ class BackupInstrumentedTest {
             val game =
                 Game(
                     title = "Test game",
+                    dailyPlays = listOf(DailyPlay("2026-10-12"), DailyPlay("2026-10-13", 75)),
                     notes = "general notes",
                     pauseNote = "pause note",
                     place = Place.PAUSED,
@@ -151,6 +154,8 @@ class BackupInstrumentedTest {
                 listOf(game),
                 Settings(
                     reminders = true,
+                    celebratedMilestones = setOf("streak:3"),
+                    logReminder = false,
                     collectionNames = setOf("favorites", "empty collection"),
                 ),
                 artwork,
@@ -159,6 +164,8 @@ class BackupInstrumentedTest {
             try {
                 assertEquals(listOf(game), restored.games)
                 assertFalse(restored.settings.reminders)
+                assertFalse(restored.settings.logReminder)
+                assertEquals(setOf("streak:3"), restored.settings.celebratedMilestones)
                 assertEquals(
                     setOf("favorites", "empty collection"),
                     restored.settings.collectionNames,

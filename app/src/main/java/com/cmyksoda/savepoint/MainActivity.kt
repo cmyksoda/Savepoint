@@ -84,13 +84,20 @@ private val dockRoutes =
         "collections",
         "collection",
         "hunt-add",
+        "daily",
+        "finished",
     )
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { Savepoint(intent.getBooleanExtra("later", false)) }
+        setContent {
+            Savepoint(
+                intent.getBooleanExtra("later", false),
+                intent.getBooleanExtra("log-play", false),
+            )
+        }
     }
 }
 
@@ -589,6 +596,7 @@ fun GameDetails(
     onRelocate: () -> Unit,
     onDelete: () -> Unit,
     onCover: () -> Unit,
+    onLogDay: () -> Unit,
 ) {
     Column(
         Modifier.fillMaxSize()
@@ -597,6 +605,11 @@ fun GameDetails(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         GameIdentity(game, artwork, showShelf = true, prominent = true)
+        PinkButton(onClick = onLogDay, modifier = Modifier.fillMaxWidth()) {
+            AeroIcon(AeroSymbol.CALENDAR, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("log play")
+        }
         if (game.shelf != Shelf.HUNTS && game.pauseNote.isNotBlank())
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -637,7 +650,7 @@ fun GameDetails(
         }
         if (game.inPlayLog)
             AeroButton(onClick = onPlayLog, modifier = Modifier.fillMaxWidth()) {
-                Text("view play log")
+                Text("finished playthroughs")
             }
         if (game.shelf == Shelf.HUNTS) {
             val odds = calculatedOdds(game)
@@ -1222,7 +1235,7 @@ fun SettingsScreen(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    "A general invitation to enjoy your games. Ignoring it never creates another reminder."
+                    "A general invitation to enjoy your games, with an optional evening check-in for your play log."
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("rest invitations", Modifier.weight(1f))
@@ -1285,6 +1298,19 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelLarge,
                         )
                     }
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(
+                        Modifier.weight(1f).padding(end = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text("evening play log")
+                        Text(
+                            "Around 9pm on these days. Skipped or already logged days stay quiet.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    AeroSwitch(settings.logReminder, { onChange(settings.copy(logReminder = it)) })
                 }
                 Text(
                     "Delivery can vary with Android battery settings. Invitations arriving after your window are discarded.",
@@ -1359,7 +1385,7 @@ fun timeLabel(minute: Int): String =
         .format(DateTimeFormatter.ofPattern("h:mm a"))
 
 @Composable
-fun Savepoint(openLater: Boolean) {
+fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val library = remember { Library(context) }
@@ -1383,6 +1409,20 @@ fun Savepoint(openLater: Boolean) {
             ScreenHistory()
         }
     var route by navigation
+    var dailyDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var dailyPreselected by rememberSaveable { mutableStateOf<String?>(null) }
+    var savingDaily by remember { mutableStateOf(false) }
+    var celebration by rememberSaveable { mutableStateOf<String?>(null) }
+    var today by remember { mutableStateOf(LocalDate.now()) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) today = LocalDate.now()
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     var selected by rememberSaveable { mutableStateOf("") }
     var selectedCollection by rememberSaveable { mutableStateOf("") }
     var editingShelf by rememberSaveable { mutableStateOf(Shelf.PLAY_THROUGH) }
@@ -1477,6 +1517,48 @@ fun Savepoint(openLater: Boolean) {
             dialog = "entry"
         }
     }
+    fun openDaily(game: String? = null) {
+        dailyPreselected = game
+        screenStates.removeState("daily:$dailyDate")
+        route = "daily"
+    }
+    fun saveDay(chosen: Map<String, Int?>) {
+        if (savingDaily) return
+        savingDaily = true
+        scope.launch {
+            try {
+                var before = emptySet<String>()
+                library.change { current ->
+                    before = reachedPlayMilestones(playedDates(current)).map { it.key }.toSet()
+                    saveDailyPlays(current, LocalDate.parse(dailyDate), chosen, LocalDate.now())
+                }
+                val reached = reachedPlayMilestones(playedDates(library.games.value))
+                var fresh = emptyList<PlayMilestone>()
+                settings =
+                    settingsStore.change { current ->
+                        fresh =
+                            reached.filter {
+                                it.key !in before && it.key !in current.celebratedMilestones
+                            }
+                        current.copy(
+                            celebratedMilestones =
+                                current.celebratedMilestones + reached.map { it.key }
+                        )
+                    }
+                celebration =
+                    (fresh.lastOrNull { it.key.startsWith("streak:") } ?: fresh.lastOrNull())
+                        ?.message
+                if (dailyDate == LocalDate.now().toString()) LogReminders.clear(context)
+                screenStates.removeState("daily:$dailyDate")
+                dailyPreselected = null
+                route = "log"
+            } catch (e: Exception) {
+                error = e.message ?: "Could not save this day"
+            } finally {
+                savingDaily = false
+            }
+        }
+    }
     fun startAdding(shelf: Shelf?, from: String) {
         screenStates.removeState("add")
         catalogResults = emptyList()
@@ -1502,6 +1584,7 @@ fun Savepoint(openLater: Boolean) {
                     }
                 if (reschedule) {
                     Reminders.schedule(context, settings)
+                    if (!settings.logReminder) LogReminders.clear(context)
                     if (!settings.reminders || settings.skipDate == LocalDate.now().toString())
                         Reminders.clear(context)
                 }
@@ -1581,9 +1664,13 @@ fun Savepoint(openLater: Boolean) {
             artwork.prepareLibraryArtwork(library.games.value)
             settings = settingsStore.read()
             loaded = true
-            if (route == "finished") route = "log"
             Reminders.schedule(context, settings)
             if (openLater) dialog = "later"
+            if (openDailyLog) {
+                dailyDate = LocalDate.now().toString()
+                route = "log"
+                openDaily()
+            }
         } catch (e: Exception) {
             error = "Could not open library: ${e.message}"
         }
@@ -1654,8 +1741,10 @@ fun Savepoint(openLater: Boolean) {
                                 if (form?.shelf == Shelf.HUNTS) {
                                     if (selectedGame == null) "add a hunt" else "edit hunt"
                                 } else if (selectedGame == null) "add game" else "edit game"
-                            "log",
-                            "journal" -> "play log"
+                            "log" -> "play log"
+                            "finished" -> "finished games"
+                            "daily" -> "log play"
+                            "journal" -> "finished playthroughs"
                             else -> route
                         },
                         fontWeight = FontWeight.Medium,
@@ -1664,22 +1753,32 @@ fun Savepoint(openLater: Boolean) {
                     )
                     if (route == "home")
                         AeroIconButton(AeroSymbol.SETTINGS, "settings", { route = "settings" })
-                    if (route in listOf("backlog", "paused", "log"))
+                    if (route in listOf("backlog", "paused", "finished"))
                         AeroIconButton(
-                            if (route in settings.gridViews) AeroSymbol.LIST else AeroSymbol.GRID,
-                            if (route in settings.gridViews) "list view" else "grid view",
+                            if ((if (route == "finished") "log" else route) in settings.gridViews)
+                                AeroSymbol.LIST
+                            else AeroSymbol.GRID,
+                            if ((if (route == "finished") "log" else route) in settings.gridViews)
+                                "list view"
+                            else "grid view",
                             {
                                 updateSettings(
                                     settings.copy(
                                         gridViews =
-                                            if (route in settings.gridViews)
-                                                settings.gridViews - route
-                                            else settings.gridViews + route
+                                            if (
+                                                (if (route == "finished") "log" else route) in
+                                                    settings.gridViews
+                                            )
+                                                settings.gridViews -
+                                                    (if (route == "finished") "log" else route)
+                                            else
+                                                settings.gridViews +
+                                                    (if (route == "finished") "log" else route)
                                     )
                                 )
                             },
                         )
-                    if (route in listOf("home", "backlog", "paused", "log"))
+                    if (route in listOf("home", "backlog", "paused", "finished"))
                         AeroIconButton(AeroSymbol.SEARCH, "search your games", { route = "find" })
                 }
                 Box(Modifier.weight(1f)) {
@@ -1725,6 +1824,7 @@ fun Savepoint(openLater: Boolean) {
                                     "catalog" -> "$screen:${form?.id}"
                                     "shelf" -> "$screen:${editingShelf.name}"
                                     "collection" -> "$screen:$selectedCollection"
+                                    "daily" -> "$screen:$dailyDate"
                                     else -> screen
                                 }
                             screenStates.SaveableStateProvider(stateKey) {
@@ -1839,6 +1939,29 @@ fun Savepoint(openLater: Boolean) {
                                                 },
                                             )
                                         "log" ->
+                                            DailyLogScreen(
+                                                games,
+                                                artwork,
+                                                LocalDate.parse(dailyDate),
+                                                today,
+                                                { dailyDate = it.toString() },
+                                                { openDaily() },
+                                                { route = "finished" },
+                                                celebration,
+                                                { celebration = null },
+                                            )
+                                        "daily" ->
+                                            DailyPlayEditor(
+                                                games,
+                                                artwork,
+                                                LocalDate.parse(dailyDate),
+                                                today,
+                                                savingDaily,
+                                                ::saveDay,
+                                                { route = backRoute() },
+                                                dailyPreselected,
+                                            )
+                                        "finished" ->
                                             PlayLogList(
                                                 games,
                                                 artwork,
@@ -1964,6 +2087,10 @@ fun Savepoint(openLater: Boolean) {
                                                     },
                                                     { dialog = "delete" },
                                                     { route = "cover" },
+                                                    {
+                                                        dailyDate = LocalDate.now().toString()
+                                                        openDaily(game.id)
+                                                    },
                                                 )
                                             }
                                         "hunt-add" ->
@@ -2123,7 +2250,7 @@ fun Savepoint(openLater: Boolean) {
                         }
                     if (route in dockRoutes || (route == "form" && selectedGame == null))
                         AeroDock(
-                            route,
+                            if (route in setOf("daily", "finished")) "log" else route,
                             { route = it },
                             {
                                 if (route == "add") {
@@ -2206,7 +2333,7 @@ fun Savepoint(openLater: Boolean) {
                     title = { Text("delete ${selectedGame.title}?") },
                     text = {
                         Text(
-                            "Remove this game and its saved notes and playthroughs from Savepoint?"
+                            "Remove this game and its saved notes, daily logs and playthroughs from Savepoint?"
                         )
                     },
                     confirmButton = {
@@ -2268,7 +2395,7 @@ fun Savepoint(openLater: Boolean) {
                                 Modifier.padding(vertical = 6.dp),
                                 color = MaterialTheme.colorScheme.outline.copy(alpha = .3f),
                             )
-                            listOf(Place.BACKLOG to "backlog", Place.FINISHED to "play log")
+                            listOf(Place.BACKLOG to "backlog", Place.FINISHED to "finished games")
                                 .forEach { (place, label) ->
                                     AeroButton(
                                         onClick = {

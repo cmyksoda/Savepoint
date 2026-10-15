@@ -104,6 +104,20 @@ class PresentationInstrumentedTest {
     }
 
     @Test
+    fun eveningNotificationHasOneActionToOpenTheDailyEntry() {
+        val notification = LogReminders.notification(context, 60000)
+        assertEquals(
+            "What did you play today?",
+            notification.extras.getString(android.app.Notification.EXTRA_TITLE),
+        )
+        assertEquals(1, notification.actions.size)
+        assertEquals("Log play", notification.actions.single().title.toString())
+        assertTrue(notification.actions.single().actionIntent.isActivity)
+        assertEquals(notification.contentIntent, notification.actions.single().actionIntent)
+        assertEquals(60000L, notification.timeoutAfter)
+    }
+
+    @Test
     fun bothThemeBackgroundsCanBePreparedOffTheUiThread() = runBlocking {
         withContext(Dispatchers.Default) {
             val light = renderAeroBackdrop(120, 240, false).asAndroidBitmap()

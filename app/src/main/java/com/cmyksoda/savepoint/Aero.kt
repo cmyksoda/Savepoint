@@ -54,6 +54,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -611,6 +612,7 @@ fun AeroTextField(
     maxLines: Int = Int.MAX_VALUE,
     autoFocus: Boolean = false,
     onSubmit: (() -> Unit)? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
 ) {
     val dark = LocalAeroDark.current
     val focus = remember { FocusRequester() }
@@ -647,7 +649,8 @@ fun AeroTextField(
                         .semantics { contentDescription = label },
                 keyboardOptions =
                     KeyboardOptions(
-                        imeAction = if (onSubmit != null) ImeAction.Search else ImeAction.Default
+                        imeAction = if (onSubmit != null) ImeAction.Search else ImeAction.Default,
+                        keyboardType = keyboardType,
                     ),
                 keyboardActions = KeyboardActions(onSearch = { onSubmit?.invoke() }),
                 singleLine = singleLine,
@@ -743,6 +746,8 @@ fun Choice(
 }
 
 enum class AeroSymbol {
+    CLOSE,
+    CALENDAR,
     GRID,
     LIST,
     BACK,
@@ -787,6 +792,23 @@ fun AeroIcon(
                 )
             }
             when (symbol) {
+                AeroSymbol.CLOSE -> {
+                    path(6f, 6f, 18f, 18f)
+                    path(18f, 6f, 6f, 18f)
+                }
+                AeroSymbol.CALENDAR -> {
+                    drawRoundRect(
+                        tint,
+                        Offset(3f, 5f),
+                        Size(18f, 16f),
+                        CornerRadius(3f),
+                        style = stroke,
+                    )
+                    path(3f, 10f, 21f, 10f)
+                    path(8f, 3f, 8f, 7f)
+                    path(16f, 3f, 16f, 7f)
+                    for (x in listOf(8f, 12f, 16f)) drawCircle(tint, .9f, Offset(x, 15f))
+                }
                 AeroSymbol.BACK -> {
                     path(11f, 5f, 4f, 12f, 11f, 19f)
                     path(4f, 12f, 21f, 12f)
@@ -1044,7 +1066,7 @@ fun AeroDock(
                     Triple("home", "shelves", AeroSymbol.SHELVES),
                     Triple("backlog", "backlog", AeroSymbol.BACKLOG),
                     Triple("paused", "paused", AeroSymbol.PAUSE),
-                    Triple("log", "play log", AeroSymbol.LOG),
+                    Triple("log", "play log", AeroSymbol.CALENDAR),
                 )
                 .forEach { (destination, label, icon) ->
                     val active = route == destination

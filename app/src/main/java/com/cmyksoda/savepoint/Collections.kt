@@ -245,7 +245,9 @@ fun CollectionsScreen(
             ) {
                 if (row.isEmpty())
                     item {
-                        Text("Choose games from your shelves, backlog, paused games, or play log.")
+                        Text(
+                            "Choose games from your shelves, backlog, paused games, or finished games."
+                        )
                     }
                 items(row, key = { it.id }) { game ->
                     Glass(
@@ -530,7 +532,7 @@ fun FindGames(
                             Text(
                                 when (game.place) {
                                     Place.ACTIVE -> game.shelf.label
-                                    Place.FINISHED -> "play log"
+                                    Place.FINISHED -> "finished games"
                                     else -> game.place.name.lowercase()
                                 },
                                 style = MaterialTheme.typography.bodySmall,

@@ -33,9 +33,22 @@ data class Settings(
     val sentDate: String = "",
     val followupDate: String = "",
     val laterAt: Long = 0,
+    val logReminder: Boolean = true,
+    val logSentDate: String = "",
+    val celebratedMilestones: Set<String> = emptySet(),
 )
 
 object JsonCodec {
+    fun dailyPlay(entry: DailyPlay) =
+        JSONObject().apply {
+            put("date", entry.date)
+            put("minutes", entry.minutes ?: JSONObject.NULL)
+        }
+
+    fun dailyPlay(j: JSONObject) =
+        DailyPlay(j.getString("date"), if (j.isNull("minutes")) null else j.getInt("minutes"))
+            .also { validateDailyPlay(it) }
+
     fun playthrough(p: Playthrough) =
         JSONObject().apply {
             put("id", p.id)
@@ -91,6 +104,7 @@ object JsonCodec {
             put("playthroughs", JSONArray(g.playthroughs.map { playthrough(it) }))
             put("hasPlayed", g.hasPlayed)
             put("replayCount", g.replayCount ?: JSONObject.NULL)
+            put("dailyPlays", JSONArray(g.dailyPlays.map { dailyPlay(it) }))
         }
 
     fun game(j: JSONObject) =
@@ -124,11 +138,20 @@ object JsonCodec {
                     } ?: emptyList(),
                 hasPlayed = j.optBoolean("hasPlayed", j.getString("place") == "FINISHED"),
                 replayCount = if (j.isNull("replayCount")) null else j.getInt("replayCount"),
+                dailyPlays =
+                    j.optJSONArray("dailyPlays")?.let { entries ->
+                        (0 until entries.length()).map { dailyPlay(entries.getJSONObject(it)) }
+                    } ?: emptyList(),
             )
             .also {
                 require(it.id.isNotBlank() && it.title.isNotBlank()) { "Invalid game entry" }
                 require(it.encounters >= 0 && (it.manualOdds == null || it.manualOdds > 0)) {
                     "Invalid hunt values"
+                }
+                require(
+                    it.dailyPlays.map { entry -> entry.date }.distinct().size == it.dailyPlays.size
+                ) {
+                    "Duplicate daily play dates"
                 }
                 require(it.replayCount == null || it.replayCount >= 0) { "Invalid replay count" }
                 require(
@@ -156,6 +179,9 @@ object JsonCodec {
             put("sentDate", s.sentDate)
             put("followupDate", s.followupDate)
             put("laterAt", s.laterAt)
+            put("logReminder", s.logReminder)
+            put("logSentDate", s.logSentDate)
+            put("celebratedMilestones", JSONArray(s.celebratedMilestones.sorted()))
         }
 
     fun settings(j: JSONObject) =
@@ -190,6 +216,12 @@ object JsonCodec {
                 sentDate = j.optString("sentDate"),
                 followupDate = j.optString("followupDate"),
                 laterAt = j.optLong("laterAt"),
+                logReminder = j.optBoolean("logReminder", true),
+                logSentDate = j.optString("logSentDate"),
+                celebratedMilestones =
+                    j.optJSONArray("celebratedMilestones")?.let { a ->
+                        (0 until a.length()).map { a.getString(it) }.toSet()
+                    } ?: emptySet(),
             )
             .also {
                 require(it.theme in listOf("system", "light", "dark"))
@@ -202,11 +234,14 @@ object JsonCodec {
             }
 }
 
-class Library(context: Context) {
-    private val dao =
+class Library(context: Context) : AutoCloseable {
+    private val database =
         Room.databaseBuilder(context.applicationContext, LibraryDatabase::class.java, "library.db")
             .build()
-            .games()
+    private val dao = database.games()
+
+    override fun close() = database.close()
+
     private val mutex = Mutex()
     val games = MutableStateFlow<List<Game>>(emptyList())
 

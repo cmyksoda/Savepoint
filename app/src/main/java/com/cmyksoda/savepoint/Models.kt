@@ -47,6 +47,9 @@ fun mergeSettings(current: Settings, previous: Settings, changed: Settings) =
         skipDate =
             if (changed.skipDate != previous.skipDate) changed.skipDate else current.skipDate,
         laterAt = if (changed.laterAt != previous.laterAt) changed.laterAt else current.laterAt,
+        logReminder =
+            if (changed.logReminder != previous.logReminder) changed.logReminder
+            else current.logReminder,
     )
 
 val systems =
@@ -113,6 +116,7 @@ data class Game(
     val playthroughs: List<Playthrough> = emptyList(),
     val hasPlayed: Boolean = false,
     val replayCount: Int? = null,
+    val dailyPlays: List<DailyPlay> = emptyList(),
 )
 
 val Game.inPlayLog: Boolean

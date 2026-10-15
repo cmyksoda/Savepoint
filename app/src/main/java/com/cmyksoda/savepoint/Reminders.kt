@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 
 fun reminderSettingsChanged(previous: Settings, updated: Settings): Boolean =
     previous.reminders != updated.reminders ||
+        previous.logReminder != updated.logReminder ||
         previous.days != updated.days ||
         previous.startMinute != updated.startMinute ||
         previous.endMinute != updated.endMinute ||
@@ -92,6 +93,7 @@ object Reminders {
     const val NOTIFICATION = 1
 
     fun schedule(context: Context, settings: Settings) {
+        LogReminders.schedule(context, settings)
         val manager = context.getSystemService(AlarmManager::class.java)
         val base = Intent(context, ReminderReceiver::class.java).setAction("INVITE")
         val pending =
@@ -159,8 +161,10 @@ object Reminders {
         return builder.build()
     }
 
-    fun clear(context: Context) =
+    fun clear(context: Context) {
         context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION)
+        LogReminders.clear(context)
+    }
 }
 
 class ScheduleReceiver : BroadcastReceiver() {
