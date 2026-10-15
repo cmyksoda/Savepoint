@@ -430,51 +430,6 @@ fun Glass(
     Column(modifier.glassMaterial(LocalAeroDark.current, strong = strong), content = content)
 }
 
-private val glassShadows =
-    object : android.util.LruCache<String, ImageBitmap>(16 * 1024 * 1024) {
-        override fun sizeOf(key: String, value: ImageBitmap) =
-            value.asAndroidBitmap().allocationByteCount
-    }
-
-fun Modifier.softGlassShadow(radius: Dp, elevation: Dp = 3.dp, visible: Boolean = true): Modifier =
-    drawWithCache {
-        if (!visible || size.width <= 0f || size.height <= 0f) return@drawWithCache onDrawBehind {}
-        val blur = maxOf(2.dp.toPx(), elevation.toPx() * .65f)
-        val offset = elevation.toPx() * .5f
-        val margin = blur * 3 + offset
-        val key = "$size:${radius.toPx()}:$blur:$offset"
-        val shadow =
-            glassShadows.get(key)
-                ?: ImageBitmap(
-                        (size.width + margin * 2).toInt().coerceAtLeast(1),
-                        (size.height + margin * 2).toInt().coerceAtLeast(1),
-                    )
-                    .also { bitmap ->
-                        val paint =
-                            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                                color = android.graphics.Color.argb(45, 38, 25, 50)
-                                maskFilter =
-                                    android.graphics.BlurMaskFilter(
-                                        blur,
-                                        android.graphics.BlurMaskFilter.Blur.NORMAL,
-                                    )
-                            }
-                        android.graphics
-                            .Canvas(bitmap.asAndroidBitmap())
-                            .drawRoundRect(
-                                margin,
-                                margin + offset,
-                                margin + size.width,
-                                margin + size.height + offset,
-                                radius.toPx(),
-                                radius.toPx(),
-                                paint,
-                            )
-                        glassShadows.put(key, bitmap)
-                    }
-        onDrawBehind { drawImage(shadow, Offset(-margin, -margin)) }
-    }
-
 @Composable
 private fun AeroControl(
     onClick: () -> Unit,

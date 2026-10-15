@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -64,10 +65,13 @@ import androidx.core.view.WindowCompat
 import java.io.File
 import java.net.URI
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 private val bottomTabRoutes = setOf("home", "backlog", "paused", "log")
@@ -1414,6 +1418,18 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
     var savingDaily by remember { mutableStateOf(false) }
     var celebration by rememberSaveable { mutableStateOf<String?>(null) }
     var today by remember { mutableStateOf(LocalDate.now()) }
+    val calendarLocale = LocalConfiguration.current.locales[0]
+    var preparedCalendar by remember { mutableStateOf<PlayCalendarMonth?>(null) }
+    LaunchedEffect(loaded, today, calendarLocale) {
+        val month = YearMonth.from(today)
+        if (
+            loaded &&
+                (preparedCalendar?.month != month || preparedCalendar?.locale != calendarLocale)
+        ) {
+            preparedCalendar =
+                withContext(Dispatchers.Default) { playCalendarMonth(month, calendarLocale) }
+        }
+    }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer =
@@ -1663,6 +1679,10 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                 library.change(::updateStarterArtwork)
             artwork.prepareLibraryArtwork(library.games.value)
             settings = settingsStore.read()
+            preparedCalendar =
+                withContext(Dispatchers.Default) {
+                    playCalendarMonth(YearMonth.from(today), calendarLocale)
+                }
             loaded = true
             Reminders.schedule(context, settings)
             if (openLater) dialog = "later"
@@ -1949,6 +1969,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                                                 { route = "finished" },
                                                 celebration,
                                                 { celebration = null },
+                                                preparedCalendar,
                                             )
                                         "daily" ->
                                             DailyPlayEditor(

@@ -15,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -34,7 +35,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val dayFormat = DateTimeFormatter.ofPattern("EEEE, MMMM d")
-private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy")
 
 @Composable
 fun DailyLogScreen(
@@ -47,21 +47,42 @@ fun DailyLogScreen(
     onFinished: () -> Unit,
     celebration: String?,
     onDismissCelebration: () -> Unit,
+    preparedCalendar: PlayCalendarMonth? = null,
 ) {
     var monthText by rememberSaveable { mutableStateOf(YearMonth.from(date).toString()) }
     LaunchedEffect(date) { monthText = YearMonth.from(date).toString() }
     val month = YearMonth.parse(monthText)
+    val locale = LocalConfiguration.current.locales[0]
+    val monthModel =
+        remember(month, locale, preparedCalendar) {
+            preparedCalendar?.takeIf { it.month == month && it.locale == locale }
+                ?: playCalendarMonth(month, locale)
+        }
     val dates = remember(games) { playedDates(games) }
     val streak = remember(dates, today) { currentPlayStreak(dates, today) }
-    val entries = games.filter { game -> game.dailyPlays.any { it.date == date.toString() } }
+    val entries =
+        remember(games, date) {
+            games.filter { game -> game.dailyPlays.any { it.date == date.toString() } }
+        }
     val context = LocalContext.current
+    val feedback = rememberActionFeedback()
+    fun selectDate(chosen: LocalDate) {
+        if (chosen != date) {
+            feedback(false)
+            onDate(chosen)
+        }
+    }
+    fun openLog() {
+        feedback(false)
+        onLog()
+    }
     fun pickDate() {
         DatePickerDialog(
                 context,
                 { _, y, m, d ->
                     val chosen = LocalDate.of(y, m + 1, d)
                     monthText = YearMonth.from(chosen).toString()
-                    onDate(chosen)
+                    selectDate(chosen)
                 },
                 date.year,
                 date.monthValue - 1,
@@ -146,11 +167,14 @@ fun DailyLogScreen(
                         AeroIconButton(
                             AeroSymbol.BACK,
                             "previous month",
-                            { monthText = month.minusMonths(1).toString() },
+                            {
+                                feedback(false)
+                                monthText = month.minusMonths(1).toString()
+                            },
                             compact = true,
                         )
                         Text(
-                            month.format(monthFormat),
+                            monthModel.title,
                             Modifier.weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
                                 .clickable(role = Role.Button, onClick = ::pickDate)
@@ -164,7 +188,10 @@ fun DailyLogScreen(
                             AeroIconButton(
                                 AeroSymbol.NEXT,
                                 "next month",
-                                { monthText = month.plusMonths(1).toString() },
+                                {
+                                    feedback(false)
+                                    monthText = month.plusMonths(1).toString()
+                                },
                                 compact = true,
                             )
                         else Spacer(Modifier.size(48.dp))
@@ -180,16 +207,16 @@ fun DailyLogScreen(
                             )
                         }
                     }
-                    val first = month.atDay(1)
-                    val offset = first.dayOfWeek.value - 1
-                    repeat((offset + month.lengthOfMonth() + 6) / 7) { week ->
+                    val offset = monthModel.firstWeekday
+                    repeat(monthModel.weeks) { week ->
                         Row(Modifier.fillMaxWidth()) {
                             repeat(7) { weekday ->
                                 val number = week * 7 + weekday - offset + 1
                                 if (number !in 1..month.lengthOfMonth())
                                     Spacer(Modifier.weight(1f).height(45.dp))
                                 else {
-                                    val cell = month.atDay(number)
+                                    val calendarDay = monthModel.days[number - 1]
+                                    val cell = calendarDay.date
                                     val chosen = cell == date
                                     val future = cell > today
                                     val shape = RoundedCornerShape(12.dp)
@@ -222,12 +249,12 @@ fun DailyLogScreen(
                                                 else Modifier
                                             )
                                             .clickable(enabled = !future, role = Role.Button) {
-                                                onDate(cell)
+                                                selectDate(cell)
                                             }
                                             .semantics {
                                                 selected = chosen
                                                 contentDescription =
-                                                    "${cell.format(dayFormat)}, ${cell.year}${if (cell in dates) ", played" else ""}"
+                                                    "${calendarDay.description}${if (cell in dates) ", played" else ""}"
                                             },
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center,
@@ -292,12 +319,12 @@ fun DailyLogScreen(
                         "back to today",
                         {
                             monthText = YearMonth.from(today).toString()
-                            onDate(today)
+                            selectDate(today)
                         },
                         compact = true,
                     )
                 if (entries.isNotEmpty())
-                    PinkButton(onClick = onLog) {
+                    PinkButton(onClick = ::openLog) {
                         AeroIcon(AeroSymbol.EDIT, Modifier.size(15.dp))
                         Spacer(Modifier.width(7.dp))
                         Text("edit day", fontSize = 13.sp)
@@ -317,7 +344,7 @@ fun DailyLogScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        PinkButton(onClick = onLog, modifier = Modifier.fillMaxWidth()) {
+                        PinkButton(onClick = ::openLog, modifier = Modifier.fillMaxWidth()) {
                             AeroIcon(AeroSymbol.ADD, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("log what I played")
@@ -327,7 +354,7 @@ fun DailyLogScreen(
             }
         items(entries, key = { it.id }) { game ->
             val entry = game.dailyPlays.first { it.date == date.toString() }
-            Glass(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onLog)) {
+            Glass(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = ::openLog)) {
                 Row(
                     Modifier.fillMaxWidth().padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -406,6 +433,7 @@ fun DailyPlayEditor(
         }
     var query by rememberSaveable { mutableStateOf("") }
     var editingTime by rememberSaveable { mutableStateOf<String?>(null) }
+    val feedback = rememberActionFeedback()
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val ordered =
@@ -481,6 +509,7 @@ fun DailyPlayEditor(
                         Modifier.fillMaxWidth()
                             .toggleable(selected, enabled = !busy, role = Role.Checkbox) { checked
                                 ->
+                                feedback(false)
                                 chosen = if (checked) chosen + game.id else chosen - game.id
                             }
                             .semantics {
@@ -542,6 +571,7 @@ fun DailyPlayEditor(
                 onClick = {
                     focus.clearFocus()
                     keyboard?.hide()
+                    feedback(false)
                     onSave(chosen.associateWith { times[it] })
                 },
                 enabled = !busy && (chosen.isNotEmpty() || initial.isNotEmpty()),
