@@ -914,8 +914,8 @@ fun AeroIcon(
                             moveTo(12f, 20f)
                             cubicTo(1f, 13f, 1f, 6f, 6f, 4f)
                             cubicTo(9f, 3f, 11f, 5f, 12f, 7f)
-                            cubicTo(15f, 2f, 22f, 3f, 22f, 9f)
-                            cubicTo(22f, 13f, 16f, 17f, 12f, 20f)
+                            cubicTo(13f, 5f, 15f, 3f, 18f, 4f)
+                            cubicTo(23f, 6f, 23f, 13f, 12f, 20f)
                             close()
                         },
                         tint,
