@@ -7,12 +7,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.*
 import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,21 +74,19 @@ fun LibraryGameCard(
             maxLines = if (grid) 3 else Int.MAX_VALUE,
             overflow = TextOverflow.Ellipsis,
         )
-        if (showSystem) Text(game.system, style = MaterialTheme.typography.bodySmall)
+        if (showSystem)
+            Text(
+                game.system,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         extras()
     }
     val image: @Composable () -> Unit = {
-        Art(
-            if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
+        GameThumbnail(
+            game,
             artwork,
-            game.title,
-            Modifier.clip(RoundedCornerShape(8.dp)),
-            sprite = game.shelf == Shelf.HUNTS,
-            transparent = game.shelf == Shelf.HUNTS,
-            showPlaceholderTitle = false,
-            system = game.system,
-            coverBounds = if (grid) CoverSize(140f, 188f) else CoverSize(54f, 72f),
-            reserveHeight = false,
+            bounds = if (grid) CoverSize(140f, 188f) else CoverSize(54f, 72f),
         )
     }
     Glass(modifier.fillMaxWidth().clickable(onClick = onOpen)) {
@@ -118,4 +114,20 @@ fun LibraryGameCard(
                 )
             }
     }
+}
+
+@Composable
+fun GameThumbnail(game: Game, artwork: Artwork, bounds: CoverSize = CoverSize(54f, 72f)) {
+    val hunt = game.shelf == Shelf.HUNTS
+    Art(
+        if (hunt) game.sprite else game.cover,
+        artwork,
+        if (hunt) displayPokemonName(game.pokemon) else game.title,
+        sprite = hunt,
+        transparent = hunt,
+        showPlaceholderTitle = false,
+        system = game.system,
+        coverBounds = bounds,
+        reserveHeight = false,
+    )
 }

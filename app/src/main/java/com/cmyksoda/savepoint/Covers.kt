@@ -135,6 +135,8 @@ fun CoverSelection(
                             game.cover,
                             artwork,
                             "current cover",
+                            showPlaceholderTitle = false,
+                            reserveHeight = false,
                             system = game.system,
                             coverBounds = CoverSize(116f, 146f),
                         )
@@ -172,6 +174,7 @@ fun CoverSelection(
                                                 cover.url,
                                                 artwork,
                                                 "choose $provider cover: ${cover.label}",
+                                                showPlaceholderTitle = false,
                                                 system = game.system,
                                                 coverBounds = CoverSize(116f, 146f),
                                             )

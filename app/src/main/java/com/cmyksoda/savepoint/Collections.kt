@@ -111,6 +111,7 @@ private fun CollectionCollage(games: List<Game>, artwork: Artwork) {
                                     Modifier.fillMaxSize(),
                                     showPlaceholderTitle = false,
                                     imageScale = ContentScale.Crop,
+                                    cornerRadius = 0.dp,
                                 )
                             }
                         }
@@ -263,18 +264,14 @@ fun CollectionsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Art(
-                                    game.cover,
-                                    artwork,
-                                    game.title,
-                                    Modifier.clip(RoundedCornerShape(6.dp)),
-                                    system = game.system,
-                                    coverBounds = CoverSize(54f, 72f),
-                                    reserveHeight = false,
-                                )
+                                GameThumbnail(game, artwork)
                                 Column(Modifier.weight(1f)) {
                                     Text(game.title, fontWeight = FontWeight.Medium)
-                                    Text(game.system, style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        game.system,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
                             Row(
@@ -519,14 +516,7 @@ fun FindGames(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Art(
-                            if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
-                            artwork,
-                            game.title,
-                            system = game.system,
-                            sprite = game.shelf == Shelf.HUNTS,
-                            coverBounds = CoverSize(54f, 72f),
-                        )
+                        GameThumbnail(game, artwork)
                         Column(Modifier.weight(1f)) {
                             Text(game.title, fontWeight = FontWeight.Medium)
                             Text(
@@ -536,6 +526,7 @@ fun FindGames(
                                     else -> game.place.name.lowercase()
                                 },
                                 style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }

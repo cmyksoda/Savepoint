@@ -1220,9 +1220,9 @@ fun GameIdentity(
                 if (hunt) Modifier.size(if (prominent) 112.dp else 84.dp)
                 else
                     Modifier.softGlassShadow(16.dp, 10.dp)
-                        .clip(RoundedCornerShape(16.dp))
                         .border(1.dp, Color.White.copy(alpha = .6f), RoundedCornerShape(16.dp)),
                 sprite = hunt,
+                cornerRadius = 16.dp,
                 transparent = hunt,
                 showPlaceholderTitle = false,
                 system = game.system,
@@ -1259,9 +1259,9 @@ fun GameIdentity(
                 artwork,
                 game.title,
                 Modifier.softGlassShadow(12.dp, 6.dp)
-                    .clip(RoundedCornerShape(12.dp))
                     .border(1.dp, Color.White.copy(alpha = .5f), RoundedCornerShape(12.dp)),
                 game.shelf == Shelf.HUNTS,
+                cornerRadius = 12.dp,
                 showPlaceholderTitle = false,
                 system = game.system,
                 coverBounds = CoverSize(88f, 120f),

@@ -59,6 +59,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -118,6 +119,7 @@ fun Art(
     transparent: Boolean = false,
     reserveHeight: Boolean = true,
     imageScale: ContentScale = ContentScale.Fit,
+    cornerRadius: Dp = 8.dp,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     var bitmap by remember(url) { mutableStateOf(artwork.memoryBitmap(url, sprite)) }
@@ -156,6 +158,10 @@ fun Art(
         Box(
             size
                 .then(modifier)
+                .then(
+                    if (sprite || cornerRadius == 0.dp) Modifier
+                    else Modifier.clip(RoundedCornerShape(cornerRadius))
+                )
                 .then(
                     if (transparent) Modifier
                     else
@@ -269,6 +275,7 @@ fun GameCover(
                     contentDescription = "${game.title}${if (focus) ", playing now" else ""}"
                 },
             sprite = hunt,
+            cornerRadius = 10.dp,
             reserveHeight = false,
             system = game.system,
             coverBounds =
@@ -569,13 +576,17 @@ fun ShelfEditor(
                             onClick = { onMove(game.id, -1) },
                             enabled = row.first().id != game.id,
                         ) {
-                            Text("↑ earlier")
+                            AeroIcon(AeroSymbol.UP, Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("move up")
                         }
                         AeroButton(
                             onClick = { onMove(game.id, 1) },
                             enabled = row.last().id != game.id,
                         ) {
-                            Text("↓ later")
+                            AeroIcon(AeroSymbol.DOWN, Modifier.size(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("move down")
                         }
                         AeroButton(onClick = { onBacklog(game.id) }) { Text("to backlog") }
                     }
@@ -923,7 +934,8 @@ fun GameForm(
                     cover,
                     artwork,
                     title,
-                    Modifier.clip(RoundedCornerShape(12.dp)),
+                    cornerRadius = 12.dp,
+                    showPlaceholderTitle = false,
                     system = system,
                     coverBounds = CoverSize(90f, 120f),
                 )

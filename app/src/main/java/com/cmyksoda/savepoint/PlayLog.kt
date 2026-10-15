@@ -253,7 +253,10 @@ fun PlaythroughEditor(
                 if (isNew)
                     Text("Leave a thought if you'd like. Your earlier playthroughs stay saved.")
                 Text("how did it feel?", style = MaterialTheme.typography.labelLarge)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     Feeling.entries.forEach { option ->
                         val selected = feeling == option
                         FilterChip(

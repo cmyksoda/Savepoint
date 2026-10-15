@@ -360,7 +360,7 @@ fun DailyLogScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    DailyGameArt(game, artwork)
+                    GameThumbnail(game, artwork)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text(
                             if (game.shelf == Shelf.HUNTS) displayPokemonName(game.pokemon)
@@ -387,21 +387,6 @@ fun DailyLogScreen(
             }
         }
     }
-}
-
-@Composable
-private fun DailyGameArt(game: Game, artwork: Artwork) {
-    Art(
-        if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
-        artwork,
-        game.title,
-        modifier = Modifier.size(52.dp, 66.dp),
-        sprite = game.shelf == Shelf.HUNTS,
-        system = game.system,
-        coverBounds = CoverSize(52f, 66f),
-        reserveHeight = true,
-        transparent = game.shelf == Shelf.HUNTS,
-    )
 }
 
 @Composable
@@ -521,7 +506,7 @@ fun DailyPlayEditor(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         AeroCheckbox(selected, null, Modifier.size(21.dp))
-                        DailyGameArt(game, artwork)
+                        GameThumbnail(game, artwork)
                         Column(
                             Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
