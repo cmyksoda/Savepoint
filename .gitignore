@@ -7,3 +7,5 @@ local.properties
 *.keystore
 design/qa/
 dist/
+project-notes/
+*.md
