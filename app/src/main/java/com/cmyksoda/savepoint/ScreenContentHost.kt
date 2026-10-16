@@ -15,10 +15,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -30,6 +37,7 @@ internal fun ScreenContentHost(
     modifier: Modifier = Modifier,
     content: @Composable (String) -> Unit,
 ) {
+    val drawn = remember { mutableStateMapOf<String, Boolean>() }
     AnimatedContent(
         targetState = route,
         contentKey = { if (it in bottomTabRoutes) "tabs" else it },
@@ -41,7 +49,7 @@ internal fun ScreenContentHost(
         modifier = modifier.clipToBounds(),
         label = "screen transition",
     ) { screen ->
-        if (screen in bottomTabRoutes) BottomTabContent(screen, content) else content(screen)
+        if (screen in bottomTabRoutes) BottomTabContent(screen, drawn, content) else content(screen)
     }
 }
 
@@ -79,20 +87,40 @@ private class TabSlides(initial: String) {
 }
 
 @Composable
-internal fun BottomTabContent(route: String, content: @Composable (String) -> Unit) {
+private fun BottomTabContent(
+    route: String,
+    drawn: SnapshotStateMap<String, Boolean>,
+    content: @Composable (String) -> Unit,
+) {
     val slides = remember { TabSlides(route) }
     LaunchedEffect(route) { slides.select(route) }
     Layout(
         content = {
             bottomTabRoutes.forEach { page ->
-                key(page) { Box(Modifier.fillMaxSize()) { content(page) } }
+                key(page) {
+                    val layer = rememberGraphicsLayer()
+                    Box(
+                        Modifier.fillMaxSize()
+                            .semantics { if (page !in slides.visible) hideFromAccessibility() }
+                            .drawWithContent {
+                                layer.record { this@drawWithContent.drawContent() }
+                                if (page in slides.visible) drawLayer(layer)
+                                if (drawn[page] != true) drawn[page] = true
+                            }
+                    ) {
+                        content(page)
+                    }
+                }
             }
         },
         modifier = Modifier.fillMaxSize().clipToBounds(),
     ) { measurables, constraints ->
-        // Measure the tab viewports before the first switch; inactive pages are never placed.
+        // Record each viewport once at startup so its draw caches are ready before a slide.
         val pages = measurables.map { it.measure(constraints) }
         layout(constraints.maxWidth, constraints.maxHeight) {
+            bottomTabRoutes
+                .filter { drawn[it] != true && it !in slides.visible }
+                .forEach { page -> pages[bottomTabRoutes.indexOf(page)].placeWithLayer(0, 0) }
             slides.visible.forEach { page ->
                 pages[bottomTabRoutes.indexOf(page)].placeWithLayer(0, 0) {
                     translationX = slides.offsets.getValue(page).value * constraints.maxWidth

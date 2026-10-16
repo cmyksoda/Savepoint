@@ -1731,7 +1731,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
         }
     }
     val backdrop = rememberAeroBackdrop(dark)
-    val colors = aeroColors(dark)
+    val colors = remember(dark) { aeroColors(dark) }
     MaterialTheme(colorScheme = colors, typography = AeroTypography) {
         CompositionLocalProvider(
             LocalContentColor provides colors.onBackground,

@@ -27,7 +27,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class BottomTabInstrumentedTest {
     @Test
-    fun tabsArePreparedOnceAndSlidesReuseTheirCompositionAndLayout() {
+    fun tabsRenderBeforeTheFirstSwitchAndSlidesReuseTheirCompositionAndLayout() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val route = mutableStateOf("home")
         val ready = CountDownLatch(bottomTabRoutes.size)
@@ -41,6 +41,10 @@ class BottomTabInstrumentedTest {
                 activity.setContent {
                     MaterialTheme {
                         ScreenContentHost(route.value) { page ->
+                            if (page !in bottomTabRoutes) {
+                                Text(page)
+                                return@ScreenContentHost
+                            }
                             val token = remember { Any() }
                             SideEffect { tokens[page] = token }
                             DisposableEffect(Unit) {
@@ -52,11 +56,11 @@ class BottomTabInstrumentedTest {
                                     .layout { measurable, constraints ->
                                         measurements.incrementAndGet()
                                         val child = measurable.measure(constraints)
-                                        ready.countDown()
                                         layout(child.width, child.height) { child.place(0, 0) }
                                     }
                                     .drawWithContent {
-                                        draws.getValue(page).incrementAndGet()
+                                        if (draws.getValue(page).incrementAndGet() == 1)
+                                            ready.countDown()
                                         drawContent()
                                     }
                             ) {
@@ -72,7 +76,10 @@ class BottomTabInstrumentedTest {
             val firstMeasurements = measurements.get()
             assertEquals(4, creations.get())
             assertTrue(draws.getValue("home").get() > 0)
-            assertTrue(bottomTabRoutes.drop(1).all { draws.getValue(it).get() == 0 })
+            assertTrue(
+                "Hidden tab drawing must be prepared",
+                bottomTabRoutes.all { draws.getValue(it).get() > 0 },
+            )
             for (page in listOf("log", "home", "backlog", "paused", "log", "home")) {
                 instrumentation.runOnMainSync { route.value = page }
                 SystemClock.sleep(350)
@@ -97,6 +104,22 @@ class BottomTabInstrumentedTest {
             assertEquals(0, disposals.get())
             assertEquals(firstMeasurements, measurements.get())
             bottomTabRoutes.forEach { assertSame(firstTokens[it], tokens[it]) }
+            val firstDraws = draws.mapValues { it.value.get() }
+            instrumentation.runOnMainSync { route.value = "details" }
+            SystemClock.sleep(250)
+            instrumentation.waitForIdleSync()
+            instrumentation.runOnMainSync { route.value = "home" }
+            SystemClock.sleep(350)
+            instrumentation.waitForIdleSync()
+            assertEquals(8, creations.get())
+            assertEquals(4, disposals.get())
+            bottomTabRoutes.drop(1).forEach {
+                assertEquals(
+                    "Returning from details must not repeat startup drawing",
+                    firstDraws[it],
+                    draws.getValue(it).get(),
+                )
+            }
         }
     }
 }
