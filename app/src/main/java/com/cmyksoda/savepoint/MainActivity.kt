@@ -11,15 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,7 +34,6 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -74,8 +65,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-
-private val bottomTabRoutes = setOf("home", "backlog", "paused", "log")
 
 private val dockRoutes =
     setOf(
@@ -331,7 +320,7 @@ fun Home(
     onAdd: () -> Unit,
     onSeed: () -> Unit,
 ) {
-    val active = games.filter { it.place == Place.ACTIVE }
+    val active = remember(games) { games.filter { it.place == Place.ACTIVE } }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 40.dp),
@@ -459,20 +448,29 @@ fun LibraryList(
     onCollections: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    val collections = collectionNames(games, settings)
+    val collections = remember(games, settings.collectionNames) { collectionNames(games, settings) }
     val filtered =
-        sortedLibrary(
-            games.filter {
-                it.place == place &&
-                    (query.isBlank() ||
-                        searchMatchScore(it.title, query) != null ||
-                        searchMatchScore(it.pokemon, query) != null) &&
-                    (settings.systemFilter.isEmpty() || it.system == settings.systemFilter) &&
-                    (settings.collectionFilter.isEmpty() ||
-                        it.collection == settings.collectionFilter)
-            },
+        remember(
+            games,
+            place,
+            query,
             settings.sort,
-        )
+            settings.systemFilter,
+            settings.collectionFilter,
+        ) {
+            sortedLibrary(
+                games.filter {
+                    it.place == place &&
+                        (query.isBlank() ||
+                            searchMatchScore(it.title, query) != null ||
+                            searchMatchScore(it.pokemon, query) != null) &&
+                        (settings.systemFilter.isEmpty() || it.system == settings.systemFilter) &&
+                        (settings.collectionFilter.isEmpty() ||
+                            it.collection == settings.collectionFilter)
+                },
+                settings.sort,
+            )
+        }
     LibraryBrowser(
         filtered,
         (if (place == Place.BACKLOG) "backlog" else "paused") in settings.gridViews,
@@ -1819,37 +1817,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                 Box(Modifier.weight(1f)) {
                     if (!loaded) CircularProgressIndicator(Modifier.align(Alignment.Center))
                     else
-                        AnimatedContent(
-                            targetState = route,
-                            transitionSpec = {
-                                if (
-                                    initialState in bottomTabRoutes &&
-                                        targetState in bottomTabRoutes
-                                ) {
-                                    val direction =
-                                        if (
-                                            bottomTabRoutes.indexOf(targetState) >
-                                                bottomTabRoutes.indexOf(initialState)
-                                        )
-                                            1
-                                        else -1
-                                    slideInHorizontally(tween(230, easing = FastOutSlowInEasing)) {
-                                            direction * it
-                                        }
-                                        .togetherWith(
-                                            slideOutHorizontally(
-                                                tween(230, easing = FastOutSlowInEasing)
-                                            ) {
-                                                -direction * it
-                                            }
-                                        )
-                                        .using(null)
-                                } else
-                                    fadeIn(tween(110)).togetherWith(fadeOut(tween(0))).using(null)
-                            },
-                            modifier = Modifier.fillMaxSize().clipToBounds(),
-                            label = "screen transition",
-                        ) { screen ->
+                        ScreenContentHost(route, Modifier.fillMaxSize()) { screen ->
                             val stateKey =
                                 when (screen) {
                                     "details",
