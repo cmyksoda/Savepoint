@@ -9,3 +9,7 @@ design/qa/
 dist/
 project-notes/
 *.md
+
+**/__pycache__/
+tools/hunt-catalog/bin/
+tools/hunt-catalog/obj/

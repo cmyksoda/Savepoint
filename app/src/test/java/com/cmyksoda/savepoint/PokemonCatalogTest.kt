@@ -5,19 +5,6 @@ import org.junit.Test
 
 class PokemonCatalogTest {
     @Test
-    fun formsKeepTheirSpeciesDexNumberInsteadOfTheirSeparateFormId() {
-        val species = "id,identifier\n6,charizard\n699,aurorus"
-        val pokemon =
-            "id,identifier,species_id,height,weight,base_experience,order,is_default\n10034,charizard-mega-x,6,1,1,1,1,0\n699,aurorus,699,1,1,1,1,1"
-        val forms =
-            "id,identifier,form_identifier,pokemon_id,version,is_default\n10034,charizard-mega-x,mega-x,10034,15,1\n699,aurorus,,699,15,1"
-        val result = parsePokemonChoices(pokemon, species, forms)
-        assertEquals(6, result.first().number)
-        assertFalse(result.first().default)
-        assertTrue(result.last().default)
-    }
-
-    @Test
     fun pokemonAndFormsAcceptTyposAndSeparateWordQueries() {
         val choices =
             listOf(

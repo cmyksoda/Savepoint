@@ -112,6 +112,7 @@ data class Game(
     val method: String = "Random encounters",
     val encounters: Long = 0,
     val shinyCharm: Boolean = false,
+    val huntConfig: HuntConfig = HuntConfig(),
     val manualOdds: Int? = null,
     val playthroughs: List<Playthrough> = emptyList(),
     val hasPlayed: Boolean = false,
@@ -216,32 +217,6 @@ object LibraryRules {
     }
 }
 
-val huntVersions =
-    linkedMapOf(
-        "gold" to "Gold",
-        "silver" to "Silver",
-        "crystal" to "Crystal",
-        "ruby-sapphire" to "Ruby / Sapphire",
-        "emerald" to "Emerald",
-        "firered-leafgreen" to "FireRed / LeafGreen",
-        "diamond-pearl" to "Diamond / Pearl",
-        "platinum" to "Platinum",
-        "heartgold-soulsilver" to "HeartGold / SoulSilver",
-        "black-white" to "Black / White",
-        "black-2-white-2" to "Black 2 / White 2",
-        "x-y" to "X / Y",
-        "omegaruby-alphasapphire" to "Omega Ruby / Alpha Sapphire",
-        "sun-moon" to "Sun / Moon",
-        "ultra-sun-ultra-moon" to "Ultra Sun / Ultra Moon",
-        "sword-shield" to "Sword / Shield",
-        "scarlet-violet" to "Scarlet / Violet",
-        "lets-go" to "Let's Go Pikachu / Eevee",
-        "brilliant-diamond-shining-pearl" to "Brilliant Diamond / Shining Pearl",
-        "legends-arceus" to "Legends: Arceus",
-        "legends-z-a" to "Legends: Z-A",
-        "other" to "Other (choose artwork manually)",
-    )
-
 fun adjustedEncounterCount(current: Long, delta: Long): Long {
     require(current >= 0) { "Encounters cannot be negative" }
     return if (delta >= 0) increasedEncounterCount(current, delta)
@@ -251,20 +226,6 @@ fun adjustedEncounterCount(current: Long, delta: Long): Long {
 fun increasedEncounterCount(current: Long, amount: Long): Long {
     require(current >= 0 && amount >= 0) { "Encounters cannot be negative" }
     return if (amount > Long.MAX_VALUE - current) Long.MAX_VALUE else current + amount
-}
-
-fun calculatedOdds(game: Game): Pair<Int?, String> {
-    game.manualOdds?.let {
-        return it to "manual odds"
-    }
-    val base = baseShinyOdds(game.pokemonVersion)
-    if (
-        base != null &&
-            game.method in listOf("Random encounters", "Soft resets", "Runaways") &&
-            !game.shinyCharm
-    )
-        return base to "standard base odds · no modifiers"
-    return null to "unknown — enter verified odds for this game and method"
 }
 
 enum class LibrarySort(val label: String) {

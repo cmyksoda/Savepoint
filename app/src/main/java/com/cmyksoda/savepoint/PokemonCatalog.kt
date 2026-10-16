@@ -1,11 +1,8 @@
 package com.cmyksoda.savepoint
 
 import android.content.Context
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
 
 data class PokemonChoice(
     val slug: String,
@@ -13,29 +10,11 @@ data class PokemonChoice(
     val number: Int,
     val form: String,
     val default: Boolean = form.isBlank(),
+    val huntForm: Int? = null,
+    val gameFilter: Set<String> = emptySet(),
 ) {
     val label: String
         get() = displayPokemonName(slug)
-}
-
-fun parsePokemonChoices(
-    pokemonCsv: String,
-    speciesCsv: String,
-    formCsv: String,
-): List<PokemonChoice> {
-    fun rows(csv: String) =
-        csv.lineSequence().drop(1).filter { it.isNotBlank() }.map { it.split(',') }
-    val species = rows(speciesCsv).associate { it[0].toInt() to it[1] }
-    val pokemon = rows(pokemonCsv).associate { it[0].toInt() to (it[2].toInt() to (it[7] == "1")) }
-    return rows(formCsv)
-        .mapNotNull { row ->
-            val parent = pokemon[row[3].toInt()] ?: return@mapNotNull null
-            val number = parent.first
-            val name = species[number] ?: return@mapNotNull null
-            PokemonChoice(row[1], name, number, row[2], parent.second && row[5] == "1")
-        }
-        .distinctBy { it.slug }
-        .toList()
 }
 
 fun searchPokemon(choices: List<PokemonChoice>, query: String): List<PokemonChoice> =
@@ -59,64 +38,22 @@ fun searchPokemon(choices: List<PokemonChoice>, query: String): List<PokemonChoi
         .map { it.second }
 
 class PokemonCatalog(private val context: Context) {
-    private var memory: List<PokemonChoice>? = null
+    @Volatile private var memory: HuntCatalogIndex? = null
 
-    suspend fun all(): List<PokemonChoice> =
+    suspend fun index(): HuntCatalogIndex =
         withContext(Dispatchers.IO) {
-            memory?.let {
-                return@withContext it
-            }
-            val file = File(context.cacheDir, "pokemon-form-index.json")
-            fun read(): List<PokemonChoice> {
-                val items = JSONArray(file.readText())
-                return (0 until items.length()).map { index ->
-                    val item = items.getJSONObject(index)
-                    PokemonChoice(
-                        item.getString("slug"),
-                        item.getString("species"),
-                        item.getInt("number"),
-                        item.getString("form"),
-                        item.optBoolean("default", false),
-                    )
+            memory
+                ?: synchronized(this@PokemonCatalog) {
+                    memory
+                        ?: context.assets
+                            .open("hunt-catalog.json")
+                            .bufferedReader()
+                            .use { HuntCatalogIndex.parse(it.readText()) }
+                            .also { memory = it }
                 }
-            }
-            if (file.isFile) {
-                val saved = runCatching { read() }.getOrNull()
-                if (!saved.isNullOrEmpty()) {
-                    memory = saved
-                    return@withContext saved
-                }
-            }
-            fun csv(name: String) =
-                String(
-                    fetchBytes(
-                        "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/$name.csv"
-                    )
-                )
-            val choices =
-                parsePokemonChoices(csv("pokemon"), csv("pokemon_species"), csv("pokemon_forms"))
-            require(choices.isNotEmpty()) { "The Pokémon list is unavailable" }
-            val data = JSONArray()
-            choices.forEach { choice ->
-                data.put(
-                    JSONObject()
-                        .put("slug", choice.slug)
-                        .put("species", choice.species)
-                        .put("number", choice.number)
-                        .put("form", choice.form)
-                        .put("default", choice.default)
-                )
-            }
-            val temporary = File.createTempFile("pokemon-index-", ".tmp", context.cacheDir)
-            try {
-                temporary.writeText(data.toString())
-                require(temporary.renameTo(file))
-            } finally {
-                temporary.delete()
-            }
-            memory = choices
-            choices
         }
+
+    suspend fun all(): List<PokemonChoice> = index().choices
 
     suspend fun find(slug: String): PokemonChoice {
         val choices = all()
@@ -129,7 +66,7 @@ class PokemonCatalog(private val context: Context) {
 
 fun serebiiShinyCandidates(pokemon: PokemonChoice, version: String): List<String> {
     val directories =
-        when (version) {
+        when (huntVersionFamily(version)) {
             "gold" -> listOf("Gold")
             "silver" -> listOf("Silver")
             "crystal" -> listOf("Crystal")
@@ -193,7 +130,7 @@ fun serebiiShinyCandidates(pokemon: PokemonChoice, version: String): List<String
 }
 
 fun huntSystem(version: String): String =
-    when (version) {
+    when (huntVersionFamily(version)) {
         "gold",
         "silver",
         "crystal" -> "Game Boy Color"

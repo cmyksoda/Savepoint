@@ -682,9 +682,19 @@ fun GameDetails(
                         )
                     }
                     Text(game.method)
-                    Text(odds.first?.let { "1 in $it · ${odds.second}" } ?: odds.second)
+                    Text(
+                        odds.first?.let { "1 in ${formatHuntOdds(it)} · ${odds.second}" }
+                            ?: odds.second
+                    )
                     Text(huntVersions[game.pokemonVersion] ?: game.pokemonVersion)
-                    if (game.shinyCharm) Text("shiny charm enabled")
+                    if (
+                        game.shinyCharm &&
+                            charmApplies(game.pokemonVersion, game.method, game.pokemon)
+                    )
+                        Text("shiny charm enabled")
+                    huntModifierSummary(game).forEach {
+                        Text(it, style = MaterialTheme.typography.bodySmall)
+                    }
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -814,6 +824,25 @@ fun GameForm(
     var odds by
         rememberSaveable(initial.id) { mutableStateOf(initial.manualOdds?.toString() ?: "") }
     var charm by rememberSaveable(initial.id) { mutableStateOf(initial.shinyCharm) }
+    var huntConfig by
+        rememberSaveable(initial.id, stateSaver = HuntConfigSaver) {
+            mutableStateOf(initial.huntConfig)
+        }
+    var huntIndex by remember { mutableStateOf<HuntCatalogIndex?>(null) }
+    var huntCatalogError by remember { mutableStateOf(false) }
+    LaunchedEffect(shelf) {
+        if (shelf == Shelf.HUNTS) {
+            try {
+                huntIndex = catalog.pokemon.index()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                huntCatalogError = true
+            }
+        }
+    }
+    val availableGames = huntIndex?.games(pokemon).orEmpty()
+    val methods =
+        if (version == "other") emptyList() else huntIndex?.methods(pokemon, version).orEmpty()
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var selectingSprite by remember { mutableStateOf(false) }
@@ -867,10 +896,25 @@ fun GameForm(
             text = {
                 Box(Modifier.height(400.dp).fillMaxWidth()) {
                     PokemonPicker(catalog.pokemon) { choice ->
-                        pokemon = choice.slug
-                        sprite = ""
+                        if (pokemon != choice.slug) {
+                            pokemon = choice.slug
+                            spriteRequest++
+                            busy = false
+                            sprite = ""
+                            odds = ""
+                            huntConfig = HuntConfig()
+                            if (
+                                huntIndex?.supports(pokemon, version) != true && version != "other"
+                            ) {
+                                version = ""
+                                charm = false
+                            }
+                            method =
+                                huntIndex?.methods(pokemon, version)?.firstOrNull()
+                                    ?: "Random encounters"
+                            findSprite()
+                        }
                         selectingPokemon = false
-                        findSprite()
                     }
                 }
             },
@@ -938,94 +982,164 @@ fun GameForm(
             Choice(
                 "Pokémon game",
                 huntVersions[version] ?: "choose a game",
-                huntVersions.values.toList(),
+                availableGames.map { huntVersions.getValue(it) } + huntVersions.getValue("other"),
             ) { value ->
-                version = huntVersions.entries.first { it.value == value }.key
-                spriteRequest++
-                busy = false
-                error = null
-                sprite = ""
-                odds = ""
-                title = "Pokémon ${huntVersions.getValue(version)}"
-                system = huntSystem(version)
-                findSprite()
-            }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                AeroButton(
-                    onClick = { findSprite() },
-                    enabled = !busy && pokemon.isNotBlank() && version.isNotBlank(),
-                ) {
-                    Text(if (busy) "finding artwork…" else "find shiny artwork")
-                }
-                AeroButton(
-                    onClick = {
-                        selectingSprite = true
-                        imagePicker.launch("image/*")
-                    }
-                ) {
-                    Text("choose image")
+                val nextVersion = huntVersions.entries.first { it.value == value }.key
+                if (version != nextVersion) {
+                    version = nextVersion
+                    method = huntIndex?.methods(pokemon, version)?.firstOrNull() ?: ""
+                    charm = charm && hasShinyCharm(version)
+                    huntConfig =
+                        HuntConfig(research = if (charm && version == "legends-arceus") 1 else 0)
+                    spriteRequest++
+                    busy = false
+                    error = null
+                    sprite = ""
+                    odds = ""
+                    title = "Pokémon ${huntVersions.getValue(version)}"
+                    system = huntSystem(version)
+                    findSprite()
                 }
             }
-            if (sprite.isNotBlank()) {
-                Art(
-                    sprite,
-                    artwork,
-                    pokemon,
-                    Modifier.size(112.dp),
-                    sprite = true,
-                    transparent = true,
+            if (huntIndex == null && !huntCatalogError)
+                Text("loading hunt options…", style = MaterialTheme.typography.bodySmall)
+            if (huntCatalogError)
+                Text(
+                    "Hunt options couldn’t load. Reopen this screen to retry.",
+                    color = MaterialTheme.colorScheme.error,
                 )
-                if ("serebii.net" in sprite)
-                    Text("Shiny artwork via Serebii", style = MaterialTheme.typography.bodySmall)
-            }
-            val methods = huntMethods(version)
-            Choice(
-                "hunt method",
-                if (method in methods) method else "Other / custom",
-                methods + "Other / custom",
-            ) {
-                method = if (it == "Other / custom") "" else it
-                odds = ""
-            }
-            if (method !in methods)
-                AeroTextField(
-                    method,
-                    {
-                        method = it
+            if (huntIndex != null && availableGames.isEmpty())
+                Text(
+                    "No huntable shiny encounter is listed for this Pokémon or form. Custom games can use your own odds.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            if (
+                existing &&
+                    version !in huntGameEditions &&
+                    version != "other" &&
+                    version.isNotBlank()
+            )
+                Text(
+                    "This hunt uses a paired game name. Choose an edition for version-specific options.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            if (version.isNotBlank()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    AeroButton(
+                        onClick = { findSprite() },
+                        enabled = !busy && pokemon.isNotBlank() && version.isNotBlank(),
+                    ) {
+                        Text(if (busy) "finding artwork…" else "find shiny artwork")
+                    }
+                    AeroButton(
+                        onClick = {
+                            selectingSprite = true
+                            imagePicker.launch("image/*")
+                        }
+                    ) {
+                        Text("choose image")
+                    }
+                }
+                if (sprite.isNotBlank()) {
+                    Art(
+                        sprite,
+                        artwork,
+                        pokemon,
+                        Modifier.size(112.dp),
+                        sprite = true,
+                        transparent = true,
+                    )
+                    if ("serebii.net" in sprite)
+                        Text(
+                            "Shiny artwork via Serebii",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                }
+                Choice(
+                    "hunt method",
+                    if (method in methods) method else "Other / custom",
+                    methods + "Other / custom",
+                ) {
+                    val nextMethod = if (it == "Other / custom") "" else it
+                    if (method != nextMethod) {
+                        method = nextMethod
+                        huntConfig =
+                            huntConfig.copy(
+                                chain = 0,
+                                sparklingPower = 0,
+                                lure = false,
+                                searchLevel = 0,
+                                battled = 0,
+                                diglett = false,
+                                radarMusic = false,
+                            )
                         odds = ""
-                    },
-                    label = "custom method",
+                    }
+                }
+                val targets = huntIndex?.targets(pokemon, version, method).orEmpty()
+                if (targets.isNotEmpty() && displayPokemonName(pokemon) !in targets)
+                    Text(
+                        "Hunt ${targets.joinToString(" or ")}, then evolve or change form to get your target.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                if (method !in methods)
+                    AeroTextField(
+                        method,
+                        {
+                            method = it
+                            odds = ""
+                        },
+                        label = "custom method",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                AeroTextField(
+                    count,
+                    { count = it },
+                    label = "encounters",
                     modifier = Modifier.fillMaxWidth(),
                 )
-            AeroTextField(
-                count,
-                { count = it },
-                label = "encounters",
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AeroCheckbox(
+                HuntModifiers(
+                    version,
+                    method,
                     charm,
-                    {
+                    huntConfig,
+                    pokemon = pokemon,
+                    onCharm = {
                         charm = it
                         odds = ""
                     },
+                    onConfig = {
+                        if (huntConfig != it) {
+                            huntConfig = it
+                            odds = ""
+                        }
+                    },
                 )
-                Text("shiny charm")
+                HuntOddsPreview(
+                    initial.copy(
+                        pokemonVersion = version,
+                        method = method,
+                        shinyCharm = charm,
+                        huntConfig = huntConfig,
+                        manualOdds = odds.toIntOrNull()?.takeIf { it > 0 },
+                    )
+                )
+                AeroTextField(
+                    odds,
+                    { odds = it },
+                    label = "odds override · 1 in… (optional)",
+                    singleLine = true,
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "For custom rules or event rates. Changing the game, method, or settings clears this override.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
-            AeroTextField(
-                odds,
-                { odds = it },
-                label = "verified odds · 1 in… (optional)",
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                "Standard base odds follow the game generation. Methods and modifiers without a verified calculation need your odds value. Changing method or charm clears the old value.",
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         PinkButton(
@@ -1033,6 +1147,16 @@ fun GameForm(
                 try {
                     require(shelf != Shelf.HUNTS || version in huntVersions) {
                         "Choose the Pokémon game"
+                    }
+                    require(
+                        shelf != Shelf.HUNTS ||
+                            version == "other" ||
+                            huntIndex?.supports(pokemon, version) == true ||
+                            (existing &&
+                                pokemon == initial.pokemon &&
+                                version == initial.pokemonVersion)
+                    ) {
+                        "Choose a game with a huntable encounter for this Pokémon"
                     }
                     require(title.isNotBlank()) { "Give this game a title" }
                     require(shelf != Shelf.HUNTS || pokemon.isNotBlank()) {
@@ -1069,7 +1193,8 @@ fun GameForm(
                             sprite = sprite,
                             method = method.trim(),
                             encounters = encounters,
-                            shinyCharm = charm,
+                            shinyCharm = charm && hasShinyCharm(version),
+                            huntConfig = huntConfig,
                             manualOdds = denominator,
                         )
                     )
@@ -1078,7 +1203,11 @@ fun GameForm(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !busy,
+            enabled =
+                !busy &&
+                    (shelf != Shelf.HUNTS ||
+                        version == "other" ||
+                        (huntIndex != null && version in huntVersions)),
         ) {
             Text(if (shelf == Shelf.HUNTS) "save hunt" else "save game")
         }

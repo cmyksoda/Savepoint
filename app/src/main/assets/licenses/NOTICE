@@ -1,0 +1,19 @@
+The offline hunt catalog uses PKHeX encounter and form data.
+PKHeX: Copyright Kaphotics and contributors. GPL-3.0-or-later.
+https://github.com/kwsch/PKHeX
+
+Pokémon names and form identifiers use PokéAPI data. BSD-3-Clause.
+https://github.com/PokeAPI/pokeapi
+
+Shiny mechanics references:
+https://www.serebii.net/games/shiny.shtml
+https://www.serebii.net/legendsarceus/shinypokemon.shtml
+https://www.serebii.net/legendsz-a/shinypokemon.shtml
+https://www.serebii.net/scarletviolet/shinypokemon.shtml
+https://rotomlabs.net/brilliant-diamond-shining-pearl/shiny-rates
+https://rotomlabs.net/sword-shield/shiny-rates
+https://rotomlabs.net/scarlet-violet/shiny-rates
+https://lincoln-lm.github.io/JS-Finder/Tools/ShinyChanceTable
+https://github.com/wwwwwwzx/3DSRNGTool/blob/master/3DSRNGTool/Gen6/DexNav.cs
+
+Pokémon and Pokémon character names are trademarks of Nintendo.

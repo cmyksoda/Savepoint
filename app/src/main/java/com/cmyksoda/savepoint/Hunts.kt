@@ -64,65 +64,22 @@ fun inferHuntVersion(title: String): String? {
             "sun-moon" to listOf("pokemonsun", "pokemonmoon"),
             "x-y" to listOf("pokemonx", "pokemony"),
         )
-    return names.entries.firstOrNull { (_, aliases) -> aliases.any { name.contains(it) } }?.key
-}
-
-private val olderHuntVersions =
-    setOf(
-        "gold",
-        "silver",
-        "crystal",
-        "ruby-sapphire",
-        "emerald",
-        "firered-leafgreen",
-        "diamond-pearl",
-        "platinum",
-        "heartgold-soulsilver",
-        "black-white",
-        "black-2-white-2",
-    )
-
-fun baseShinyOdds(version: String): Int? =
-    when {
-        version in olderHuntVersions -> 8192
-        version in huntVersions && version != "other" -> 4096
-        else -> null
-    }
-
-fun huntMethods(version: String): List<String> {
-    val methods = mutableListOf("Random encounters", "Soft resets", "Runaways", "Breeding")
-    if (
-        version !in
-            setOf(
-                "gold",
-                "silver",
-                "crystal",
-                "ruby-sapphire",
-                "emerald",
-                "firered-leafgreen",
-                "lets-go",
-                "legends-arceus",
-                "legends-z-a",
-                "other",
-            )
-    )
-        methods += "Masuda method"
-    when (version) {
-        "diamond-pearl",
-        "platinum",
-        "x-y",
-        "brilliant-diamond-shining-pearl" -> methods += "Poké Radar"
-        "omegaruby-alphasapphire" -> methods += "DexNav"
-        "sun-moon",
-        "ultra-sun-ultra-moon" -> methods += "SOS calls"
-        "lets-go" -> methods += "Catch combo"
-        "sword-shield" -> methods += listOf("Dynamax Adventures", "Brilliant encounters")
-        "legends-arceus" -> methods += listOf("Mass outbreaks", "Massive mass outbreaks")
-        "scarlet-violet" -> methods += listOf("Mass outbreaks", "Sparkling Power")
-    }
-    if (version in setOf("x-y", "omegaruby-alphasapphire")) methods += "Chain fishing"
-    if (version == "x-y") methods += "Friend Safari"
-    return methods
+    val match =
+        names.entries.firstOrNull { (_, aliases) -> aliases.any { name.contains(it) } }
+            ?: return null
+    if (match.key == "lets-go")
+        return when {
+            name.contains("pikachu") && !name.contains("eevee") -> "lets-go-pikachu"
+            name.contains("eevee") && !name.contains("pikachu") -> "lets-go-eevee"
+            else -> null
+        }
+    val editions = huntVersionMembers(match.key)
+    if (editions.size == 1) return match.key
+    val matches =
+        match.value.mapIndexedNotNull { index, alias ->
+            editions[index].takeIf { name.contains(alias) }
+        }
+    return matches.singleOrNull()
 }
 
 data class HuntProbability(
@@ -133,11 +90,14 @@ data class HuntProbability(
     val progress90: Double,
 )
 
-fun huntProbability(encounters: Long, denominator: Int): HuntProbability {
-    require(encounters >= 0 && denominator > 0)
+fun huntProbability(encounters: Long, denominator: Int): HuntProbability =
+    huntProbability(encounters, denominator.toDouble())
+
+fun huntProbability(encounters: Long, denominator: Double): HuntProbability {
+    require(encounters >= 0 && denominator.isFinite() && denominator >= 1)
     val logMiss = ln1p(-1.0 / denominator)
     fun threshold(chance: Double): Long =
-        if (denominator == 1) 1 else ceil(ln(1.0 - chance) / logMiss).toLong()
+        if (denominator == 1.0) 1 else ceil(ln(1.0 - chance) / logMiss).toLong()
     val at90 = threshold(.9)
     return HuntProbability(
         chance = if (encounters == 0L) 0.0 else -expm1(encounters * logMiss),
@@ -165,7 +125,7 @@ fun HuntStatistics(game: Game) {
         val chance = if (stats.chance >= .9999) "≥99.99%" else "${formatHours(stats.chance * 100)}%"
         listOf(
                 listOf(
-                    "chance so far" to chance,
+                    "chance at these settings" to chance,
                     "times over odds" to "${formatHours(stats.oddsMultiples)}×",
                 ),
                 listOf(
@@ -191,7 +151,7 @@ fun HuntStatistics(game: Game) {
                 }
             }
         Text(
-            "Independent encounters at these odds; a shiny is never guaranteed.",
+            "Assumes every counted encounter used these settings. Earlier chain or bonus changes aren’t included; a shiny is never guaranteed.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

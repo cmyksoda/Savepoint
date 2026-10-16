@@ -26,7 +26,8 @@ fun PokemonPicker(catalog: PokemonCatalog, onChoose: (PokemonChoice) -> Unit) {
     LaunchedEffect(catalog, attempt) {
         error = null
         try {
-            all = catalog.all()
+            val index = catalog.index()
+            all = index.choices.filter { index.games(it.slug).isNotEmpty() }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             error = "Couldn’t load Pokémon. Try again when connected."

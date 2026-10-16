@@ -100,6 +100,19 @@ object JsonCodec {
             put("method", g.method)
             put("encounters", g.encounters)
             put("shinyCharm", g.shinyCharm)
+            put(
+                "huntConfig",
+                JSONObject().apply {
+                    put("research", g.huntConfig.research)
+                    put("chain", g.huntConfig.chain)
+                    put("sparklingPower", g.huntConfig.sparklingPower)
+                    put("lure", g.huntConfig.lure)
+                    put("searchLevel", g.huntConfig.searchLevel)
+                    put("battled", g.huntConfig.battled)
+                    put("diglett", g.huntConfig.diglett)
+                    put("radarMusic", g.huntConfig.radarMusic)
+                },
+            )
             put("manualOdds", g.manualOdds ?: JSONObject.NULL)
             put("playthroughs", JSONArray(g.playthroughs.map { playthrough(it) }))
             put("hasPlayed", g.hasPlayed)
@@ -131,6 +144,30 @@ object JsonCodec {
                 method = j.optString("method", "Random encounters"),
                 encounters = j.optLong("encounters"),
                 shinyCharm = j.optBoolean("shinyCharm"),
+                huntConfig =
+                    j.optJSONObject("huntConfig")?.let { config ->
+                        HuntConfig(
+                                research = config.optInt("research"),
+                                chain = config.optInt("chain"),
+                                sparklingPower = config.optInt("sparklingPower"),
+                                lure = config.optBoolean("lure"),
+                                searchLevel = config.optInt("searchLevel"),
+                                battled = config.optInt("battled"),
+                                diglett = config.optBoolean("diglett"),
+                                radarMusic = config.optBoolean("radarMusic"),
+                            )
+                            .also {
+                                require(
+                                    it.research in 0..2 &&
+                                        it.chain >= 0 &&
+                                        it.sparklingPower in 0..3 &&
+                                        it.searchLevel in 0..999 &&
+                                        it.battled >= 0
+                                ) {
+                                    "Invalid hunt modifiers"
+                                }
+                            }
+                    } ?: HuntConfig(),
                 manualOdds = if (j.isNull("manualOdds")) null else j.getInt("manualOdds"),
                 playthroughs =
                     j.optJSONArray("playthroughs")?.let { entries ->

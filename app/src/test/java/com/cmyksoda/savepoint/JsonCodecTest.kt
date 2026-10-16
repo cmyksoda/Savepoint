@@ -6,6 +6,37 @@ import org.junit.Test
 
 class JsonCodecTest {
     @Test
+    fun huntModifiersRoundTripAndOlderHuntsKeepTheirCountersAndOverrides() {
+        val original =
+            Game(
+                title = "Pokémon Platinum",
+                pokemon = "shaymin",
+                shelf = Shelf.HUNTS,
+                pokemonVersion = "platinum",
+                method = "Runaways",
+                encounters = 18003,
+                manualOdds = 8192,
+                huntConfig =
+                    HuntConfig(
+                        research = 2,
+                        chain = 60,
+                        sparklingPower = 3,
+                        lure = true,
+                        searchLevel = 999,
+                        battled = 500,
+                        diglett = true,
+                        radarMusic = true,
+                    ),
+            )
+        val encoded = JsonCodec.game(original)
+        assertEquals(original, JsonCodec.game(JSONObject(encoded.toString())))
+        encoded.remove("huntConfig")
+        assertEquals(original.copy(huntConfig = HuntConfig()), JsonCodec.game(encoded))
+        encoded.put("huntConfig", JSONObject().put("chain", -1))
+        assertThrows(IllegalArgumentException::class.java) { JsonCodec.game(encoded) }
+    }
+
+    @Test
     fun pauseAndGeneralNotesSurviveSerializationIndependently() {
         val original =
             Game(
