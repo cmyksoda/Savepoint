@@ -567,78 +567,123 @@ fun ShelfEditor(
             }
         }
         items(row, key = { it.id }) { game ->
-            Glass(Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f))) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AeroButton(
-                        onClick = { onOpen(game.id) },
-                        modifier = if (shelf == Shelf.HUNTS) Modifier.fillMaxWidth() else Modifier,
-                    ) {
-                        if (shelf == Shelf.HUNTS) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(
-                                    Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                                ) {
-                                    Text(
-                                        displayPokemonName(game.pokemon).ifBlank { "shiny hunt" },
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Text(
-                                        huntVersions[game.pokemonVersion] ?: game.title,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Text(
-                                        "${NumberFormat.getIntegerInstance().format(game.encounters)} " +
-                                            if (game.encounters == 1L) "encounter"
-                                            else "encounters",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                Art(
-                                    game.sprite,
-                                    artwork,
-                                    displayPokemonName(game.pokemon),
-                                    Modifier.size(64.dp),
-                                    sprite = true,
-                                    transparent = true,
-                                    showPlaceholderTitle = false,
-                                )
-                            }
-                        } else {
+            val modifier =
+                Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f))
+            if (shelf == Shelf.HUNTS) {
+                HuntArrangementCard(
+                    game,
+                    artwork,
+                    modifier,
+                    canMoveUp = row.first().id != game.id,
+                    canMoveDown = row.last().id != game.id,
+                    onOpen = { onOpen(game.id) },
+                    onMove = { onMove(game.id, it) },
+                )
+            } else {
+                Glass(modifier) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AeroButton(onClick = { onOpen(game.id) }) {
                             Text(game.title, fontWeight = FontWeight.SemiBold)
                         }
-                    }
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        AeroButton(
-                            onClick = { onMove(game.id, -1) },
-                            enabled = row.first().id != game.id,
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            AeroIcon(AeroSymbol.UP, Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("move up")
-                        }
-                        AeroButton(
-                            onClick = { onMove(game.id, 1) },
-                            enabled = row.last().id != game.id,
-                        ) {
-                            AeroIcon(AeroSymbol.DOWN, Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("move down")
-                        }
-                        if (shelf != Shelf.HUNTS)
+                            AeroButton(
+                                onClick = { onMove(game.id, -1) },
+                                enabled = row.first().id != game.id,
+                            ) {
+                                AeroIcon(AeroSymbol.UP, Modifier.size(14.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("move up")
+                            }
+                            AeroButton(
+                                onClick = { onMove(game.id, 1) },
+                                enabled = row.last().id != game.id,
+                            ) {
+                                AeroIcon(AeroSymbol.DOWN, Modifier.size(14.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("move down")
+                            }
                             AeroButton(onClick = { onBacklog(game.id) }) { Text("to backlog") }
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HuntArrangementCard(
+    game: Game,
+    artwork: Artwork,
+    modifier: Modifier,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onOpen: () -> Unit,
+    onMove: (Int) -> Unit,
+) {
+    val name = displayPokemonName(game.pokemon).ifBlank { "shiny hunt" }
+    Glass(modifier) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(role = Role.Button, onClick = onOpen)
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        huntVersions[game.pokemonVersion] ?: game.title,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "${NumberFormat.getIntegerInstance().format(game.encounters)} " +
+                            if (game.encounters == 1L) "encounter" else "encounters",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Art(
+                    game.sprite,
+                    artwork,
+                    name,
+                    Modifier.size(72.dp),
+                    sprite = true,
+                    transparent = true,
+                    showPlaceholderTitle = false,
+                )
+                AeroIcon(
+                    AeroSymbol.NEXT,
+                    Modifier.size(14.dp),
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
+                )
+            }
+            AeroActionRow(
+                first = {
+                    AeroButton(onClick = { onMove(-1) }, enabled = canMoveUp) {
+                        AeroIcon(AeroSymbol.UP, Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("move up")
+                    }
+                },
+                second = {
+                    AeroButton(onClick = { onMove(1) }, enabled = canMoveDown) {
+                        AeroIcon(AeroSymbol.DOWN, Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("move down")
+                    }
+                },
+            )
         }
     }
 }
