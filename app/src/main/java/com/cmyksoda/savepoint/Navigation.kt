@@ -24,12 +24,7 @@ class ScreenHistory(saved: List<String> = listOf("home")) {
         open(destination)
 
     fun finishAdding(destination: String) {
-        val add = trail.lastIndexOf("add")
-        val hunt = trail.lastIndexOf("hunt-add")
-        val origin = maxOf(add, hunt)
-        if (origin >= 0) trail.subList(origin + 1, trail.size).clear()
-        else if (trail.lastOrNull() in setOf("catalog", "form")) trail.removeAt(trail.lastIndex)
-        current.value = trail.lastOrNull() ?: "home"
+        open("home")
         open(destination)
     }
 

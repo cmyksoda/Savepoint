@@ -49,16 +49,20 @@ class NavigationTest {
     }
 
     @Test
-    fun finishingAnAddDiscardsCoverAndFormStepsButKeepsTheAddMenu() {
-        for (step in listOf("catalog", "form")) {
-            val history = ScreenHistory(listOf("backlog", "add", step))
-            history.finishAdding("details")
-            assertEquals(listOf("backlog", "add", "details"), history.savedRoutes)
-            history.open(history.previous)
-            assertEquals("backlog", history.previous)
+    fun finishingAnAddReturnsToShelvesWithoutReopeningTheSearchOrForm() {
+        for (origin in listOf("home", "backlog", "paused", "log")) {
+            for (step in listOf("catalog", "form")) {
+                for (destination in listOf("details", "journal")) {
+                    val history = ScreenHistory(listOf(origin, "add", step))
+                    history.finishAdding(destination)
+                    assertEquals(listOf("home", destination), history.savedRoutes)
+                    history.open(history.previous)
+                    assertEquals(listOf("home"), history.savedRoutes)
+                }
+            }
         }
         val hunt = ScreenHistory(listOf("home", "add", "hunt-add", "form"))
         hunt.finishAdding("details")
-        assertEquals("hunt-add", hunt.previous)
+        assertEquals("home", hunt.previous)
     }
 }

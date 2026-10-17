@@ -56,12 +56,14 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import java.io.File
 import java.net.URI
+import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -532,6 +534,7 @@ fun LibraryList(
 fun ShelfEditor(
     shelf: Shelf,
     games: List<Game>,
+    artwork: Artwork,
     onMove: (String, Int) -> Unit,
     onOpen: (String) -> Unit,
     onBacklog: (String) -> Unit,
@@ -556,24 +559,55 @@ fun ShelfEditor(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PinkButton(onClick = onAdd) { Text("add a game") }
-                AeroButton(onClick = onChooseBacklog) { Text("from backlog") }
+                PinkButton(onClick = onAdd) {
+                    Text(if (shelf == Shelf.HUNTS) "add a hunt" else "add a game")
+                }
+                if (shelf != Shelf.HUNTS)
+                    AeroButton(onClick = onChooseBacklog) { Text("from backlog") }
             }
         }
         items(row, key = { it.id }) { game ->
             Glass(Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f))) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AeroButton(onClick = { onOpen(game.id) }) {
+                    AeroButton(
+                        onClick = { onOpen(game.id) },
+                        modifier = if (shelf == Shelf.HUNTS) Modifier.fillMaxWidth() else Modifier,
+                    ) {
                         if (shelf == Shelf.HUNTS) {
-                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(
-                                    displayPokemonName(game.pokemon).ifBlank { "shiny hunt" },
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    huntVersions[game.pokemonVersion] ?: game.title,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(
+                                    Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                                ) {
+                                    Text(
+                                        displayPokemonName(game.pokemon).ifBlank { "shiny hunt" },
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        huntVersions[game.pokemonVersion] ?: game.title,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        "${NumberFormat.getIntegerInstance().format(game.encounters)} " +
+                                            if (game.encounters == 1L) "encounter"
+                                            else "encounters",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Art(
+                                    game.sprite,
+                                    artwork,
+                                    displayPokemonName(game.pokemon),
+                                    Modifier.size(64.dp),
+                                    sprite = true,
+                                    transparent = true,
+                                    showPlaceholderTitle = false,
                                 )
                             }
                         } else {
@@ -600,7 +634,8 @@ fun ShelfEditor(
                             Spacer(Modifier.width(6.dp))
                             Text("move down")
                         }
-                        AeroButton(onClick = { onBacklog(game.id) }) { Text("to backlog") }
+                        if (shelf != Shelf.HUNTS)
+                            AeroButton(onClick = { onBacklog(game.id) }) { Text("to backlog") }
                     }
                 }
             }
@@ -1249,35 +1284,64 @@ fun AddScreen(
     var busy by remember { mutableStateOf(false) }
     var nextOffset by rememberSaveable { mutableStateOf<Int?>(null) }
     var loadingMore by remember { mutableStateOf(false) }
+    var searchJob by remember { mutableStateOf<Job?>(null) }
+    var searchGeneration by remember { mutableIntStateOf(0) }
+    var activeSearch by remember { mutableStateOf<Pair<String, String>?>(null) }
     fun search(offset: Int = 0) {
-        if (busy) return
+        if (query.isBlank()) return
+        val generation = ++searchGeneration
+        searchJob?.cancel()
         focus.clearFocus()
         keyboard?.hide()
         val submittedQuery = query.trim()
         val anchorIndex = listState.firstVisibleItemIndex
         val anchorOffset = listState.firstVisibleItemScrollOffset
         val submittedSystem = system
+        val previousResults = results
+        activeSearch = submittedQuery to submittedSystem
         busy = true
         loadingMore = offset > 0
         warning = null
-        scope.launch {
-            try {
-                val answer = catalog.searchPage(submittedQuery, submittedSystem, endpoint, offset)
-                if (query.trim() != submittedQuery || system != submittedSystem) return@launch
-                val page = groupCatalogResults(answer.games)
-                onResults(if (offset == 0) page else mergeCatalogResults(results, page))
-                nextOffset = answer.nextOffset
-                warning = answer.warning
-                if (offset == 0) listState.requestScrollToItem(0)
-                else listState.requestScrollToItem(anchorIndex, anchorOffset)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                warning = "Search unavailable. You can try again or add a game manually."
-            } finally {
-                busy = false
-                loadingMore = false
-            }
+        if (offset == 0) {
+            nextOffset = null
+            onResults(emptyList())
         }
+        searchJob =
+            scope.launch {
+                try {
+                    var positioned = false
+                    catalog
+                        .searchUpdates(submittedQuery, submittedSystem, endpoint, offset)
+                        .collect { answer ->
+                            if (
+                                query.trim() != submittedQuery ||
+                                    system != submittedSystem ||
+                                    generation != searchGeneration
+                            )
+                                return@collect
+                            val page = groupCatalogResults(answer.games)
+                            onResults(
+                                if (offset == 0) page
+                                else mergeCatalogResults(previousResults, page)
+                            )
+                            nextOffset = answer.nextOffset
+                            warning = answer.warning
+                            if (!positioned && page.isNotEmpty()) {
+                                if (offset == 0) listState.requestScrollToItem(0)
+                                else listState.requestScrollToItem(anchorIndex, anchorOffset)
+                                positioned = true
+                            }
+                        }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    warning = "Search unavailable. You can try again or add a game manually."
+                } finally {
+                    if (generation == searchGeneration) {
+                        busy = false
+                        loadingMore = false
+                    }
+                }
+            }
     }
     Column(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
@@ -1303,8 +1367,15 @@ fun AddScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            PinkButton(onClick = { search() }, enabled = !busy && query.isNotBlank()) {
-                Text(if (busy && !loadingMore) "searching…" else "search")
+            PinkButton(
+                onClick = { search() },
+                enabled = query.isNotBlank() && (!busy || activeSearch != (query.trim() to system)),
+            ) {
+                Text(
+                    if (busy && !loadingMore && activeSearch == (query.trim() to system))
+                        "searching…"
+                    else "search"
+                )
             }
             AeroButton(onClick = onManual) { Text("add manually") }
             AeroButton(onClick = onHunt) { Text("add a hunt") }
@@ -2145,6 +2216,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                                             ShelfEditor(
                                                 editingShelf,
                                                 games,
+                                                artwork,
                                                 { id, direction ->
                                                     mutate {
                                                         LibraryRules.reorder(it, id, direction)

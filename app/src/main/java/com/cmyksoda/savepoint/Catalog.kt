@@ -11,13 +11,16 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLEncoder
 import java.security.MessageDigest
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.last
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-
-data class CatalogPage(val games: List<Game>, val warning: String?, val nextOffset: Int?)
 
 fun imageAvailable(url: String): Boolean {
     val connection = URI(url).toURL().openConnection() as HttpURLConnection
@@ -261,114 +264,167 @@ class Catalog(private val context: Context) {
         endpoint: String,
         offset: Int = 0,
         refreshGameTdb: Boolean = false,
-    ): CatalogPage =
-        withContext(Dispatchers.IO) {
-            val found = mutableListOf<Game>()
-            var warning: String? = null
-            var nextOffset: Int? = null
-            if (endpoint.isNotBlank()) {
-                try {
-                    val encoded = URLEncoder.encode(query, "UTF-8")
-                    val data =
-                        JSONObject(
-                            String(
-                                fetchBytes(
-                                    "${endpoint.trimEnd('/')}/search?q=$encoded&offset=$offset"
-                                )
+    ): CatalogPage = searchUpdates(query, system, endpoint, offset, refreshGameTdb).last()
+
+    fun searchUpdates(
+        query: String,
+        system: String,
+        endpoint: String,
+        offset: Int = 0,
+        refreshGameTdb: Boolean = false,
+    ): Flow<CatalogPage> {
+        val requested =
+            if (offset > 0) emptyMap()
+            else if (system.isNotEmpty()) sources.filterKeys { it == system } else sources
+        val pages = mutableListOf<Flow<CatalogPage>>()
+        pages +=
+            flow {
+                    if (endpoint.isBlank()) {
+                        emit(
+                            CatalogPage(
+                                emptyList(),
+                                "GameTDB search is available. Configure the catalog service for PC and other Nintendo systems.",
+                                null,
                             )
                         )
-                    nextOffset = data.optInt("nextOffset", -1).takeIf { it > offset }
-                    val results = data.getJSONArray("results")
-                    for (index in 0 until results.length()) {
-                        val item = results.getJSONObject(index)
-                        if (system.isNotEmpty() && item.getString("system") != system) continue
-                        found +=
-                            Game(
-                                title = item.getString("title"),
-                                system = item.getString("system"),
-                                cover = item.optString("cover"),
-                                source = "igdb",
-                                sourceId = item.getString("sourceId"),
-                                release =
-                                    if (item.isNull("release")) null else item.getLong("release"),
-                            )
-                    }
-                } catch (e: Exception) {
-                    if (e is CancellationException || offset > 0) throw e
-                    warning =
-                        "Broad catalog unavailable. GameTDB and manual entry are still available."
-                }
-            } else
-                warning =
-                    "GameTDB search is available. Configure the catalog service for PC and other Nintendo systems."
-            val requested =
-                if (offset > 0) emptyMap()
-                else if (system.isNotEmpty()) sources.filterKeys { it == system } else sources
-            for ((platform, slug) in requested) {
-                try {
-                    val cache = File(context.cacheDir, "$slug-titles.txt")
-                    val valid =
-                        cache.isFile &&
-                            cache.bufferedReader().use {
-                                it.readLine()?.startsWith("TITLES =") == true
-                            }
-                    if (
-                        !valid ||
-                            refreshGameTdb ||
-                            System.currentTimeMillis() - cache.lastModified() > 86400000L
-                    ) {
-                        val bytes = fetchBytes("https://www.gametdb.com/${slug}tdb.txt?LANG=EN")
-                        require(String(bytes.take(100).toByteArray()).startsWith("TITLES =")) {
-                            "GameTDB returned an invalid title list"
-                        }
-                        val temporary = File.createTempFile("titles-", ".tmp", context.cacheDir)
-                        try {
-                            temporary.writeBytes(bytes)
-                            require(temporary.renameTo(cache))
-                        } finally {
-                            temporary.delete()
-                        }
-                    }
-                    cache.useLines { lines ->
-                        lines
-                            .filter { it.contains(" = ") && !it.startsWith("TITLES") }
-                            .forEach { line ->
-                                val (id, title) = line.split(" = ", limit = 2)
-                                val gameCube = slug == "wii" && id.startsWith("G")
-                                if (
-                                    platform == "GameCube" && !gameCube ||
-                                        platform == "Wii" && gameCube
-                                )
-                                    return@forEach
-                                if (isVirtualConsoleId(platform, id)) return@forEach
-                                if (searchMatchScore(title, query) == null) return@forEach
-                                val artworkSlug = if (slug == "3ds") "3ds" else slug
-                                val extension = if (slug == "wii") "png" else "jpg"
-                                found +=
-                                    Game(
-                                        title = title,
-                                        system = platform,
-                                        source = "gametdb",
-                                        sourceId = id,
-                                        cover =
-                                            "https://art.gametdb.com/$artworkSlug/cover/US/$id.$extension",
+                    } else {
+                        val encoded = URLEncoder.encode(query, "UTF-8")
+                        val data =
+                            JSONObject(
+                                String(
+                                    fetchBytes(
+                                        "${endpoint.trimEnd('/')}/search?q=$encoded&offset=$offset"
                                     )
+                                )
+                            )
+                        val nextOffset = data.optInt("nextOffset", -1).takeIf { it > offset }
+                        val results = data.getJSONArray("results")
+                        val games = buildList {
+                            for (index in 0 until results.length()) {
+                                val item = results.getJSONObject(index)
+                                if (system.isNotEmpty() && item.getString("system") != system)
+                                    continue
+                                add(
+                                    Game(
+                                        title = item.getString("title"),
+                                        system = item.getString("system"),
+                                        cover = item.optString("cover"),
+                                        source = "igdb",
+                                        sourceId = item.getString("sourceId"),
+                                        release =
+                                            if (item.isNull("release")) null
+                                            else item.getLong("release"),
+                                    )
+                                )
                             }
+                        }
+                        emit(CatalogPage(games, null, nextOffset))
                     }
-                } catch (e: Exception) {
-                    warning =
-                        "Some catalog sources are unavailable. You can still add a game manually."
                 }
-            }
-            val games =
-                found
-                    .map(::preferPublisherCover)
-                    .distinctBy { Triple(it.title.lowercase(), it.system, it.source) }
-                    .sortedWith(
-                        compareBy<Game> { !it.title.equals(query, true) }.thenBy { it.title.length }
+                .catch { error ->
+                    if (offset > 0) throw error
+                    emit(
+                        CatalogPage(
+                            emptyList(),
+                            "Broad catalog unavailable. GameTDB and manual entry are still available.",
+                            null,
+                        )
                     )
-            CatalogPage(games, warning, nextOffset)
+                }
+                .flowOn(Dispatchers.IO)
+        for ((slug, platforms) in requested.entries.groupBy { it.value }) {
+            var cachedGames = emptyList<Game>()
+            pages +=
+                flow {
+                        val cache = File(context.cacheDir, "$slug-titles.txt")
+                        val valid =
+                            cache.isFile &&
+                                cache.bufferedReader().use {
+                                    it.readLine()?.startsWith("TITLES =") == true
+                                }
+                        fun matches(): List<Game> =
+                            cache.useLines { lines ->
+                                buildList {
+                                    lines
+                                        .filter { it.contains(" = ") && !it.startsWith("TITLES") }
+                                        .forEach { line ->
+                                            val (id, title) = line.split(" = ", limit = 2)
+                                            val platform =
+                                                if (slug == "wii") {
+                                                    val name =
+                                                        if (id.startsWith("G")) "GameCube"
+                                                        else "Wii"
+                                                    platforms.firstOrNull { it.key == name }?.key
+                                                } else platforms.first().key
+                                            if (
+                                                platform == null || isVirtualConsoleId(platform, id)
+                                            )
+                                                return@forEach
+                                            if (searchMatchScore(title, query) == null)
+                                                return@forEach
+                                            val extension = if (slug == "wii") "png" else "jpg"
+                                            add(
+                                                Game(
+                                                    title = title,
+                                                    system = platform,
+                                                    source = "gametdb",
+                                                    sourceId = id,
+                                                    cover =
+                                                        "https://art.gametdb.com/$slug/cover/US/$id.$extension",
+                                                )
+                                            )
+                                        }
+                                }
+                            }
+                        if (valid) {
+                            cachedGames = matches()
+                            emit(CatalogPage(cachedGames, null, null))
+                        }
+                        if (
+                            !valid ||
+                                refreshGameTdb ||
+                                System.currentTimeMillis() - cache.lastModified() > 86400000L
+                        ) {
+                            val bytes = fetchBytes("https://www.gametdb.com/${slug}tdb.txt?LANG=EN")
+                            require(String(bytes.take(100).toByteArray()).startsWith("TITLES =")) {
+                                "GameTDB returned an invalid title list"
+                            }
+                            val temporary = File.createTempFile("titles-", ".tmp", context.cacheDir)
+                            try {
+                                temporary.writeBytes(bytes)
+                                require(temporary.renameTo(cache))
+                            } finally {
+                                temporary.delete()
+                            }
+                            emit(CatalogPage(matches(), null, null))
+                        }
+                    }
+                    .catch {
+                        emit(
+                            CatalogPage(
+                                cachedGames,
+                                "Some catalog sources are unavailable. You can still add a game manually.",
+                                null,
+                            )
+                        )
+                    }
+                    .flowOn(Dispatchers.IO)
         }
+        return mergeCatalogPages(pages)
+            .map { page ->
+                page.copy(
+                    games =
+                        page.games
+                            .map(::preferPublisherCover)
+                            .distinctBy { Triple(it.title.lowercase(), it.system, it.source) }
+                            .sortedWith(
+                                compareBy<Game> { !it.title.equals(query, true) }
+                                    .thenBy { it.title.length }
+                            )
+                )
+            }
+            .flowOn(Dispatchers.IO)
+    }
 
     suspend fun covers(
         title: String,
