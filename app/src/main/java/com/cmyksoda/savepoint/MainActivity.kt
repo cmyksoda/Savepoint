@@ -564,7 +564,21 @@ fun ShelfEditor(
             Glass(Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f))) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AeroButton(onClick = { onOpen(game.id) }) {
-                        Text(game.title, fontWeight = FontWeight.SemiBold)
+                        if (shelf == Shelf.HUNTS) {
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(
+                                    displayPokemonName(game.pokemon).ifBlank { "shiny hunt" },
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    huntVersions[game.pokemonVersion] ?: game.title,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            Text(game.title, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
