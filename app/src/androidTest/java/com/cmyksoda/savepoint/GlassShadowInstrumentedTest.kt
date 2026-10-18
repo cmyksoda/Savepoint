@@ -28,7 +28,7 @@ class GlassShadowInstrumentedTest {
             )
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = android.graphics.Color.argb(45, 38, 25, 50)
+                color = glassShadowColor
                 maskFilter = BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL)
             }
         android.graphics

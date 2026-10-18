@@ -21,6 +21,9 @@ private val glassShadows =
             value.asAndroidBitmap().allocationByteCount
     }
 
+// A plum tint keeps shadows soft against the pink light.
+internal val glassShadowColor = android.graphics.Color.argb(54, 74, 30, 70)
+
 internal data class GlassShadowTexture(
     val image: ImageBitmap,
     val margin: Float,
@@ -53,8 +56,7 @@ internal fun glassShadowTexture(
                 .also { image ->
                     val paint =
                         android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                            // A plum tint keeps shadows soft against the pink light.
-                            color = android.graphics.Color.argb(54, 74, 30, 70)
+                            color = glassShadowColor
                             maskFilter =
                                 android.graphics.BlurMaskFilter(
                                     blur,

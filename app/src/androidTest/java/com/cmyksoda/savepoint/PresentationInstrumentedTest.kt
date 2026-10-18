@@ -43,8 +43,8 @@ class PresentationInstrumentedTest {
     }
 
     @Test
-    fun bothLauncherForegroundsFitInsideAdaptiveIconSafeCircle() {
-        for (id in listOf(R.drawable.icon_handheld_launcher, R.drawable.icon_handheld_mono)) {
+    fun everyLauncherForegroundFitsInsideAdaptiveIconSafeCircle() {
+        for (id in AppIcon.entries.map { it.foreground } + R.drawable.icon_handheld_mono) {
             val bitmap = Bitmap.createBitmap(108, 108, Bitmap.Config.ARGB_8888)
             val icon = ContextCompat.getDrawable(context, id)!!
             icon.setBounds(0, 0, 108, 108)
