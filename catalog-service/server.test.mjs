@@ -74,3 +74,9 @@ test('other consoles appear only for the families an app asks for', () => {
   assert.deepEqual([...parseFamilies('unknown,')], ['nintendo', 'pc']);
   assert.deepEqual([...parseFamilies(null)], ['nintendo', 'pc']);
 });
+
+test('results carry how many people rated each game, so apps can put well-known games first', () => {
+  const results = normalize([{ id: 1, name: 'Super Metroid', total_rating_count: 812, platforms: [{ id: 58 }] },
+    { id: 2, name: 'Metroid Fool', platforms: [{ id: 21 }] }]);
+  assert.deepEqual(results.map(game => game.popularity), [812, 0]);
+});

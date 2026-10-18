@@ -274,6 +274,8 @@ class Catalog(private val context: Context) {
         refreshGameTdb: Boolean = false,
         families: Set<String> = defaultPlatforms,
     ): Flow<CatalogPage> {
+        // How many people rated each catalog game, so well-known games rise above fan projects.
+        val popularity = java.util.concurrent.ConcurrentHashMap<String, Int>()
         val requested =
             if (offset > 0 || "nintendo" !in families) emptyMap()
             else if (system.isNotEmpty()) sources.filterKeys { it == system } else sources
@@ -306,6 +308,12 @@ class Catalog(private val context: Context) {
                                 val item = results.getJSONObject(index)
                                 if (system.isNotEmpty() && item.getString("system") != system)
                                     continue
+                                // Keyed by title and system so the GameTDB copy of a game ranks with it.
+                                popularity.merge(
+                                    catalogTitleKey(item.getString("title")) + ":" + item.getString("system"),
+                                    item.optInt("popularity"),
+                                    { a, b -> maxOf(a, b) },
+                                )
                                 add(
                                     Game(
                                         title = item.getString("title"),
@@ -423,6 +431,9 @@ class Catalog(private val context: Context) {
                                 // Exact titles first, then titles that contain the words, then near misses.
                                 compareBy<Game> { !it.title.equals(query, true) }
                                     .thenBy { searchMatchScore(it.title, query) ?: Int.MAX_VALUE }
+                                    .thenByDescending {
+                                        popularity[catalogTitleKey(it.title) + ":" + it.system] ?: 0
+                                    }
                                     .thenBy { it.title.length }
                             )
                 )

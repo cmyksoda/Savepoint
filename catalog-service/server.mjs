@@ -48,7 +48,7 @@ export function parseFamilies(value) {
 }
 
 const searchPageSize = 50;
-const gameFields = 'name,game_type,cover.image_id,platforms.name,release_dates.date,release_dates.platform';
+const gameFields = 'name,game_type,total_rating_count,cover.image_id,platforms.name,release_dates.date,release_dates.platform';
 
 export function catalogSearchQuery(query, offset = 0, exact = false) {
   const safeQuery = query.replace(/[\\"\r\n]/g, ' ');
@@ -78,6 +78,7 @@ export function normalize(games, families = defaultFamilies) {
         (virtualConsoleHosts.has(platform.id) || system === 'Nintendo Switch 2') && release !== null && release > earliest;
       if (virtualConsole) continue;
       const item = { title: game.name, system, release: release === null ? null : release * 1000, source: 'igdb', sourceId: String(game.id),
+        popularity: game.total_rating_count ?? 0,
         cover: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg` : '' };
       const previous = bySystem.get(system);
       if (!previous || (item.release !== null && (previous.release === null || item.release < previous.release))) bySystem.set(system, item);
