@@ -133,7 +133,8 @@ fun CoverSelection(
                     }
                 }
             }
-        (providers + choices.map { it.provider }).distinct().forEach { provider ->
+        // The cover you tapped leads, and later sources join below without reshuffling it.
+        (initial.map { it.provider } + providers + choices.map { it.provider }).distinct().forEach { provider ->
             val options = choices.filter { it.provider == provider }
             if (options.isNotEmpty() || provider in loading)
                 item(key = provider) {

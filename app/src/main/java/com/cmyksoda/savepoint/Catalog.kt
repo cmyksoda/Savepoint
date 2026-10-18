@@ -284,6 +284,15 @@ class Artwork(private val context: Context) {
             File(directory, name).writeBytes(bytes)
             "local:$name"
         }
+
+    // Saved like a chosen picture, so the cover survives backups and the game being uninstalled.
+    suspend fun saveAppIcon(packageName: String): String? =
+        withContext(Dispatchers.IO) {
+            val icon = appIconBitmap(context, packageName) ?: return@withContext null
+            val name = filename("app:$packageName")
+            File(directory, name).outputStream().use { icon.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            "local:$name"
+        }
 }
 
 class Catalog(private val context: Context) {

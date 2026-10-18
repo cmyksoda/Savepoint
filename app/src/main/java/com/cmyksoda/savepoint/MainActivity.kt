@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -748,8 +749,11 @@ fun GameDetails(
                 "Game data from the LaunchBox Games Database".takeIf { game.source == "launchbox" },
                 "Game data from Steam".takeIf { game.source == "steam" },
                 "Game data from the App Store".takeIf { game.source == "appstore" },
-                "Cover via ${coverProvider(game)}"
-                    .takeIf { game.cover.isNotBlank() && game.shelf != Shelf.HUNTS },
+                when (val provider = coverProvider(game)) {
+                    "This phone" -> "Cover is the game's app icon"
+                    "Selected image" -> "Cover is an image you chose"
+                    else -> "Cover via $provider"
+                }.takeIf { game.cover.isNotBlank() && game.shelf != Shelf.HUNTS },
                 "Pokémon artwork via PokéAPI · respective owners retain artwork rights"
                     .takeIf { game.sprite.startsWith("https://raw.githubusercontent.com/PokeAPI") },
             )
@@ -1259,8 +1263,10 @@ fun AddScreen(
     onManual: () -> Unit,
     onHunt: () -> Unit,
     families: Set<String> = defaultPlatforms,
+    library: List<Game> = emptyList(),
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val listState = rememberLazyListState()
@@ -1314,6 +1320,35 @@ fun AddScreen(
                 }
             }
     }
+    val phoneGames by
+        produceState(emptyList<PhoneGame>(), "mobile" in families) {
+            value =
+                if ("mobile" in families) withContext(Dispatchers.IO) { installedGames(context) }
+                else emptyList()
+        }
+    val onPhone =
+        remember(phoneGames, library, query, system) {
+            if (system.isNotEmpty() && system != "Android") emptyList()
+            else phoneGameMatches(phoneGames, library, query.trim())
+        }
+    fun choosePhoneGame(game: PhoneGame) {
+        scope.launch {
+            val cover = artwork.saveAppIcon(game.packageName).orEmpty()
+            onChoose(
+                CatalogResult(
+                    Game(
+                        title = game.title,
+                        system = "Android",
+                        source = "phone",
+                        sourceId = game.packageName,
+                        cover = cover,
+                        coverProvider = if (cover.isEmpty()) "" else "This phone",
+                    ),
+                    listOfNotNull(cover.ifEmpty { null }?.let { CoverCandidate(it, "This phone", "App icon") }),
+                )
+            )
+        }
+    }
     Column(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1354,8 +1389,52 @@ fun AddScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(bottom = 20.dp),
         ) {
+            if (onPhone.isNotEmpty()) {
+                item(key = "phone") {
+                    Text("On this phone", style = MaterialTheme.typography.labelLarge)
+                }
+                items(onPhone, key = { "phone:" + it.packageName }) { game ->
+                    PhoneGameRow(game) { choosePhoneGame(game) }
+                }
+                if (results.isNotEmpty())
+                    item(key = "results") {
+                        Text(
+                            "Search results",
+                            Modifier.padding(top = 8.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+            }
             items(results, key = { catalogTitleKey(it.game.title) + ":" + it.game.system }) { result ->
                 CatalogResultRow(result, catalog, artwork) { onChoose(result) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhoneGameRow(game: PhoneGame, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val icon by
+        produceState<ImageBitmap?>(null, game.packageName) {
+            value = withContext(Dispatchers.IO) { appIconBitmap(context, game.packageName, 144)?.asImageBitmap() }
+        }
+    Glass(Modifier.fillMaxWidth().feedbackClickable(onClick = onClick)) {
+        Row(
+            Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).clearAndSetSemantics {}) {
+                icon?.let { Image(it, null, Modifier.fillMaxSize()) }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(game.title, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Android · on this phone",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -1481,7 +1560,7 @@ fun SettingsScreen(
             )
             PlatformChoices(settings.platforms) { onChange(settings.copy(platforms = it)) }
             Text(
-                "Searches look up LaunchBox, Steam and the App Store. Only your searches leave your phone; your shelves and notes stay here.",
+                "Searches look up LaunchBox, Steam and the App Store, and with Mobile on, Add a game also lists the games on this phone. Only your searches leave your phone; your shelves and notes stay here.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -2431,6 +2510,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                                 },
                                                 onHunt = { startAdding(Shelf.HUNTS, "add") },
                                                 families = settings.platforms,
+                                                library = games,
                                             )
                                         "cover" ->
                                             selectedGame?.let { game ->
