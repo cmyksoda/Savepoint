@@ -2077,6 +2077,10 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
     }
     val backdrop = rememberAeroBackdrop(dark)
     val colors = remember(dark) { aeroColors(dark) }
+    val ime = WindowInsets.ime
+    val density = LocalDensity.current
+    // While you type, the keyboard needs the room more than the tabs do, so neither the tabs nor their space shows.
+    val typing by remember(ime, density) { derivedStateOf { ime.getBottom(density) > 0 } }
     MaterialTheme(colorScheme = colors, typography = AeroTypography) {
         CompositionLocalProvider(
             LocalContentColor provides colors.onBackground,
@@ -2193,7 +2197,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                     }
                                 Box(
                                     Modifier.fillMaxSize()
-                                        .padding(bottom = if (reservesDock) 88.dp else 0.dp)
+                                        .padding(bottom = if (reservesDock && !typing) 88.dp else 0.dp)
                                 ) {
                                     when (screen) {
                                         "home" ->
@@ -2625,8 +2629,6 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                             }
                         }
                     val welcoming = loaded && !settings.onboarded && games.isEmpty()
-                    // While you type, the keyboard needs the room more than the tabs do.
-                    val typing = WindowInsets.ime.getBottom(LocalDensity.current) > 0
                     if (
                         !welcoming &&
                             !typing &&
