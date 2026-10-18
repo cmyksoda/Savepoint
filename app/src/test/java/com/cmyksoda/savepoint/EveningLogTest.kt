@@ -8,7 +8,7 @@ import org.junit.Test
 class EveningLogTest {
     private val zone = ZoneId.of("America/New_York")
     private val day = LocalDate.of(2026, 10, 14)
-    private val settings = Settings(reminders = true)
+    private val settings = Settings(reminders = true, eveningCheckIn = true)
 
     private fun at(hour: Int, minute: Int = 0, date: LocalDate = day) =
         date.atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
@@ -42,21 +42,12 @@ class EveningLogTest {
     }
 
     @Test
-    fun loggedDayPausedRemindersAndDuplicatesNeverDeliver() {
+    fun loggedDaysTurnedOffCheckInsAndDuplicatesNeverDeliver() {
         val alarm = nextEveningLog(settings, at(18), zone)!!
         assertFalse(canDeliverEveningLog(settings, alarm, setOf(day), at(21, 5), zone))
         assertFalse(
             canDeliverEveningLog(
-                settings.copy(reminders = false),
-                alarm,
-                emptySet(),
-                at(21, 5),
-                zone,
-            )
-        )
-        assertFalse(
-            canDeliverEveningLog(
-                settings.copy(logReminder = false),
+                settings.copy(eveningCheckIn = false),
                 alarm,
                 emptySet(),
                 at(21, 5),
@@ -86,8 +77,30 @@ class EveningLogTest {
             canDeliverEveningLog(settings, alarm, emptySet(), at(21, date = day.plusDays(1)), zone)
         )
         assertEquals(at(21, date = day.plusDays(1)), nextEveningLog(settings, at(22), zone)!!.at)
-        assertNull(nextEveningLog(settings.copy(reminders = false), at(18), zone))
-        assertNull(nextEveningLog(settings.copy(logReminder = false), at(18), zone))
+        assertNull(nextEveningLog(settings.copy(eveningCheckIn = false), at(18), zone))
+    }
+
+    @Test
+    fun theEveningCheckInWorksWithRestInvitationsOff() {
+        val alone = settings.copy(reminders = false)
+        val alarm = nextEveningLog(alone, at(18), zone)!!
+        assertEquals(at(21), alarm.at)
+        assertTrue(canDeliverEveningLog(alone, alarm, emptySet(), at(21, 5), zone))
+    }
+
+    @Test
+    fun olderSettingsKeepTheCheckInOnlyWhereInvitationsWereOn() {
+        fun saved(reminders: Boolean, logReminder: Boolean?) =
+            JsonCodec.settings(
+                org.json.JSONObject(JsonCodec.settings(Settings(reminders = reminders)).toString()).apply {
+                    remove("eveningCheckIn")
+                    if (logReminder != null) put("logReminder", logReminder)
+                }
+            )
+        assertTrue(saved(reminders = true, logReminder = null).eveningCheckIn)
+        assertFalse(saved(reminders = false, logReminder = true).eveningCheckIn)
+        assertFalse(saved(reminders = true, logReminder = false).eveningCheckIn)
+        assertFalse(Settings().eveningCheckIn)
     }
 
     @Test
@@ -103,7 +116,7 @@ class EveningLogTest {
         val merged = mergeSettings(current, settings, settings.copy(theme = "dark"))
         assertEquals(current.logSentDate, merged.logSentDate)
         assertEquals(current.celebratedMilestones, merged.celebratedMilestones)
-        assertTrue(reminderSettingsChanged(settings, settings.copy(logReminder = false)))
+        assertTrue(reminderSettingsChanged(settings, settings.copy(eveningCheckIn = false)))
         assertEquals(current, JsonCodec.settings(JsonCodec.settings(current)))
     }
 }

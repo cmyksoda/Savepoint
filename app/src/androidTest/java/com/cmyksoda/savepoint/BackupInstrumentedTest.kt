@@ -155,7 +155,7 @@ class BackupInstrumentedTest {
                 Settings(
                     reminders = true,
                     celebratedMilestones = setOf("streak:3"),
-                    logReminder = false,
+                    eveningCheckIn = true,
                     collectionNames = setOf("favorites", "empty collection"),
                 ),
                 artwork,
@@ -164,7 +164,7 @@ class BackupInstrumentedTest {
             try {
                 assertEquals(listOf(game), restored.games)
                 assertFalse(restored.settings.reminders)
-                assertFalse(restored.settings.logReminder)
+                assertFalse(restored.settings.eveningCheckIn)
                 assertEquals(setOf("streak:3"), restored.settings.celebratedMilestones)
                 assertEquals(
                     setOf("favorites", "empty collection"),

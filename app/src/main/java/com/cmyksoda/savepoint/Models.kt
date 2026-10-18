@@ -44,9 +44,9 @@ fun mergeSettings(current: Settings, previous: Settings, changed: Settings) =
         skipDate =
             if (changed.skipDate != previous.skipDate) changed.skipDate else current.skipDate,
         laterAt = if (changed.laterAt != previous.laterAt) changed.laterAt else current.laterAt,
-        logReminder =
-            if (changed.logReminder != previous.logReminder) changed.logReminder
-            else current.logReminder,
+        eveningCheckIn =
+            if (changed.eveningCheckIn != previous.eveningCheckIn) changed.eveningCheckIn
+            else current.eveningCheckIn,
         shelfStyle =
             if (changed.shelfStyle != previous.shelfStyle) changed.shelfStyle
             else current.shelfStyle,

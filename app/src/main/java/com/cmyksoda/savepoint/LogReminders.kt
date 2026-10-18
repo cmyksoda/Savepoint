@@ -19,7 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 fun nextEveningLog(settings: Settings, now: Long, zone: ZoneId): Invitation? {
-    if (!settings.reminders || !settings.logReminder || settings.days.isEmpty()) return null
+    if (!settings.eveningCheckIn || settings.days.isEmpty()) return null
     val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
     for (offset in 0..7) {
         val day = today.plusDays(offset.toLong())
@@ -44,8 +44,7 @@ fun canDeliverEveningLog(
 ): Boolean {
     val local = Instant.ofEpochMilli(now).atZone(zone)
     val day = local.toLocalDate()
-    return settings.reminders &&
-        settings.logReminder &&
+    return settings.eveningCheckIn &&
         day.dayOfWeek.value in settings.days &&
         day.toString() != settings.skipDate &&
         day.toString() != settings.logSentDate &&

@@ -110,7 +110,7 @@ object Backup {
                 RestoredLibrary(
                     games,
                     JsonCodec.settings(data.getJSONObject("settings"))
-                        .copy(reminders = false, laterAt = 0),
+                        .copy(reminders = false, eveningCheckIn = false, laterAt = 0),
                     staging,
                 )
             } catch (e: Exception) {

@@ -32,7 +32,7 @@ data class Settings(
     val sentDate: String = "",
     val followupDate: String = "",
     val laterAt: Long = 0,
-    val logReminder: Boolean = true,
+    val eveningCheckIn: Boolean = false,
     val logSentDate: String = "",
     val celebratedMilestones: Set<String> = emptySet(),
     val shelfStyle: String = ShelfStyle.LEDGE.key,
@@ -218,7 +218,7 @@ object JsonCodec {
             put("sentDate", s.sentDate)
             put("followupDate", s.followupDate)
             put("laterAt", s.laterAt)
-            put("logReminder", s.logReminder)
+            put("eveningCheckIn", s.eveningCheckIn)
             put("logSentDate", s.logSentDate)
             put("celebratedMilestones", JSONArray(s.celebratedMilestones.sorted()))
             put("shelfStyle", s.shelfStyle)
@@ -258,7 +258,10 @@ object JsonCodec {
                 sentDate = j.optString("sentDate"),
                 followupDate = j.optString("followupDate"),
                 laterAt = j.optLong("laterAt"),
-                logReminder = j.optBoolean("logReminder", true),
+                // Before 0.6 the check-in only ran alongside rest invitations, so carry that over.
+                eveningCheckIn =
+                    if (j.has("eveningCheckIn")) j.getBoolean("eveningCheckIn")
+                    else j.optBoolean("reminders") && j.optBoolean("logReminder", true),
                 logSentDate = j.optString("logSentDate"),
                 celebratedMilestones =
                     j.optJSONArray("celebratedMilestones")?.let { a ->

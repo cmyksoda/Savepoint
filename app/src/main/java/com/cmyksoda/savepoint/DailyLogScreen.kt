@@ -197,7 +197,7 @@ fun DailyLogScreen(
                         else Spacer(Modifier.size(48.dp))
                     }
                     Row(Modifier.fillMaxWidth().padding(bottom = 5.dp)) {
-                        listOf("M", "T", "W", "T", "F", "S", "S").forEach { day ->
+                        monthModel.weekdays.forEach { day ->
                             Text(
                                 day,
                                 Modifier.weight(1f),

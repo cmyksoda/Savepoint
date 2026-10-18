@@ -56,12 +56,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import java.io.File
-import java.net.URI
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.time.temporal.WeekFields
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -1384,7 +1386,7 @@ private fun CatalogResultRow(result: CatalogResult, catalog: Catalog, artwork: A
 fun SettingsScreen(
     settings: Settings,
     onChange: (Settings) -> Unit,
-    onEnable: () -> Unit,
+    onEnable: (Settings) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
 ) {
@@ -1460,34 +1462,32 @@ fun SettingsScreen(
         }
         SettingsCard("time for yourself") {
             Text(
-                "A general invitation to enjoy your games, with an optional evening check-in for your play log."
+                "A general invitation to enjoy your games, and an optional evening check-in for your play log. Each works on its own."
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("rest invitations", Modifier.weight(1f))
                 AeroSwitch(
                     settings.reminders,
                     { enabled ->
-                        if (enabled) onEnable()
+                        if (enabled) onEnable(settings.copy(reminders = true))
                         else onChange(settings.copy(reminders = false, laterAt = 0))
                     },
                 )
             }
-            // Days, times and the evening check-in only apply while invitations are on.
-            Column(
-                Modifier.alpha(if (invitations) 1f else .45f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Row(Modifier.fillMaxWidth()) {
-                    listOf("mon", "tue", "wed", "thu", "fri", "sat", "sun").forEachIndexed {
-                        index,
-                        day ->
-                        val number = index + 1
+            // The days serve both notifications; the time window only shapes invitations.
+            val scheduled = invitations || settings.eveningCheckIn
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                val firstDay = WeekFields.of(LocalConfiguration.current.locales[0]).firstDayOfWeek
+                Row(Modifier.fillMaxWidth().alpha(if (scheduled) 1f else .45f)) {
+                    (0L until 7L).map { firstDay.plus(it) }.forEach { weekday ->
+                        val number = weekday.value
+                        val day = weekday.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).lowercase()
                         val checked = number in settings.days
                         Column(
                             Modifier.weight(1f)
                                 .height(64.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .toggleable(checked, enabled = invitations, role = Role.Checkbox) {
+                                .toggleable(checked, enabled = scheduled, role = Role.Checkbox) {
                                     onChange(
                                         settings.copy(
                                             days =
@@ -1506,7 +1506,7 @@ fun SettingsScreen(
                         }
                     }
                 }
-                Glass(Modifier.fillMaxWidth()) {
+                Glass(Modifier.fillMaxWidth().alpha(if (invitations) 1f else .45f)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "from ${timeLabel(settings.startMinute)}",
@@ -1545,9 +1545,11 @@ fun SettingsScreen(
                         )
                     }
                     AeroSwitch(
-                        settings.logReminder,
-                        { onChange(settings.copy(logReminder = it)) },
-                        enabled = invitations,
+                        settings.eveningCheckIn,
+                        { enabled ->
+                            if (enabled) onEnable(settings.copy(eveningCheckIn = true))
+                            else onChange(settings.copy(eveningCheckIn = false))
+                        },
                     )
                 }
                 Text(
@@ -1558,7 +1560,7 @@ fun SettingsScreen(
                     onClick = {
                         onChange(settings.copy(skipDate = LocalDate.now().toString(), laterAt = 0))
                     },
-                    enabled = invitations,
+                    enabled = scheduled,
                 ) {
                     Text("skip today")
                 }
@@ -1829,9 +1831,9 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                     }
                 if (reschedule) {
                     Reminders.schedule(context, settings)
-                    if (!settings.logReminder) LogReminders.clear(context)
-                    if (!settings.reminders || settings.skipDate == LocalDate.now().toString())
-                        Reminders.clear(context)
+                    val skipped = settings.skipDate == LocalDate.now().toString()
+                    if (!settings.eveningCheckIn || skipped) LogReminders.clear(context)
+                    if (!settings.reminders || skipped) Reminders.clear(context)
                 }
             } catch (e: Exception) {
                 error = e.message
@@ -1867,12 +1869,15 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
             }
         }
     }
+    var awaitingPermission by remember { mutableStateOf<Settings?>(null) }
     val notificationPermission =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) updateSettings(settings.copy(reminders = true))
-            else
+            val wanted = awaitingPermission
+            awaitingPermission = null
+            if (granted && wanted != null) updateSettings(wanted)
+            else if (!granted)
                 error =
-                    "Invitations are off. You can enable notifications in Android settings whenever you want."
+                    "Notifications are off for Savepoint. You can turn them on in Android settings whenever you want."
         }
     val export =
         rememberLauncherForActivityResult(
@@ -2469,15 +2474,13 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                             SettingsScreen(
                                                 settings,
                                                 ::updateSettings,
-                                                {
-                                                    if (Build.VERSION.SDK_INT >= 33)
+                                                { wanted ->
+                                                    if (Build.VERSION.SDK_INT >= 33) {
+                                                        awaitingPermission = wanted
                                                         notificationPermission.launch(
                                                             Manifest.permission.POST_NOTIFICATIONS
                                                         )
-                                                    else
-                                                        updateSettings(
-                                                            settings.copy(reminders = true)
-                                                        )
+                                                    } else updateSettings(wanted)
                                                 },
                                                 {
                                                     export.launch(
@@ -2858,6 +2861,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                         }
                                         Reminders.schedule(context, settings)
                                         Reminders.clear(context)
+                                        LogReminders.clear(context)
                                         route = "home"
                                         dialog = ""
                                         notice = "backup restored"

@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 
 fun reminderSettingsChanged(previous: Settings, updated: Settings): Boolean =
     previous.reminders != updated.reminders ||
-        previous.logReminder != updated.logReminder ||
+        previous.eveningCheckIn != updated.eveningCheckIn ||
         previous.days != updated.days ||
         previous.startMinute != updated.startMinute ||
         previous.endMinute != updated.endMinute ||
@@ -163,7 +163,6 @@ object Reminders {
 
     fun clear(context: Context) {
         context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION)
-        LogReminders.clear(context)
     }
 }
 
@@ -204,6 +203,7 @@ class ReminderReceiver : BroadcastReceiver() {
                             else s.copy(skipDate = today, laterAt = 0)
                         }
                     Reminders.clear(context)
+                    if (intent.action == "SKIP") LogReminders.clear(context)
                     Reminders.schedule(context, changed)
                     return@launch
                 }
