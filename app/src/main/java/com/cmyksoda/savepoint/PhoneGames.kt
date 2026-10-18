@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.AdaptiveIconDrawable
+import androidx.core.graphics.createBitmap
 
 data class PhoneGame(val packageName: String, val title: String)
 
@@ -42,7 +43,7 @@ fun phoneGameMatches(games: List<PhoneGame>, library: List<Game>, query: String)
 /** The app's icon as a full square, the same shape as App Store artwork, so it can stand on a shelf. */
 fun appIconBitmap(context: Context, packageName: String, size: Int = 512): Bitmap? {
     val icon = runCatching { context.packageManager.getApplicationIcon(packageName) }.getOrNull() ?: return null
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(size, size)
     val canvas = Canvas(bitmap)
     if (icon is AdaptiveIconDrawable) {
         // Adaptive layers are 108 dp with the visible icon in the middle 72 dp, so they're drawn half again as large.

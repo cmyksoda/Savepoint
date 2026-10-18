@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.LruCache
+import androidx.core.graphics.scale
 import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -175,11 +176,9 @@ class Artwork(private val context: Context) {
         val fitted =
             if (scale >= 1f) sampled
             else
-                Bitmap.createScaledBitmap(
-                    sampled,
+                sampled.scale(
                     (sampled.width * scale).roundToInt().coerceAtLeast(1),
                     (sampled.height * scale).roundToInt().coerceAtLeast(1),
-                    true,
                 )
         return fitted.also { decoded.put(url, it) }
     }
