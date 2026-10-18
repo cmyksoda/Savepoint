@@ -148,14 +148,17 @@ fun Art(
             }
         }
     val size = frame?.let { Modifier.size(it.width.dp, it.height.dp) } ?: Modifier
+    val cased = LocalGameCases.current && !sprite && !transparent && cornerRadius > 0.dp
+    val radius = if (sprite || cornerRadius == 0.dp) cornerRadius else coverRadius(system, cornerRadius)
     val body: @Composable () -> Unit = {
         Box(
             size
                 .then(modifier)
                 .then(
                     if (sprite || cornerRadius == 0.dp) Modifier
-                    else Modifier.clip(RoundedCornerShape(cornerRadius))
+                    else Modifier.clip(RoundedCornerShape(radius))
                 )
+                .then(if (cased) Modifier.caseFinish(caseKind(system)) else Modifier)
                 .then(
                     if (transparent) Modifier
                     else
@@ -218,6 +221,7 @@ fun GameCover(
     artwork: Artwork,
     focus: Boolean,
     modifier: Modifier = Modifier,
+    ground: CoverGround = CoverGround.NONE,
     onOpen: () -> Unit,
 ) {
     val hunt = game.shelf == Shelf.HUNTS
@@ -260,29 +264,33 @@ fun GameCover(
         }
         return
     }
-    Box(modifier) {
+    val dark = LocalAeroDark.current
+    Box(
+        modifier.then(
+            when (ground) {
+                CoverGround.CONTACT -> Modifier.contactShadow(dark)
+                CoverGround.REFLECTION -> Modifier.coverReflection(26.dp, dark)
+                CoverGround.NONE -> Modifier
+            }
+        )
+    ) {
+        val corner = coverRadius(game.system, 10.dp)
         Art(
-            if (hunt) game.sprite else game.cover,
+            game.cover,
             artwork,
-            if (hunt) game.pokemon.ifBlank { game.title } else game.title,
-            Modifier.softGlassShadow(10.dp, 8.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .border(1.dp, Color.White.copy(alpha = .65f), RoundedCornerShape(10.dp))
+            game.title,
+            Modifier.softGlassShadow(corner, 8.dp)
+                .clip(RoundedCornerShape(corner))
+                .border(1.dp, coverRim(game.system), RoundedCornerShape(corner))
                 .clickable(onClick = onOpen)
                 .semantics {
                     contentDescription = "${game.title}${if (focus) ", playing now" else ""}"
                 },
-            sprite = hunt,
             cornerRadius = 10.dp,
             reserveHeight = false,
             describe = false,
             system = game.system,
-            coverBounds =
-                when {
-                    hunt -> CoverSize(142f, 154f)
-                    focus -> CoverSize(216f, 244f)
-                    else -> CoverSize(144f, 176f)
-                },
+            coverBounds = if (focus) CoverSize(216f, 244f) else CoverSize(144f, 176f),
         ) {
             if (focus)
                 Surface(
@@ -297,26 +305,6 @@ fun GameCover(
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                     )
                 }
-            if (hunt)
-                Surface(
-                    Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-                    color = Color(0xE0212A40),
-                ) {
-                    Column(Modifier.padding(8.dp)) {
-                        Text(
-                            game.pokemon.ifBlank { "shiny hunt" },
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            game.title,
-                            color = Color(0xFFFFD9EB),
-                            fontSize = 11.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
         }
     }
 }
@@ -329,6 +317,7 @@ fun Home(
     onEditShelf: (Shelf) -> Unit,
     onAdd: () -> Unit,
     onSeed: () -> Unit,
+    style: ShelfStyle = ShelfStyle.LEDGE,
 ) {
     val active = remember(games) { games.filter { it.place == Place.ACTIVE } }
     LazyColumn(
@@ -362,87 +351,8 @@ fun Home(
             val row = active.filter { it.shelf == shelf }.sortedBy { it.position }
             if (row.isNotEmpty())
                 item(key = shelf.name) {
-                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(start = 22.dp, end = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                shelf.label,
-                                fontSize = 19.sp,
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f),
-                            )
-                            AeroIconButton(
-                                AeroSymbol.NEXT,
-                                "edit ${shelf.label} shelf",
-                                { onEditShelf(shelf) },
-                                compact = true,
-                            )
-                        }
-                        val height =
-                            (if (shelf == Shelf.PLAY_THROUGH) 264
-                                else if (shelf == Shelf.HUNTS) 148 else 196)
-                                .dp
-                        if (shelf == Shelf.HUNTS) {
-                            ShelfGames(
-                                row,
-                                shelf,
-                                artwork,
-                                onOpen,
-                                Modifier.fillMaxWidth()
-                                    .height(height)
-                                    .glassShelf(LocalAeroDark.current),
-                                PaddingValues(start = 20.dp, end = 20.dp, bottom = 18.dp),
-                            )
-                        } else {
-                            Column(Modifier.fillMaxWidth().height(height)) {
-                                ShelfGames(
-                                    row,
-                                    shelf,
-                                    artwork,
-                                    onOpen,
-                                    Modifier.fillMaxWidth().weight(1f),
-                                    PaddingValues(horizontal = 20.dp),
-                                )
-                                Spacer(
-                                    Modifier.fillMaxWidth()
-                                        .height(ShelfSurfaceInset)
-                                        .glassShelf(LocalAeroDark.current)
-                                )
-                            }
-                        }
-                    }
+                    ShelfSection(shelf, row, style, artwork, onOpen, onEditShelf)
                 }
-        }
-    }
-}
-
-@Composable
-private fun ShelfGames(
-    games: List<Game>,
-    shelf: Shelf,
-    artwork: Artwork,
-    onOpen: (String) -> Unit,
-    modifier: Modifier,
-    padding: PaddingValues,
-) {
-    LazyRow(
-        modifier,
-        contentPadding = padding,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        items(games, key = { it.id }) { game ->
-            GameCover(
-                game,
-                artwork,
-                shelf == Shelf.PLAY_THROUGH && games.first().id == game.id,
-                Modifier.animateItem(placementSpec = spring(stiffness = 350f)),
-            ) {
-                onOpen(game.id)
-            }
         }
     }
 }
@@ -1467,6 +1377,20 @@ fun SettingsScreen(
         Choice("appearance", settings.theme, listOf("system", "light", "dark")) {
             onChange(settings.copy(theme = it))
         }
+        Choice(
+            "shelf style",
+            shelfStyle(settings.shelfStyle).label,
+            ShelfStyle.entries.map { it.label },
+        ) { label ->
+            onChange(settings.copy(shelfStyle = ShelfStyle.entries.first { it.label == label }.key))
+        }
+        Choice(
+            "cover style",
+            if (settings.gameCases) "game cases" else "flat art",
+            listOf("game cases", "flat art"),
+        ) {
+            onChange(settings.copy(gameCases = it == "game cases"))
+        }
         Glass(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
@@ -1969,6 +1893,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
         CompositionLocalProvider(
             LocalContentColor provides colors.onBackground,
             LocalAeroDark provides dark,
+            LocalGameCases provides settings.gameCases,
         ) {
             BackHandler(route != "home" || dialog.isNotBlank()) {
                 if (dialog.isNotBlank()) dialog = "" else route = backRoute()
@@ -2088,6 +2013,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                                                 },
                                                 { startAdding(Shelf.PLAY_THROUGH, "home") },
                                                 { mutate { old -> old + starterGames() } },
+                                                shelfStyle(settings.shelfStyle),
                                             )
                                         "backlog",
                                         "paused" ->

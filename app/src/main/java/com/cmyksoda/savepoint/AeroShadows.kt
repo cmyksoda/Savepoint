@@ -53,7 +53,8 @@ internal fun glassShadowTexture(
                 .also { image ->
                     val paint =
                         android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                            color = android.graphics.Color.argb(45, 38, 25, 50)
+                            // A plum tint keeps shadows soft against the pink light.
+                            color = android.graphics.Color.argb(54, 74, 30, 70)
                             maskFilter =
                                 android.graphics.BlurMaskFilter(
                                     blur,

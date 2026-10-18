@@ -271,32 +271,10 @@ fun PlaythroughEditor(
                 ) {
                     Feeling.entries.forEach { option ->
                         val selected = feeling == option
-                        FilterChip(
-                            selected = selected,
-                            onClick = { feeling = if (selected) null else option },
-                            leadingIcon = { AeroIcon(feelingSymbol(option), Modifier.size(18.dp)) },
-                            label = { Text(option.label, fontSize = 13.sp, lineHeight = 18.sp) },
-                            shape = RoundedCornerShape(10.dp),
-                            border =
-                                BorderStroke(
-                                    1.dp,
-                                    if (selected)
-                                        MaterialTheme.colorScheme.primary.copy(alpha = .7f)
-                                    else MaterialTheme.colorScheme.outline.copy(alpha = .8f),
-                                ),
-                            colors =
-                                FilterChipDefaults.filterChipColors(
-                                    containerColor =
-                                        MaterialTheme.colorScheme.surface.copy(alpha = .7f),
-                                    labelColor = MaterialTheme.colorScheme.onSurface,
-                                    selectedContainerColor =
-                                        if (LocalAeroDark.current) Color(0xFF403149)
-                                        else Color(0xFFF0C9DF),
-                                    selectedLabelColor = MaterialTheme.colorScheme.primary,
-                                    selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
-                                    iconColor = MaterialTheme.colorScheme.onSurface,
-                                ),
-                        )
+                        AeroChip(selected, { feeling = if (selected) null else option }) {
+                            AeroIcon(feelingSymbol(option), Modifier.size(17.dp))
+                            Text(option.label, fontSize = 13.sp, lineHeight = 18.sp)
+                        }
                     }
                 }
                 AeroTextField(

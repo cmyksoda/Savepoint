@@ -2,6 +2,7 @@ package com.cmyksoda.savepoint
 
 import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,6 +12,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -58,6 +60,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -66,6 +69,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -397,11 +401,31 @@ fun Modifier.glassMaterial(
             )
         )
         .drawWithContent {
+            val inset = 1.5.dp.toPx()
+            val gloss = minOf(size.height * .48f, 26.dp.toPx())
+            val corner = (radius.dp.toPx() - inset).coerceAtLeast(0f)
+            drawRoundRect(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = if (dark) .16f else .7f),
+                        Color.White.copy(alpha = if (dark) .03f else .12f),
+                    ),
+                    startY = inset,
+                    endY = gloss,
+                ),
+                topLeft = Offset(inset, inset),
+                size = Size(size.width - inset * 2, gloss - inset),
+                cornerRadius = CornerRadius(corner, corner * .8f),
+            )
+            val bounce = minOf(size.height * .3f, 18.dp.toPx())
             drawRect(
                 Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = if (dark) .08f else .33f), Color.Transparent),
-                    endY = size.height * .28f,
-                )
+                    listOf(Color.Transparent, Color.White.copy(alpha = if (dark) .06f else .3f)),
+                    startY = size.height - bounce,
+                    endY = size.height,
+                ),
+                topLeft = Offset(0f, size.height - bounce),
+                size = Size(size.width, bounce),
             )
             drawContent()
             drawRoundRect(
@@ -444,12 +468,21 @@ private fun AeroControl(
     val feedback = rememberActionFeedback()
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val shape = RoundedCornerShape(12.dp)
-    val gradient =
-        if (dark) listOf(Color(0xFFFFEAF5), Color(0xFFFAC3DF), Color(0xFFE697C5), Color(0xFFF8B9DF))
-        else listOf(Color(0xFF913767), Color(0xFF882955), Color(0xFF7B1E4E), Color(0xFF9B3C70))
+    val squish by
+        animateFloatAsState(
+            if (pressed) 1f else 0f,
+            spring(dampingRatio = .55f, stiffness = 900f),
+            label = "button squish",
+        )
+    val shape = RoundedCornerShape(15.dp)
+    val gradient = pinkPearl(dark)
     Box(
         modifier
+            .graphicsLayer {
+                // Pressed buttons give a little, like dough.
+                scaleX = 1f - .03f * squish
+                scaleY = 1f - .05f * squish
+            }
             .width(IntrinsicSize.Max)
             .heightIn(min = maxOf(48.dp, minHeight))
             .clickable(
@@ -466,21 +499,12 @@ private fun AeroControl(
     ) {
         val material =
             if (primary)
-                Modifier.background(Brush.verticalGradient(gradient))
-                    .drawWithContent {
-                        drawRoundRect(
-                            Brush.verticalGradient(
-                                listOf(Color.White.copy(alpha = .2f), Color.Transparent),
-                                endY = size.height * .43f,
-                            ),
-                            topLeft = Offset(2.dp.toPx(), 1.dp.toPx()),
-                            size = Size(size.width - 4.dp.toPx(), size.height * .43f),
-                            cornerRadius = CornerRadius(10.dp.toPx()),
-                        )
-                        drawContent()
-                    }
-                    .border(1.dp, Color.White.copy(alpha = .6f), shape)
-            else Modifier.glassMaterial(dark, 12, elevated = false)
+                Modifier.background(Brush.verticalGradient(gradient)).pearlGloss(15.dp).border(
+                    1.dp,
+                    Color.White.copy(alpha = .6f),
+                    shape,
+                )
+            else Modifier.glassMaterial(dark, 15, elevated = false)
         val foreground =
             if (primary) {
                 if (dark) Color(0xFF421D39) else Color.White
@@ -492,7 +516,7 @@ private fun AeroControl(
                         alpha = if (!enabled) .5f else if (pressed) .94f else 1f
                         compositingStrategy = CompositingStrategy.ModulateAlpha
                     }
-                    .softGlassShadow(12.dp, visible = !pressed)
+                    .softGlassShadow(15.dp, 6.dp, visible = !pressed)
                     .clip(shape)
                     .then(material)
             )
@@ -514,6 +538,34 @@ private fun AeroControl(
             }
         }
     }
+}
+
+fun pinkPearl(dark: Boolean): List<Color> =
+    if (dark) listOf(Color(0xFFFFEAF5), Color(0xFFFAC3DF), Color(0xFFE697C5), Color(0xFFF8B9DF))
+    else listOf(Color(0xFF9A3C6E), Color(0xFF8A2A58), Color(0xFF7B1E4E), Color(0xFFA34479))
+
+/** The pearl's highlight: a bright cap over the top and light pooling at the bottom. */
+fun Modifier.pearlGloss(radius: Dp): Modifier = drawWithContent {
+    val inset = 1.5.dp.toPx()
+    val corner = (radius.toPx() - inset).coerceAtLeast(0f)
+    drawRoundRect(
+        Brush.verticalGradient(
+            listOf(Color.White.copy(alpha = .34f), Color.White.copy(alpha = .06f)),
+            startY = inset,
+            endY = size.height * .46f,
+        ),
+        topLeft = Offset(inset, inset),
+        size = Size(size.width - inset * 2, size.height * .46f - inset),
+        cornerRadius = CornerRadius(corner, corner * .8f),
+    )
+    drawRect(
+        Brush.verticalGradient(
+            listOf(Color.Transparent, Color.White.copy(alpha = .16f)),
+            startY = size.height * .7f,
+            endY = size.height,
+        )
+    )
+    drawContent()
 }
 
 @Composable
@@ -630,7 +682,50 @@ fun AeroCheckbox(
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    key(LocalAeroDark.current) { Checkbox(checked, onCheckedChange, modifier) }
+    val dark = LocalAeroDark.current
+    val fill by
+        animateFloatAsState(
+            if (checked) 1f else 0f,
+            spring(dampingRatio = .6f, stiffness = 700f),
+            label = "check",
+        )
+    val pearl = pinkPearl(dark)
+    val mark = if (dark) Color(0xFF421D39) else Color.White
+    Box(
+        modifier
+            .size(22.dp)
+            .then(
+                if (onCheckedChange != null)
+                    Modifier.toggleable(checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+                else Modifier
+            )
+            .glassMaterial(dark, radius = 7, elevation = 3.dp)
+            .drawWithContent {
+                drawContent()
+                if (fill <= 0f) return@drawWithContent
+                val corner = CornerRadius(7.dp.toPx())
+                drawRoundRect(Brush.verticalGradient(pearl), cornerRadius = corner, alpha = fill)
+                drawRoundRect(
+                    Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = .36f), Color.Transparent),
+                        endY = size.height * .5f,
+                    ),
+                    cornerRadius = corner,
+                    alpha = fill,
+                )
+                val w = size.width
+                drawPath(
+                    Path().apply {
+                        moveTo(w * .27f, w * .52f)
+                        lineTo(w * .44f, w * .68f)
+                        lineTo(w * .74f, w * .34f)
+                    },
+                    mark,
+                    alpha = fill,
+                    style = Stroke(w * .11f, cap = StrokeCap.Round, join = StrokeJoin.Round),
+                )
+            }
+    )
 }
 
 @Composable
@@ -638,8 +733,138 @@ fun AeroSwitch(
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
-    key(LocalAeroDark.current) { Switch(checked, onCheckedChange, modifier) }
+    val dark = LocalAeroDark.current
+    val position by
+        animateFloatAsState(
+            if (checked) 1f else 0f,
+            spring(dampingRatio = .62f, stiffness = 520f),
+            label = "switch",
+        )
+    val pearl = pinkPearl(dark)
+    Box(
+        modifier
+            .size(54.dp, 32.dp)
+            .toggleable(
+                checked,
+                enabled = enabled && onCheckedChange != null,
+                role = Role.Switch,
+                onValueChange = { onCheckedChange?.invoke(it) },
+            )
+            .alpha(if (enabled) 1f else .45f)
+    ) {
+        Box(
+            Modifier.matchParentSize()
+                .glassMaterial(dark, radius = 16, elevated = false)
+                .drawWithContent {
+                    drawContent()
+                    val corner = CornerRadius(size.height / 2)
+                    drawRoundRect(Brush.verticalGradient(pearl), cornerRadius = corner, alpha = position)
+                    // A soft inner shade makes the track read as a groove the thumb sits in.
+                    drawRoundRect(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF3A1838).copy(alpha = if (dark) .3f else .14f), Color.Transparent),
+                            endY = size.height * .45f,
+                        ),
+                        cornerRadius = corner,
+                    )
+                }
+        )
+        Box(
+            Modifier.offset { IntOffset((22.dp.toPx() * position).roundToInt(), 0) }
+                .padding(3.dp)
+                .size(26.dp)
+                .softGlassShadow(13.dp, 4.dp)
+                .glassMaterial(dark, radius = 13, strong = true, elevated = false)
+        )
+    }
+}
+
+@Composable
+fun AeroProgress(progress: Float, modifier: Modifier = Modifier) {
+    val dark = LocalAeroDark.current
+    val pearl = pinkPearl(dark)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(12.dp)
+            .glassMaterial(dark, radius = 6, elevated = false)
+            .drawWithContent {
+                drawContent()
+                val fill = size.width * progress.coerceIn(0f, 1f)
+                if (fill <= 0f) return@drawWithContent
+                val width = maxOf(fill, size.height)
+                drawRoundRect(
+                    Brush.verticalGradient(pearl),
+                    size = Size(width, size.height),
+                    cornerRadius = CornerRadius(size.height / 2),
+                )
+                drawRoundRect(
+                    Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = .4f), Color.Transparent),
+                        endY = size.height * .55f,
+                    ),
+                    topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
+                    size = Size(width - 2.dp.toPx(), size.height * .5f),
+                    cornerRadius = CornerRadius(size.height / 2),
+                )
+            }
+    )
+}
+
+@Composable
+fun AeroChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val dark = LocalAeroDark.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val squish by
+        animateFloatAsState(
+            if (pressed) 1f else 0f,
+            spring(dampingRatio = .55f, stiffness = 900f),
+            label = "chip squish",
+        )
+    val shape = RoundedCornerShape(14.dp)
+    Box(
+        modifier
+            .heightIn(min = 48.dp)
+            .toggleable(selected, interactionSource = interaction, indication = null, role = Role.Checkbox) {
+                onClick()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            Modifier.graphicsLayer {
+                    scaleX = 1f - .04f * squish
+                    scaleY = 1f - .06f * squish
+                }
+                .softGlassShadow(14.dp, 4.dp)
+                .then(
+                    if (selected)
+                        Modifier.clip(shape)
+                            .background(Brush.verticalGradient(pinkPearl(dark)))
+                            .pearlGloss(14.dp)
+                            .border(1.dp, Color.White.copy(alpha = .6f), shape)
+                    else Modifier.glassMaterial(dark, 14, elevated = false)
+                )
+                .padding(horizontal = 13.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CompositionLocalProvider(
+                LocalContentColor provides
+                    if (selected) (if (dark) Color(0xFF421D39) else Color.White)
+                    else MaterialTheme.colorScheme.onSurface
+            ) {
+                ProvideTextStyle(MaterialTheme.typography.labelLarge) { content() }
+            }
+        }
+    }
 }
 
 @Composable
@@ -969,6 +1194,12 @@ fun AeroIconButton(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val squish by
+        animateFloatAsState(
+            if (pressed) 1f else 0f,
+            spring(dampingRatio = .55f, stiffness = 900f),
+            label = "icon squish",
+        )
     Box(
         modifier
             .size(48.dp)
@@ -985,6 +1216,8 @@ fun AeroIconButton(
             Modifier.size(if (compact) 32.dp else 40.dp)
                 .graphicsLayer {
                     alpha = if (pressed) .9f else 1f
+                    scaleX = 1f - .06f * squish
+                    scaleY = 1f - .08f * squish
                     compositingStrategy = CompositingStrategy.ModulateAlpha
                 }
                 .softGlassShadow(if (compact) 10.dp else 20.dp, visible = !pressed)
@@ -1219,9 +1452,11 @@ fun GameIdentity(
                 artwork,
                 game.title,
                 if (hunt) Modifier.size(if (prominent) 112.dp else 84.dp)
-                else
-                    Modifier.softGlassShadow(16.dp, 10.dp)
-                        .border(1.dp, Color.White.copy(alpha = .6f), RoundedCornerShape(16.dp)),
+                else {
+                    val corner = coverRadius(game.system, 16.dp)
+                    Modifier.softGlassShadow(corner, 10.dp)
+                        .border(1.dp, coverRim(game.system), RoundedCornerShape(corner))
+                },
                 sprite = hunt,
                 cornerRadius = 16.dp,
                 transparent = hunt,

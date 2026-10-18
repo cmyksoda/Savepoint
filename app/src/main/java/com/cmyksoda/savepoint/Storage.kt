@@ -36,6 +36,8 @@ data class Settings(
     val logReminder: Boolean = true,
     val logSentDate: String = "",
     val celebratedMilestones: Set<String> = emptySet(),
+    val shelfStyle: String = ShelfStyle.LEDGE.key,
+    val gameCases: Boolean = true,
 )
 
 object JsonCodec {
@@ -219,6 +221,8 @@ object JsonCodec {
             put("logReminder", s.logReminder)
             put("logSentDate", s.logSentDate)
             put("celebratedMilestones", JSONArray(s.celebratedMilestones.sorted()))
+            put("shelfStyle", s.shelfStyle)
+            put("gameCases", s.gameCases)
         }
 
     fun settings(j: JSONObject) =
@@ -259,6 +263,8 @@ object JsonCodec {
                     j.optJSONArray("celebratedMilestones")?.let { a ->
                         (0 until a.length()).map { a.getString(it) }.toSet()
                     } ?: emptySet(),
+                shelfStyle = shelfStyle(j.optString("shelfStyle")).key,
+                gameCases = j.optBoolean("gameCases", true),
             )
             .also {
                 require(it.theme in listOf("system", "light", "dark"))

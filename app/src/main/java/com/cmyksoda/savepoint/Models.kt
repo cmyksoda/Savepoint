@@ -50,6 +50,11 @@ fun mergeSettings(current: Settings, previous: Settings, changed: Settings) =
         logReminder =
             if (changed.logReminder != previous.logReminder) changed.logReminder
             else current.logReminder,
+        shelfStyle =
+            if (changed.shelfStyle != previous.shelfStyle) changed.shelfStyle
+            else current.shelfStyle,
+        gameCases =
+            if (changed.gameCases != previous.gameCases) changed.gameCases else current.gameCases,
     )
 
 val systems =

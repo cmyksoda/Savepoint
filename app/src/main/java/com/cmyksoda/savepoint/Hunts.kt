@@ -118,10 +118,7 @@ fun HuntStatistics(game: Game) {
             "${formatHours(stats.progress90 * 100)}% of the 90% threshold",
             style = MaterialTheme.typography.labelLarge,
         )
-        LinearProgressIndicator(
-            progress = { stats.progress90.toFloat() },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        AeroProgress(stats.progress90.toFloat())
         val chance = if (stats.chance >= .9999) "≥99.99%" else "${formatHours(stats.chance * 100)}%"
         listOf(
                 listOf(
