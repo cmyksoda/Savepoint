@@ -99,12 +99,17 @@ fun Art(
     imageScale: ContentScale = ContentScale.Fit,
     cornerRadius: Dp = 8.dp,
     describe: Boolean = true,
+    preview: Boolean = false,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     var bitmap by remember(url) { mutableStateOf(artwork.memoryBitmap(url, sprite)) }
     LaunchedEffect(url, sprite) {
         if (sprite) {
             bitmap = runCatching { artwork.spriteBitmap(url) }.getOrNull()
+            return@LaunchedEffect
+        }
+        if (preview) {
+            bitmap = runCatching { artwork.previewBitmap(url) }.getOrNull()
             return@LaunchedEffect
         }
         bitmap = runCatching { artwork.cachedCoverBitmap(url) }.getOrNull() ?: bitmap
@@ -717,6 +722,9 @@ fun GameDetails(
             listOfNotNull(
                 "Title source: GameTDB".takeIf { game.source == "gametdb" },
                 "Game data provided by IGDB".takeIf { game.source == "igdb" },
+                "Game data from the LaunchBox Games Database".takeIf { game.source == "launchbox" },
+                "Game data from Steam".takeIf { game.source == "steam" },
+                "Game data from the App Store".takeIf { game.source == "appstore" },
                 "Cover via ${coverProvider(game)}"
                     .takeIf { game.cover.isNotBlank() && game.shelf != Shelf.HUNTS },
                 "Pokémon artwork via PokéAPI · respective owners retain artwork rights"
@@ -1221,7 +1229,7 @@ fun GameForm(
 @Composable
 fun AddScreen(
     catalog: Catalog,
-    endpoint: String,
+    artwork: Artwork,
     results: List<CatalogResult>,
     onResults: (List<CatalogResult>) -> Unit,
     onChoose: (CatalogResult) -> Unit,
@@ -1237,70 +1245,45 @@ fun AddScreen(
     var system by rememberSaveable { mutableStateOf("") }
     var warning by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    var nextOffset by rememberSaveable { mutableStateOf<Int?>(null) }
-    var loadingMore by remember { mutableStateOf(false) }
     var searchJob by remember { mutableStateOf<Job?>(null) }
     var searchGeneration by remember { mutableIntStateOf(0) }
     var activeSearch by remember { mutableStateOf<Pair<String, String>?>(null) }
-    fun search(offset: Int = 0) {
+    fun search() {
         if (query.isBlank()) return
         val generation = ++searchGeneration
         searchJob?.cancel()
         focus.clearFocus()
         keyboard?.hide()
         val submittedQuery = query.trim()
-        val anchorIndex = listState.firstVisibleItemIndex
-        val anchorOffset = listState.firstVisibleItemScrollOffset
         val submittedSystem = system
-        val previousResults = results
         activeSearch = submittedQuery to submittedSystem
         busy = true
-        loadingMore = offset > 0
         warning = null
-        if (offset == 0) {
-            nextOffset = null
-            onResults(emptyList())
-        }
+        onResults(emptyList())
         searchJob =
             scope.launch {
                 try {
                     var positioned = false
-                    catalog
-                        .searchUpdates(submittedQuery, submittedSystem, endpoint, offset, families = families)
-                        .collect { answer ->
-                            if (
-                                query.trim() != submittedQuery ||
-                                    system != submittedSystem ||
-                                    generation != searchGeneration
-                            )
-                                return@collect
-                            val page =
-                                groupCatalogResults(
-                                    answer.games.filter {
-                                        systemFamily(it.system)?.let { family -> family in families }
-                                            ?: true
-                                    }
-                                )
-                            onResults(
-                                if (offset == 0) page
-                                else mergeCatalogResults(previousResults, page)
-                            )
-                            nextOffset = answer.nextOffset
-                            warning = answer.warning
-                            if (!positioned && page.isNotEmpty()) {
-                                if (offset == 0) listState.requestScrollToItem(0)
-                                else listState.requestScrollToItem(anchorIndex, anchorOffset)
-                                positioned = true
-                            }
+                    catalog.searchUpdates(submittedQuery, submittedSystem, families).collect { answer ->
+                        if (
+                            query.trim() != submittedQuery ||
+                                system != submittedSystem ||
+                                generation != searchGeneration
+                        )
+                            return@collect
+                        val page = groupCatalogResults(answer.games)
+                        onResults(page)
+                        warning = answer.warning
+                        if (!positioned && page.isNotEmpty()) {
+                            listState.requestScrollToItem(0)
+                            positioned = true
                         }
+                    }
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     warning = "Search unavailable. You can try again or add a game manually."
                 } finally {
-                    if (generation == searchGeneration) {
-                        busy = false
-                        loadingMore = false
-                    }
+                    if (generation == searchGeneration) busy = false
                 }
             }
     }
@@ -1310,10 +1293,7 @@ fun AddScreen(
     ) {
         AeroTextField(
             query,
-            {
-                query = it
-                nextOffset = null
-            },
+            { query = it },
             label = "game title",
             autoFocus = true,
             onSubmit = { if (query.isNotBlank()) search() },
@@ -1326,7 +1306,6 @@ fun AddScreen(
             listOf("all systems") + playableSystems(families),
         ) {
             system = if (it == "all systems") "" else it
-            nextOffset = null
         }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1336,11 +1315,7 @@ fun AddScreen(
                 onClick = { search() },
                 enabled = query.isNotBlank() && (!busy || activeSearch != (query.trim() to system)),
             ) {
-                Text(
-                    if (busy && !loadingMore && activeSearch == (query.trim() to system))
-                        "searching…"
-                    else "search"
-                )
+                Text(if (busy && activeSearch == (query.trim() to system)) "searching…" else "search")
             }
             AeroButton(onClick = onManual) { Text("add manually") }
             AeroButton(onClick = onHunt) { Text("add a hunt") }
@@ -1352,26 +1327,51 @@ fun AddScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(bottom = 20.dp),
         ) {
-            items(results, key = { catalogTitleKey(it.game.title) + ":" + it.game.system }) { result
-                ->
-                val game = result.game
-                Glass(Modifier.fillMaxWidth().clickable { onChoose(result) }) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text(game.title, fontWeight = FontWeight.SemiBold)
-                        Text(game.system, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+            items(results, key = { catalogTitleKey(it.game.title) + ":" + it.game.system }) { result ->
+                CatalogResultRow(result, catalog, artwork) { onChoose(result) }
             }
-            nextOffset?.let { offset ->
-                item(key = "next catalog page") {
-                    AeroButton(
-                        onClick = { search(offset) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !busy,
-                    ) {
-                        Text(if (loadingMore) "loading…" else "load more games")
-                    }
-                }
+        }
+    }
+}
+
+@Composable
+private fun CatalogResultRow(result: CatalogResult, catalog: Catalog, artwork: Artwork, onClick: () -> Unit) {
+    val game = result.game
+    val cover by
+        produceState(result.covers.firstOrNull()?.url ?: "", game.source, game.sourceId) {
+            if (value.isBlank()) value = runCatching { catalog.resultCover(game) }.getOrNull() ?: ""
+        }
+    Glass(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(
+            Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(Modifier.width(48.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
+                Art(
+                    cover,
+                    artwork,
+                    game.title,
+                    showPlaceholderTitle = false,
+                    system = game.system,
+                    coverBounds = CoverSize(48f, 64f),
+                    reserveHeight = false,
+                    preview = true,
+                )
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(game.title, fontWeight = FontWeight.SemiBold)
+                Text(
+                    listOfNotNull(
+                            game.system,
+                            game.release?.let {
+                                java.time.Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).year.toString()
+                            },
+                        )
+                        .joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -1386,8 +1386,7 @@ fun SettingsScreen(
     onImport: () -> Unit,
 ) {
     val context = LocalContext.current
-    var endpoint by remember(settings.catalogUrl) { mutableStateOf(settings.catalogUrl) }
-    var endpointError by remember { mutableStateOf<String?>(null) }
+    var timeError by remember { mutableStateOf<String?>(null) }
     fun pickTime(start: Boolean) {
         val minute = if (start) settings.startMinute else settings.endMinute % 1440
         TimePickerDialog(
@@ -1398,7 +1397,7 @@ fun SettingsScreen(
                         if (start) settings.copy(startMinute = selected)
                         else settings.copy(endMinute = if (selected == 0) 1440 else selected)
                     if (s.endMinute > s.startMinute) onChange(s)
-                    else endpointError = "Choose an end time after the start time."
+                    else timeError = "Choose an end time after the start time."
                 },
                 minute / 60,
                 minute % 60,
@@ -1450,6 +1449,11 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             PlatformChoices(settings.platforms) { onChange(settings.copy(platforms = it)) }
+            Text(
+                "Searches look up LaunchBox, Steam and the App Store. Only your searches leave your phone; your shelves and notes stay here.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         SettingsCard("time for yourself") {
             Text(
@@ -1557,44 +1561,7 @@ fun SettingsScreen(
                 }
             }
         }
-        SettingsCard("catalog search") {
-            Text(
-                "GameTDB works without an account for recent Nintendo consoles. Your catalog service adds every other system you play on."
-            )
-            AeroTextField(
-                endpoint,
-                { endpoint = it },
-                label = "catalog service HTTPS address",
-                modifier = Modifier.fillMaxWidth(),
-            )
-            AeroButton(
-                onClick = {
-                    try {
-                        if (endpoint.isNotBlank())
-                            require(
-                                URI(endpoint).scheme == "https" &&
-                                    URI(endpoint).host != null &&
-                                    URI(endpoint).userInfo == null &&
-                                    URI(endpoint).query == null &&
-                                    URI(endpoint).fragment == null
-                            ) {
-                                "Use an HTTPS base address"
-                            }
-                        onChange(settings.copy(catalogUrl = endpoint.trim().trimEnd('/')))
-                        endpointError = null
-                    } catch (e: Exception) {
-                        endpointError = e.message
-                    }
-                }
-            ) {
-                Text("save address")
-            }
-            Text(
-                "Only catalog searches leave your phone. Your shelves and notes stay local.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        endpointError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        timeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         SettingsCard("backup") {
             Text(
                 "Your library lives only on this phone. A backup file carries it, artwork included, to a new phone or a fresh install.",
@@ -1933,6 +1900,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
     LaunchedEffect(Unit) {
         try {
             artwork.installBundledCovers()
+            artwork.forgetOldPreviews()
             library.load()
             if (updateStarterArtwork(library.games.value) != library.games.value)
                 library.change(::updateStarterArtwork)
@@ -2389,7 +2357,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                         "add" ->
                                             AddScreen(
                                                 catalog,
-                                                settings.catalogUrl,
+                                                artwork,
                                                 catalogResults,
                                                 { catalogResults = it },
                                                 { result ->
@@ -2425,7 +2393,6 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                                     emptyList(),
                                                     artwork,
                                                     catalog,
-                                                    settings.catalogUrl,
                                                     onPick = { cover ->
                                                         mutate { list ->
                                                             list.map {
@@ -2450,7 +2417,6 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                                     searchCovers,
                                                     artwork,
                                                     catalog,
-                                                    settings.catalogUrl,
                                                     { cover ->
                                                         form =
                                                             game.copy(

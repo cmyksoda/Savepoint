@@ -10,28 +10,27 @@ fun catalogTitleKey(title: String): String =
         .lowercase()
         .replace(Regex("[^a-z0-9]"), "")
 
-fun isVirtualConsoleId(system: String, id: String): Boolean {
-    if (id.length != 4) return false
-    return when (system) {
-        "Wii" -> id.first() in "FJNLMPQEC"
-        "Wii U" -> id.first() in "FJNPD"
-        "Nintendo 3DS" -> id.first() in "PQRTU"
-        else -> false
-    }
-}
-
 fun groupCatalogResults(games: List<Game>): List<CatalogResult> =
     games
-        .filterNot { it.source == "gametdb" && isVirtualConsoleId(it.system, it.sourceId) }
         .groupBy { catalogTitleKey(it.title) to it.system }
         .values
         .map { versions ->
-            val metadata = versions.firstOrNull { it.source == "igdb" } ?: versions.first()
             CatalogResult(
-                metadata,
+                versions.firstOrNull { it.source == "launchbox" } ?: versions.first(),
                 versions
                     .filter { it.cover.isNotBlank() }
-                    .map { CoverCandidate(it.cover, coverProvider(it), coverProvider(it)) }
+                    .map {
+                        val provider = coverProvider(it)
+                        CoverCandidate(
+                            it.cover,
+                            provider,
+                            when (provider) {
+                                "Steam" -> "library art"
+                                "App Store" -> "app icon"
+                                else -> "front cover"
+                            },
+                        )
+                    }
                     .distinctBy { it.url },
             )
         }
@@ -74,33 +73,3 @@ fun providerAlternatives(providers: Collection<String>): String =
         2 -> providers.joinToString(" or ")
         else -> providers.toList().dropLast(1).joinToString(", ") + ", or " + providers.last()
     }
-
-fun mergeCatalogResults(
-    current: List<CatalogResult>,
-    page: List<CatalogResult>,
-): List<CatalogResult> {
-    val merged =
-        current.associateBy { catalogTitleKey(it.game.title) to it.game.system }.toMutableMap()
-    for (incoming in page) {
-        val key = catalogTitleKey(incoming.game.title) to incoming.game.system
-        val previous = merged[key]
-        merged[key] =
-            if (previous == null) incoming
-            else
-                CatalogResult(
-                    if (previous.game.source == "igdb" || incoming.game.source != "igdb")
-                        previous.game
-                    else incoming.game,
-                    (previous.covers + incoming.covers).distinctBy { it.url },
-                )
-    }
-    return merged.values.toList()
-}
-
-fun gameTdbCoverTitle(title: String): String =
-    title
-        .replace(
-            Regex("\\s*[-–—:]?\\s*\\(?Nintendo Switch 2 Edition\\)?$", RegexOption.IGNORE_CASE),
-            "",
-        )
-        .trim()

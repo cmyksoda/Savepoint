@@ -1,14 +1,8 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val localProperties =
-    Properties().apply {
-        rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use { load(it) }
-    }
 android {
     namespace = "com.cmyksoda.savepoint"
     compileSdk { version = release(37) { minorApiLevel = 0 } }
@@ -19,12 +13,6 @@ android {
         versionCode = 31
         versionName = "0.5.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // A personal build can carry its own catalog address; builds for anyone else leave it empty.
-        buildConfigField(
-            "String",
-            "CATALOG_URL",
-            "\"${localProperties.getProperty("savepoint.catalogUrl", "")}\"",
-        )
     }
     buildTypes {
         release {
@@ -34,10 +22,7 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
     }
-    buildFeatures {
-        compose = true
-        buildConfig = true
-    }
+    buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

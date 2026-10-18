@@ -6,10 +6,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-data class CatalogPage(val games: List<Game>, val warning: String?, val nextOffset: Int?)
+data class CatalogPage(val games: List<Game>, val warning: String?)
 
 internal fun mergeCatalogPages(sources: List<Flow<CatalogPage>>): Flow<CatalogPage> = channelFlow {
-    val pages = MutableList(sources.size) { CatalogPage(emptyList(), null, null) }
+    val pages = MutableList(sources.size) { CatalogPage(emptyList(), null) }
     val mutex = Mutex()
     sources.forEachIndexed { index, source ->
         launch {
@@ -17,11 +17,7 @@ internal fun mergeCatalogPages(sources: List<Flow<CatalogPage>>): Flow<CatalogPa
                 mutex.withLock {
                     pages[index] = page
                     send(
-                        CatalogPage(
-                            pages.flatMap { it.games },
-                            pages.firstNotNullOfOrNull { it.warning },
-                            pages.firstNotNullOfOrNull { it.nextOffset },
-                        )
+                        CatalogPage(pages.flatMap { it.games }, pages.firstNotNullOfOrNull { it.warning })
                     )
                 }
             }

@@ -33,9 +33,6 @@ fun mergeSettings(current: Settings, previous: Settings, changed: Settings) =
         gridViews =
             (current.gridViews - (previous.gridViews - changed.gridViews)) +
                 (changed.gridViews - previous.gridViews),
-        catalogUrl =
-            if (changed.catalogUrl != previous.catalogUrl) changed.catalogUrl
-            else current.catalogUrl,
         reminders =
             if (changed.reminders != previous.reminders) changed.reminders else current.reminders,
         days = if (changed.days != previous.days) changed.days else current.days,

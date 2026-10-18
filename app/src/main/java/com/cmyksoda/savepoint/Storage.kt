@@ -24,7 +24,6 @@ data class Settings(
     val collectionFilter: String = "",
     val collectionNames: Set<String> = emptySet(),
     val gridViews: Set<String> = emptySet(),
-    val catalogUrl: String = BuildConfig.CATALOG_URL,
     val reminders: Boolean = false,
     val days: Set<Int> = (1..7).toSet(),
     val startMinute: Int = 1140,
@@ -211,7 +210,6 @@ object JsonCodec {
             put("collectionFilter", s.collectionFilter)
             put("collectionNames", JSONArray(s.collectionNames.sorted()))
             put("gridViews", JSONArray(s.gridViews.sorted()))
-            put("catalogUrl", s.catalogUrl)
             put("reminders", s.reminders)
             put("days", JSONArray(s.days.sorted()))
             put("startMinute", s.startMinute)
@@ -249,8 +247,6 @@ object JsonCodec {
                             .filter { it in setOf("backlog", "paused", "log") }
                             .toSet()
                     } ?: emptySet(),
-                catalogUrl =
-                    if (j.has("catalogUrl")) j.getString("catalogUrl") else BuildConfig.CATALOG_URL,
                 reminders = j.optBoolean("reminders"),
                 days =
                     j.optJSONArray("days")?.let { a ->

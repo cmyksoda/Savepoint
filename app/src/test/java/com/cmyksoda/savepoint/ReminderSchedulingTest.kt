@@ -12,7 +12,6 @@ class ReminderSchedulingTest {
                 current,
                 current.copy(
                     theme = "dark",
-                    catalogUrl = "https://example.org",
                     gridViews = setOf("backlog"),
                 ),
             )

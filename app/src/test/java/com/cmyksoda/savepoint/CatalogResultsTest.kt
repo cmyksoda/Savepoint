@@ -5,53 +5,26 @@ import org.junit.Test
 
 class CatalogResultsTest {
     @Test
-    fun providerDuplicatesBecomeOneGameWithBothCoverOptions() {
-        val igdb =
+    fun aGameFoundOnLaunchBoxAndSteamBecomesOneResultWithSteamArt() {
+        val launchBox =
             Game(
-                title = "Pokémon: A Game",
-                system = "Nintendo Switch",
-                source = "igdb",
-                cover = "https://images.igdb.com/a.jpg",
+                title = "Hollow Knight",
+                system = "PC",
+                source = "launchbox",
+                sourceId = "1-hollow-knight",
                 release = 50L,
             )
-        val tdb =
+        val steam =
             Game(
-                title = "Pokemon - A Game",
-                system = "Nintendo Switch",
-                source = "gametdb",
-                cover = "https://art.gametdb.com/a.jpg",
+                title = "Hollow Knight",
+                system = "PC",
+                source = "steam",
+                sourceId = "367520",
+                cover = steamArt("367520"),
             )
-        val result = groupCatalogResults(listOf(tdb, igdb)).single()
-        assertEquals(igdb, result.game)
-        assertEquals(setOf("IGDB", "GameTDB"), result.covers.map { it.provider }.toSet())
-    }
-
-    @Test
-    fun superMetroidVirtualConsoleEntriesAreRemovedAcrossAllThreeSources() {
-        val original = Game(title = "Super Metroid", system = "SNES", source = "igdb")
-        val reissues =
-            listOf("Wii" to "JAVE", "Wii U" to "JAJE", "Nintendo 3DS" to "UACE").map { (system, id)
-                ->
-                Game(title = "Super Metroid", system = system, source = "gametdb", sourceId = id)
-            }
-        assertEquals(listOf(original), groupCatalogResults(reissues + original).map { it.game })
-    }
-
-    @Test
-    fun nativeGamesAndEnhancedEditionsKeepTheirPlatforms() {
-        val native =
-            Game(
-                title = "Mario vs. Donkey Kong",
-                system = "Nintendo 3DS",
-                source = "gametdb",
-                sourceId = "JYLJ",
-            )
-        val deluxe =
-            Game(title = "Mario Kart 8 Deluxe", system = "Nintendo Switch", source = "igdb")
-        val persona = Game(title = "Persona 5 Royal", system = "Nintendo Switch", source = "igdb")
-        assertEquals(3, groupCatalogResults(listOf(native, deluxe, persona)).size)
-        assertFalse(isVirtualConsoleId("Wii", "RMCE01"))
-        assertFalse(isVirtualConsoleId("Wii", "WAAE"))
+        val result = groupCatalogResults(listOf(steam, launchBox)).single()
+        assertEquals(launchBox, result.game)
+        assertEquals(listOf(CoverCandidate(steamArt("367520"), "Steam", "library art")), result.covers)
     }
 
     @Test
@@ -82,32 +55,12 @@ class CatalogResultsTest {
 
     @Test
     fun providerMessagesUseOrForTwoAndThreeAlternatives() {
-        assertEquals("IGDB", providerAlternatives(listOf("IGDB")))
-        assertEquals("IGDB or LaunchBox", providerAlternatives(listOf("IGDB", "LaunchBox")))
+        assertEquals("LaunchBox", providerAlternatives(listOf("LaunchBox")))
+        assertEquals("LaunchBox or Steam", providerAlternatives(listOf("LaunchBox", "Steam")))
         assertEquals(
-            "GameTDB, IGDB, or LaunchBox",
-            providerAlternatives(listOf("GameTDB", "IGDB", "LaunchBox")),
+            "LaunchBox, Steam, or App Store",
+            providerAlternatives(listOf("LaunchBox", "Steam", "App Store")),
         )
     }
 
-    @Test
-    fun subsequentPagesKeepEarlierGamesAndMergeDuplicateArtwork() {
-        val first =
-            Game(
-                title = "Genshin Impact",
-                system = "PC",
-                source = "igdb",
-                cover = "https://a/cover",
-            )
-        val duplicate = first.copy(id = "another result id", cover = "https://a/alternate")
-        val second = Game(title = "Another game", system = "PC", source = "igdb")
-        val merged =
-            mergeCatalogResults(
-                groupCatalogResults(listOf(first)),
-                groupCatalogResults(listOf(duplicate, second)),
-            )
-        assertEquals(listOf(first, second), merged.map { it.game })
-        assertEquals(2, merged.first().covers.size)
-        assertEquals(merged, mergeCatalogResults(merged, groupCatalogResults(listOf(duplicate))))
-    }
 }

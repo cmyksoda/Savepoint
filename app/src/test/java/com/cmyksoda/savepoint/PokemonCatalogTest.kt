@@ -42,13 +42,4 @@ class PokemonCatalogTest {
         )
     }
 
-    @Test
-    fun onlyTheSwitchTwoEditionQualifierIsRemovedForCoverLookup() {
-        assertEquals(
-            "Pokémon Legends: Z-A",
-            gameTdbCoverTitle("Pokémon Legends: Z-A - Nintendo Switch 2 Edition"),
-        )
-        assertEquals("Mario Kart 8 Deluxe", gameTdbCoverTitle("Mario Kart 8 Deluxe"))
-        assertEquals("A game Remastered", gameTdbCoverTitle("A game Remastered"))
-    }
 }

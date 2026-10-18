@@ -18,19 +18,18 @@ class CatalogSearchTest {
         val game = Game(id = "metroid", title = "Metroid")
         val slow = flow {
             blocked.await()
-            emit(CatalogPage(emptyList(), null, null))
+            emit(CatalogPage(emptyList(), null))
         }
         val first =
             withTimeout(5000) {
-                mergeCatalogPages(listOf(slow, flowOf(CatalogPage(listOf(game), null, 50)))).first()
+                mergeCatalogPages(listOf(slow, flowOf(CatalogPage(listOf(game), null)))).first()
             }
         assertEquals(listOf(game), first.games)
-        assertEquals(50, first.nextOffset)
         assertFalse(blocked.isCompleted)
     }
 
     @Test
-    fun refreshingOneProviderReplacesItsCachedEntriesAndKeepsTheOtherProviderAndPage() =
+    fun refreshingOneProviderReplacesItsCachedEntriesAndKeepsTheOtherProvider() =
         runBlocking {
             val cached = Game(id = "cached", title = "Cached title")
             val fresh = Game(id = "fresh", title = "Updated title")
@@ -38,20 +37,19 @@ class CatalogSearchTest {
             val cacheSent = CompletableDeferred<Unit>()
             val broadSent = CompletableDeferred<Unit>()
             val local = flow {
-                emit(CatalogPage(listOf(cached), null, null))
+                emit(CatalogPage(listOf(cached), null))
                 cacheSent.complete(Unit)
                 broadSent.await()
-                emit(CatalogPage(listOf(fresh), null, null))
+                emit(CatalogPage(listOf(fresh), null))
             }
             val online = flow {
                 cacheSent.await()
-                emit(CatalogPage(listOf(broad), null, 50))
+                emit(CatalogPage(listOf(broad), null))
                 broadSent.complete(Unit)
             }
             val updates = withTimeout(5000) { mergeCatalogPages(listOf(local, online)).toList() }
             assertEquals(listOf(cached), updates.first().games)
             assertEquals(setOf(fresh, broad), updates.last().games.toSet())
-            assertEquals(50, updates.last().nextOffset)
             assertEquals(3, updates.size)
         }
 
@@ -61,8 +59,8 @@ class CatalogSearchTest {
         val last =
             mergeCatalogPages(
                     listOf(
-                        flowOf(CatalogPage(listOf(game), null, null)),
-                        flowOf(CatalogPage(emptyList(), "A source is unavailable", null)),
+                        flowOf(CatalogPage(listOf(game), null)),
+                        flowOf(CatalogPage(emptyList(), "A source is unavailable")),
                     )
                 )
                 .toList()
@@ -86,7 +84,7 @@ class CatalogSearchTest {
             }
         val ready = flow {
             started.await()
-            emit(CatalogPage(listOf(Game(title = "Metroid")), null, null))
+            emit(CatalogPage(listOf(Game(title = "Metroid")), null))
         }
         withTimeout(5000) {
             mergeCatalogPages(listOf(pending, ready)).first()

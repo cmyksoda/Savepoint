@@ -12,8 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-val coverProviders = listOf("LaunchBox", "IGDB", "GameTDB")
-
 data class CoverCandidate(val url: String, val provider: String, val label: String)
 
 fun coverProvider(game: Game): String =
@@ -23,7 +21,8 @@ fun coverProvider(game: Game): String =
             "launchbox-app.com" in game.cover -> "LaunchBox"
             "images.igdb.com" in game.cover -> "IGDB"
             "art.gametdb.com" in game.cover -> "GameTDB"
-            "steamstatic.com" in game.cover -> "Publisher"
+            "steamstatic.com" in game.cover -> "Steam"
+            "mzstatic.com" in game.cover -> "App Store"
             "libretro-thumbnails" in game.cover -> "Libretro Thumbnails"
             "steamgriddb.com" in game.cover -> "SteamGridDB"
             "assets.nintendo.com" in game.cover -> "Nintendo"
@@ -37,7 +36,6 @@ fun CoverSelection(
     initial: List<CoverCandidate>,
     artwork: Artwork,
     catalog: Catalog,
-    endpoint: String,
     onPick: (CoverCandidate?) -> Unit,
     existing: Boolean = false,
 ) {
@@ -60,6 +58,7 @@ fun CoverSelection(
     var failed by remember(game.id) { mutableStateOf(emptySet<String>()) }
     var attempt by remember(game.id) { mutableStateOf(0) }
     var imageError by remember { mutableStateOf<String?>(null) }
+    val providers = coverProviders(game.system)
     val scope = rememberCoroutineScope()
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -72,27 +71,19 @@ fun CoverSelection(
                         .onFailure { imageError = it.message ?: "Could not open this image" }
                 }
         }
-    LaunchedEffect(game.id, game.system, endpoint, attempt) {
+    LaunchedEffect(game.id, game.system, attempt) {
         unavailable = emptySet()
         failed = emptySet()
         kotlinx.coroutines.coroutineScope {
-            coverProviders
+            providers
                 .filter { provider ->
                     attempt > 0 || existing || choices.none { it.provider == provider }
                 }
-                .filter { endpoint.isNotBlank() || it == "GameTDB" }
                 .forEach { provider ->
                     launch {
                         loading = loading + provider
                         try {
-                            val found =
-                                catalog.covers(
-                                    game.title,
-                                    game.system,
-                                    provider,
-                                    endpoint,
-                                    refresh = attempt > 0,
-                                )
+                            val found = catalog.covers(game, provider, refresh = attempt > 0)
                             choices = (choices + found).distinctBy { it.url }
                             if (found.isEmpty()) unavailable = unavailable + provider
                         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -143,7 +134,7 @@ fun CoverSelection(
                     }
                 }
             }
-        (coverProviders + choices.map { it.provider }).distinct().forEach { provider ->
+        (providers + choices.map { it.provider }).distinct().forEach { provider ->
             val options = choices.filter { it.provider == provider }
             if (options.isNotEmpty() || provider in loading)
                 item(key = provider) {
@@ -180,14 +171,7 @@ fun CoverSelection(
                                             )
                                             val current = existing && cover.url == game.cover
                                             Text(
-                                                if (current) "current cover"
-                                                else if (provider == "LaunchBox")
-                                                    Regex("\\(([^()]*)\\)$")
-                                                        .find(cover.label)
-                                                        ?.groupValues
-                                                        ?.get(1) ?: "front cover"
-                                                else if (provider == "GameTDB") cover.label
-                                                else "use this cover",
+                                                if (current) "current cover" else cover.label,
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color =
                                                     if (current) MaterialTheme.colorScheme.primary
@@ -203,17 +187,12 @@ fun CoverSelection(
         item {
             if (unavailable.isNotEmpty() && loading.isEmpty())
                 Text(
-                    "No matching cover from ${providerAlternatives(coverProviders.filter { it in unavailable })}. You can choose another cover or your own image.",
+                    "No matching cover from ${providerAlternatives(providers.filter { it in unavailable })}. You can choose another cover or your own image.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             if (failed.isNotEmpty() && loading.isEmpty())
                 Text(
-                    "Couldn't reach ${providerAlternatives(coverProviders.filter { it in failed })}. Retry, or choose an image from your phone.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            if (endpoint.isBlank())
-                Text(
-                    "Set a catalog service address in settings to search LaunchBox or IGDB.",
+                    "Couldn't reach ${providerAlternatives(providers.filter { it in failed })}. Retry, or choose an image from your phone.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             imageError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
