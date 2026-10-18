@@ -105,7 +105,7 @@ val systemFamilies =
             "Sega",
             listOf("Master System", "Genesis", "Sega CD", "Sega Saturn", "Dreamcast", "Game Gear"),
         ),
-        SystemFamily("mobile", "phone & tablet", listOf("iOS", "Android")),
+        SystemFamily("mobile", "mobile", listOf("iOS", "Android")),
         SystemFamily(
             "retro",
             "other retro",
