@@ -10,6 +10,43 @@ const platformNames = new Map([
   [51, 'Famicom Disk System'], [166, 'Pokémon mini'],
 ]);
 
+// Other consoles are matched by IGDB's platform names; older apps never ask for them.
+const namedSystems = new Map([
+  ['PlayStation', 'PlayStation'], ['PlayStation 2', 'PlayStation 2'], ['PlayStation 3', 'PlayStation 3'],
+  ['PlayStation 4', 'PlayStation 4'], ['PlayStation 5', 'PlayStation 5'], ['PlayStation Portable', 'PSP'],
+  ['PlayStation Vita', 'PlayStation Vita'], ['Xbox', 'Xbox'], ['Xbox 360', 'Xbox 360'], ['Xbox One', 'Xbox One'],
+  ['Xbox Series X|S', 'Xbox Series X|S'], ['Sega Master System/Mark III', 'Master System'],
+  ['Sega Mega Drive/Genesis', 'Genesis'], ['Sega CD', 'Sega CD'], ['Sega Saturn', 'Sega Saturn'],
+  ['Dreamcast', 'Dreamcast'], ['Sega Game Gear', 'Game Gear'], ['iOS', 'iOS'], ['Android', 'Android'],
+  ['Atari 2600', 'Atari 2600'], ['Atari 7800', 'Atari 7800'], ['Atari Lynx', 'Atari Lynx'],
+  ['TurboGrafx-16/PC Engine', 'TurboGrafx-16'], ['Neo Geo AES', 'Neo Geo'], ['Neo Geo MVS', 'Neo Geo'],
+  ['Neo Geo Pocket Color', 'Neo Geo Pocket Color'], ['WonderSwan', 'WonderSwan'],
+  ['WonderSwan Color', 'WonderSwan'], ['Arcade', 'Arcade'],
+]);
+
+const familyOf = new Map([
+  ...['PC'].map(system => [system, 'pc']),
+  ...['NES', 'Famicom Disk System', 'SNES', 'Nintendo 64', 'GameCube', 'Wii', 'Wii U', 'Nintendo Switch',
+    'Nintendo Switch 2', 'Game Boy', 'Game Boy Color', 'Game Boy Advance', 'Nintendo DS', 'Nintendo DSi',
+    'Nintendo 3DS', 'Virtual Boy', 'Pokémon mini'].map(system => [system, 'nintendo']),
+  ...['PlayStation', 'PlayStation 2', 'PlayStation 3', 'PlayStation 4', 'PlayStation 5', 'PSP',
+    'PlayStation Vita'].map(system => [system, 'playstation']),
+  ...['Xbox', 'Xbox 360', 'Xbox One', 'Xbox Series X|S'].map(system => [system, 'xbox']),
+  ...['Master System', 'Genesis', 'Sega CD', 'Sega Saturn', 'Dreamcast', 'Game Gear'].map(system => [system, 'sega']),
+  ...['iOS', 'Android'].map(system => [system, 'mobile']),
+  ...['Atari 2600', 'Atari 7800', 'Atari Lynx', 'TurboGrafx-16', 'Neo Geo', 'Neo Geo Pocket Color', 'WonderSwan',
+    'Arcade'].map(system => [system, 'retro']),
+]);
+
+export const defaultFamilies = new Set(['nintendo', 'pc']);
+const allFamilies = new Set(familyOf.values());
+
+export function parseFamilies(value) {
+  if (!value) return defaultFamilies;
+  const chosen = new Set(value.split(',').map(family => family.trim()).filter(family => allFamilies.has(family)));
+  return chosen.size ? chosen : defaultFamilies;
+}
+
 const searchPageSize = 50;
 const gameFields = 'name,game_type,cover.image_id,platforms.name,release_dates.date,release_dates.platform';
 
@@ -19,7 +56,7 @@ export function catalogSearchQuery(query, offset = 0, exact = false) {
   return `${match} fields ${gameFields}; limit ${searchPageSize}; offset ${offset};`;
 }
 
-export function normalize(games) {
+export function normalize(games, families = defaultFamilies) {
   const results = [];
   const retroNintendo = new Set([18, 51, 58, 4, 33, 22, 24, 20, 21]);
   const virtualConsoleHosts = new Set([5, 41, 37, 130]);
@@ -32,8 +69,9 @@ export function normalize(games) {
     const enhanced = /\b(deluxe|remake|remaster(?:ed)?|definitive|hd)\b/i.test(game.name);
     const bySystem = new Map();
     for (const platform of game.platforms ?? []) {
-      const system = platformNames.get(platform.id) ?? (platform.name?.includes('Switch 2') ? 'Nintendo Switch 2' : null);
-      if (!system) continue;
+      const system = platformNames.get(platform.id) ??
+        (platform.name?.includes('Switch 2') ? 'Nintendo Switch 2' : namedSystems.get(platform.name));
+      if (!system || !families.has(familyOf.get(system))) continue;
       const dates = dated.filter(date => date.platform === platform.id);
       const release = dates.length ? Math.min(...dates.map(date => date.date)) : null;
       const virtualConsole = retroOriginal && !enhanced && !originalIds.has(platform.id) &&
@@ -89,8 +127,9 @@ export const server = createServer(async (request, response) => {
   if (!/^\d+$/.test(enteredOffset) || !Number.isSafeInteger(offset)) return send(400, { error: 'Invalid result page' });
   const provider = url.pathname === '/covers' ? url.searchParams.get('provider') : null;
   const system = url.searchParams.get('system')?.trim() ?? '';
+  const families = parseFamilies(url.searchParams.get('families'));
   if (provider && !['LaunchBox', 'IGDB'].includes(provider)) return send(400, { error: 'Unknown cover provider' });
-  const key = `${url.pathname}:${provider}:${system}:${query.toLowerCase()}:${offset}`;
+  const key = `${url.pathname}:${provider}:${system}:${[...families].sort()}:${query.toLowerCase()}:${offset}`;
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return send(200, cached.body);
   requests = requests.filter(time => time > Date.now() - 1000);
@@ -116,7 +155,7 @@ export const server = createServer(async (request, response) => {
     }
     const [page, exact] = await Promise.all([igdbGames(), offset === 0 ? igdbGames(true) : []]);
     const entries = new Map([...exact, ...page].map(game => [game.id, game]));
-    const games = normalize([...entries.values()]);
+    const games = normalize([...entries.values()], provider === 'IGDB' ? allFamilies : families);
     const body = {
       results: provider === 'IGDB' ? games.filter(game => game.system === system && game.cover).map(game => ({ url: game.cover, title: game.title, system: game.system, label: game.title, provider: 'IGDB', sourceId: game.sourceId, attribution: 'Cover via IGDB' })) : games,
       nextOffset: page.length === searchPageSize ? offset + searchPageSize : null,

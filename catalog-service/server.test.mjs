@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, server, catalogSearchQuery } from './server.mjs';
+import { normalize, server, catalogSearchQuery, parseFamilies } from './server.mjs';
 
 test('release dates follow the chosen system rather than the earliest unrelated release', () => {
   const results = normalize([{
@@ -63,4 +63,14 @@ test('search pages exclude updates and exact matches use a separate lookup', () 
   assert.match(catalogSearchQuery('genshin impact', 50), /offset 50;/);
   assert.match(catalogSearchQuery('genshin impact', 0, true), /where name ~ "genshin impact" & game_type != 14;/);
   assert.doesNotMatch(catalogSearchQuery('bad"\nquery'), /bad"\nquery/);
+});
+
+test('other consoles appear only for the families an app asks for', () => {
+  const persona = [{ id: 11, name: 'Persona 5 Royal', platforms: [{ id: 48, name: 'PlayStation 4' }, { id: 130 }],
+    release_dates: [{ platform: 48, date: 100 }, { platform: 130, date: 1000 }] }];
+  assert.deepEqual(normalize(persona).map(game => game.system), ['Nintendo Switch']);
+  assert.deepEqual(normalize(persona, parseFamilies('playstation,nintendo')).map(game => game.system), ['PlayStation 4', 'Nintendo Switch']);
+  assert.deepEqual(normalize(persona, parseFamilies('playstation')).map(game => game.system), ['PlayStation 4']);
+  assert.deepEqual([...parseFamilies('unknown,')], ['nintendo', 'pc']);
+  assert.deepEqual([...parseFamilies(null)], ['nintendo', 'pc']);
 });

@@ -9,6 +9,15 @@ const platformNames = new Map([
   ['Nintendo Game Boy Advance', 'Game Boy Advance'], ['Nintendo DS', 'Nintendo DS'],
   ['Nintendo DSi', 'Nintendo DSi'], ['Nintendo 3DS', 'Nintendo 3DS'], ['Nintendo Virtual Boy', 'Virtual Boy'],
   ['Nintendo Pokemon Mini', 'Pokémon mini'], ['Windows', 'PC'], ['Linux', 'PC'], ['Mac OS', 'PC'],
+  ['Sony Playstation', 'PlayStation'], ['Sony Playstation 2', 'PlayStation 2'], ['Sony Playstation 3', 'PlayStation 3'],
+  ['Sony Playstation 4', 'PlayStation 4'], ['Sony Playstation 5', 'PlayStation 5'], ['Sony PSP', 'PSP'],
+  ['Sony Playstation Vita', 'PlayStation Vita'], ['Microsoft Xbox', 'Xbox'], ['Microsoft Xbox 360', 'Xbox 360'],
+  ['Microsoft Xbox One', 'Xbox One'], ['Microsoft Xbox Series X/S', 'Xbox Series X|S'],
+  ['Sega Master System', 'Master System'], ['Sega Genesis', 'Genesis'], ['Sega CD', 'Sega CD'],
+  ['Sega Saturn', 'Sega Saturn'], ['Sega Dreamcast', 'Dreamcast'], ['Sega Game Gear', 'Game Gear'],
+  ['Apple iOS', 'iOS'], ['Android', 'Android'], ['Atari 2600', 'Atari 2600'], ['Atari 7800', 'Atari 7800'],
+  ['Atari Lynx', 'Atari Lynx'], ['NEC TurboGrafx-16', 'TurboGrafx-16'], ['SNK Neo Geo AES', 'Neo Geo'],
+  ['SNK Neo Geo Pocket Color', 'Neo Geo Pocket Color'], ['Bandai WonderSwan', 'WonderSwan'], ['Arcade', 'Arcade'],
 ]);
 
 function text(html) {
