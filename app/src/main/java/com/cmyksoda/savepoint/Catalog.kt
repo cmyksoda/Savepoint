@@ -289,10 +289,13 @@ class Catalog(private val context: Context) {
                 systemFamily(game.system).let { it == null || it in families }
         val sources = buildList<Pair<String, () -> List<Game>>> {
             add("LaunchBox" to { launchBoxSearch(query) })
+            // Store searches pad their answers with loosely related titles, so keep only real matches.
             if ("pc" in families && (system.isEmpty() || system == "PC"))
-                add("Steam" to { steamSearch(query) })
+                add("Steam" to { steamSearch(query).filter { searchMatchScore(it.title, query) != null } })
             if ("mobile" in families && (system.isEmpty() || system in mobileSystems))
-                add("The App Store" to { appStoreSearch(query, system.ifEmpty { "Android" }) })
+                add("The App Store" to {
+                    appStoreSearch(query, system.ifEmpty { "Android" }).filter { searchMatchScore(it.title, query) != null }
+                })
         }
         val pages =
             sources.map { (name, search) ->

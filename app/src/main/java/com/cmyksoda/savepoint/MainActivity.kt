@@ -1251,6 +1251,13 @@ fun AddScreen(
     var searchJob by remember { mutableStateOf<Job?>(null) }
     var searchGeneration by remember { mutableIntStateOf(0) }
     var activeSearch by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // Results keep arriving from slower sources; stay at the top until you scroll them yourself.
+    var browsing by remember { mutableStateOf(false) }
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect {
+            if (it is androidx.compose.foundation.interaction.DragInteraction.Start) browsing = true
+        }
+    }
     fun search() {
         if (query.isBlank()) return
         val generation = ++searchGeneration
@@ -1261,12 +1268,12 @@ fun AddScreen(
         val submittedSystem = system
         activeSearch = submittedQuery to submittedSystem
         busy = true
+        browsing = false
         warning = null
         onResults(emptyList())
         searchJob =
             scope.launch {
                 try {
-                    var positioned = false
                     catalog.searchUpdates(submittedQuery, submittedSystem, families).collect { answer ->
                         if (
                             query.trim() != submittedQuery ||
@@ -1277,10 +1284,7 @@ fun AddScreen(
                         val page = groupCatalogResults(answer.games)
                         onResults(page)
                         warning = answer.warning
-                        if (!positioned && page.isNotEmpty()) {
-                            listState.requestScrollToItem(0)
-                            positioned = true
-                        }
+                        if (!browsing && page.isNotEmpty()) listState.requestScrollToItem(0)
                     }
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
