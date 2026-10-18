@@ -66,6 +66,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -109,9 +110,11 @@ fun Art(
     rim: Boolean = false,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
-    var bitmap by remember(url) { mutableStateOf(artwork.memoryBitmap(url, sprite)) }
-    var settled by remember(url) { mutableStateOf(bitmap != null) }
-    LaunchedEffect(url, sprite) {
+    val density = LocalDensity.current.density
+    val decodeSize = coverBounds?.let { (maxOf(it.width, it.height) * density).roundToInt() } ?: 0
+    var bitmap by remember(url, decodeSize) { mutableStateOf(artwork.memoryBitmap(url, sprite, decodeSize)) }
+    var settled by remember(url, decodeSize) { mutableStateOf(bitmap != null) }
+    LaunchedEffect(url, sprite, decodeSize) {
         try {
             if (sprite) {
                 bitmap =
@@ -123,13 +126,13 @@ fun Art(
                 bitmap = runCatching { artwork.previewBitmap(url) }.getOrNull()
                 return@LaunchedEffect
             }
-            bitmap = runCatching { artwork.cachedCoverBitmap(url) }.getOrNull() ?: bitmap
+            bitmap = runCatching { artwork.cachedCoverBitmap(url, decodeSize) }.getOrNull() ?: bitmap
             if (bitmap != null) return@LaunchedEffect
             val preferred = preferredCoverUrl(url)
             bitmap =
-                runCatching { artwork.bitmap(preferred) }.getOrNull()
+                runCatching { artwork.bitmap(preferred, decodeSize) }.getOrNull()
                     ?: bitmap
-                    ?: runCatching { artwork.bitmap(url) }.getOrNull()
+                    ?: runCatching { artwork.bitmap(url, decodeSize) }.getOrNull()
         } finally {
             settled = true
         }
@@ -232,6 +235,9 @@ fun Art(
     } else body()
 }
 
+val ShelfCoverBounds = CoverSize(144f, 176f)
+val PlayingCoverBounds = CoverSize(216f, 244f)
+
 @Composable
 fun GameCover(
     game: Game,
@@ -304,7 +310,7 @@ fun GameCover(
             reserveHeight = false,
             describe = false,
             system = game.system,
-            coverBounds = if (focus) CoverSize(216f, 244f) else CoverSize(144f, 176f),
+            coverBounds = if (focus) PlayingCoverBounds else ShelfCoverBounds,
             shadow = 8.dp,
             rim = true,
         ) {

@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.LruCache
-import androidx.core.graphics.scale
 import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -81,12 +80,30 @@ class Artwork(private val context: Context) {
                 (value.allocationByteCount + 1023) / 1024
         }
 
-    // No screen shows a cover taller than 244 dp, so larger decodes only push other covers out.
+    // No screen shows a cover taller than 244 dp, so this is the most any view asks for.
     private val coverPixels = (256 * context.resources.displayMetrics.density).roundToInt()
 
     private val ratios = java.util.concurrent.ConcurrentHashMap<String, Float>()
+    private val longest = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
     fun cachedAspectRatio(url: String): Float? = ratios[preferredCoverUrl(url)] ?: ratios[url]
+
+    private fun measured(url: String, width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
+        ratios[url] = width.toFloat() / height
+        longest[url] = maxOf(width, height)
+    }
+
+    // The decoder's own halving keeps art sharp, so each view takes the most halving that still covers it.
+    private fun sampleFor(url: String, size: Int): Int {
+        val full = longest[url] ?: return 1
+        val target = if (size > 0) size else coverPixels
+        var sample = 1
+        while (full / (sample * 2) >= target) sample *= 2
+        return sample
+    }
+
+    private fun key(url: String, sample: Int) = if (sample == 1) url else "$url@$sample"
 
     suspend fun prepareLibraryArtwork(games: List<Game>) =
         withContext(Dispatchers.IO) {
@@ -97,35 +114,47 @@ class Artwork(private val context: Context) {
                     if (!file.isFile) continue
                     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeFile(file.path, bounds)
-                    if (bounds.outWidth > 0 && bounds.outHeight > 0)
-                        ratios[url] = bounds.outWidth.toFloat() / bounds.outHeight
+                    measured(url, bounds.outWidth, bounds.outHeight)
                 }
             }
+            val density = context.resources.displayMetrics.density
+            val playing =
+                games.filter { it.place == Place.ACTIVE && it.shelf == Shelf.PLAY_THROUGH }.minByOrNull { it.position }
             for (game in games.filter { it.place == Place.ACTIVE }) {
                 if (game.shelf == Shelf.HUNTS) {
                     if (game.sprite.isNotBlank() && fileFor(game.sprite).isFile)
                         spriteBitmap(game.sprite)
                 } else if (game.cover.isNotBlank()) {
-                    cachedCoverBitmap(game.cover)
+                    val bounds = if (game.id == playing?.id) PlayingCoverBounds else ShelfCoverBounds
+                    cachedCoverBitmap(game.cover, (maxOf(bounds.width, bounds.height) * density).roundToInt())
                 }
             }
         }
 
-    suspend fun cachedCoverBitmap(url: String): Bitmap? =
+    suspend fun cachedCoverBitmap(url: String, size: Int = 0): Bitmap? =
         withContext(Dispatchers.IO) {
             if (url.isBlank()) null
             else {
-                memoryBitmap(url)
+                memoryBitmap(url, size = size)
                     ?: listOf(preferredCoverUrl(url), url).distinct().firstNotNullOfOrNull {
                         candidate ->
-                        if (fileFor(candidate).isFile) decode(candidate) else null
+                        if (fileFor(candidate).isFile) decode(candidate, size) else null
                     }
             }
         }
 
-    fun memoryBitmap(url: String, sprite: Boolean = false): Bitmap? =
-        if (sprite) decoded.get("sprite:$url")
-        else decoded.get(preferredCoverUrl(url)) ?: decoded.get(url)
+    /** A decoded cover at least [size] pixels on its long side; a larger copy in memory serves too. */
+    fun memoryBitmap(url: String, sprite: Boolean = false, size: Int = 0): Bitmap? {
+        if (sprite) return decoded.get("sprite:$url")
+        for (candidate in listOf(preferredCoverUrl(url), url).distinct()) {
+            var sample = sampleFor(candidate, size)
+            while (sample >= 1) {
+                decoded.get(key(candidate, sample))?.let { return it }
+                sample /= 2
+            }
+        }
+        return null
+    }
 
     suspend fun spriteBitmap(url: String): Bitmap? =
         withContext(Dispatchers.IO) {
@@ -158,29 +187,20 @@ class Artwork(private val context: Context) {
         else Bitmap.createBitmap(original, left, top, right - left + 1, bottom - top + 1)
     }
 
-    private fun decode(url: String): Bitmap? {
-        memoryBitmap(url)?.let {
+    private fun decode(url: String, size: Int = 0): Bitmap? {
+        memoryBitmap(url, size = size)?.let {
             return it
         }
         val file = fileFor(url)
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(file.path, bounds)
-        if (bounds.outWidth > 0 && bounds.outHeight > 0)
-            ratios[url] = bounds.outWidth.toFloat() / bounds.outHeight
-        var sample = 1
-        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= coverPixels) sample *= 2
-        val sampled =
-            BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })
-                ?: return null
-        val scale = coverPixels.toFloat() / maxOf(sampled.width, sampled.height)
-        val fitted =
-            if (scale >= 1f) sampled
-            else
-                sampled.scale(
-                    (sampled.width * scale).roundToInt().coerceAtLeast(1),
-                    (sampled.height * scale).roundToInt().coerceAtLeast(1),
-                )
-        return fitted.also { decoded.put(url, it) }
+        if (longest[url] == null) {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.path, bounds)
+            measured(url, bounds.outWidth, bounds.outHeight)
+        }
+        val sample = sampleFor(url, size)
+        // Only the decoder's own halving: resizing again on top of the screen's scaling softens the art.
+        return BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })
+            ?.also { decoded.put(key(url, sample), it) }
     }
 
     fun filename(url: String) =
@@ -219,7 +239,7 @@ class Artwork(private val context: Context) {
             for (cover in bundledCovers) decode(preferredCoverUrl(cover.url))
         }
 
-    suspend fun bitmap(url: String): Bitmap? =
+    suspend fun bitmap(url: String, size: Int = 0): Bitmap? =
         withContext(Dispatchers.IO) {
             if (url.isBlank()) return@withContext null
             val file = fileFor(url)
@@ -236,7 +256,7 @@ class Artwork(private val context: Context) {
                     temporary.delete()
                 }
             }
-            decode(url)
+            decode(url, size)
         }
 
     private val previews = File(context.cacheDir, "previews").apply { mkdirs() }
@@ -260,7 +280,7 @@ class Artwork(private val context: Context) {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(file.path, bounds)
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
-            ratios[url] = bounds.outWidth.toFloat() / bounds.outHeight
+            measured(url, bounds.outWidth, bounds.outHeight)
             var sample = 1
             while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 240) sample *= 2
             BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })
