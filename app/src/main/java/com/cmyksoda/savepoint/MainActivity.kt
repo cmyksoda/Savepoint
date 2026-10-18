@@ -3,12 +3,10 @@ package com.cmyksoda.savepoint
 import android.Manifest
 import android.app.TimePickerDialog
 import android.os.Build
-import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.spring
@@ -33,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -85,19 +84,6 @@ private val dockRoutes =
         "daily",
         "finished",
     )
-
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            Savepoint(
-                intent.getBooleanExtra("later", false),
-                intent.getBooleanExtra("log-play", false),
-            )
-        }
-    }
-}
 
 @Composable
 fun Art(
@@ -405,10 +391,12 @@ fun LibraryList(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Column(Modifier.weight(1f)) {
+                        val present = games.filter { it.place == place }.map { it.system }.toSet()
                         Choice(
                             "system",
                             settings.systemFilter.ifBlank { "all systems" },
-                            listOf("all systems") + systems,
+                            listOf("all systems") +
+                                systems.filter { it in present || it == settings.systemFilter },
                         ) {
                             onSettings(
                                 settings.copy(systemFilter = if (it == "all systems") "" else it)
@@ -768,6 +756,7 @@ fun GameForm(
     existing: Boolean,
     onSave: (Game) -> Unit,
     onCancel: () -> Unit,
+    offeredSystems: List<String> = systems,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -911,7 +900,7 @@ fun GameForm(
                 label = "title",
                 modifier = Modifier.fillMaxWidth(),
             )
-            Choice("system", system, systems) { system = it }
+            Choice("system", system, offeredSystems) { system = it }
             if (existing)
                 Choice("shelf", shelf.label, Shelf.entries.map { it.label }) { label ->
                     shelf = Shelf.entries.first { it.label == label }
@@ -1202,6 +1191,7 @@ fun AddScreen(
     onChoose: (CatalogResult) -> Unit,
     onManual: () -> Unit,
     onHunt: () -> Unit,
+    families: Set<String> = defaultPlatforms,
 ) {
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
@@ -1240,7 +1230,7 @@ fun AddScreen(
                 try {
                     var positioned = false
                     catalog
-                        .searchUpdates(submittedQuery, submittedSystem, endpoint, offset)
+                        .searchUpdates(submittedQuery, submittedSystem, endpoint, offset, families = families)
                         .collect { answer ->
                             if (
                                 query.trim() != submittedQuery ||
@@ -1248,7 +1238,13 @@ fun AddScreen(
                                     generation != searchGeneration
                             )
                                 return@collect
-                            val page = groupCatalogResults(answer.games)
+                            val page =
+                                groupCatalogResults(
+                                    answer.games.filter {
+                                        systemFamily(it.system)?.let { family -> family in families }
+                                            ?: true
+                                    }
+                                )
                             onResults(
                                 if (offset == 0) page
                                 else mergeCatalogResults(previousResults, page)
@@ -1288,7 +1284,11 @@ fun AddScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
-        Choice("system", system.ifBlank { "all systems" }, listOf("all systems") + systems) {
+        Choice(
+            "system",
+            system.ifBlank { "all systems" },
+            listOf("all systems") + playableSystems(families),
+        ) {
             system = if (it == "all systems") "" else it
             nextOffset = null
         }
@@ -1370,48 +1370,70 @@ fun SettingsScreen(
             )
             .show()
     }
+    val invitations = settings.reminders
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Choice("appearance", settings.theme, listOf("system", "light", "dark")) {
-            onChange(settings.copy(theme = it))
-        }
-        Choice(
-            "shelf style",
-            shelfStyle(settings.shelfStyle).label,
-            ShelfStyle.entries.map { it.label },
-        ) { label ->
-            onChange(settings.copy(shelfStyle = ShelfStyle.entries.first { it.label == label }.key))
-        }
-        Choice(
-            "cover style",
-            if (settings.gameCases) "game cases" else "flat art",
-            listOf("game cases", "flat art"),
-        ) {
-            onChange(settings.copy(gameCases = it == "game cases"))
-        }
-        Glass(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    "time for yourself",
-                    fontSize = 19.sp,
-                    fontFamily = FontFamily.SansSerif,
-                    fontWeight = FontWeight.SemiBold,
+        SettingsCard("appearance") {
+            Choice("theme", settings.theme, listOf("system", "light", "dark")) {
+                onChange(settings.copy(theme = it))
+            }
+            Choice(
+                "shelf style",
+                shelfStyle(settings.shelfStyle).label,
+                ShelfStyle.entries.map { it.label },
+            ) { label ->
+                onChange(
+                    settings.copy(shelfStyle = ShelfStyle.entries.first { it.label == label }.key)
                 )
-                Text(
-                    "A general invitation to enjoy your games, with an optional evening check-in for your play log."
+            }
+            Choice(
+                "cover style",
+                if (settings.gameCases) "game cases" else "flat art",
+                listOf("game cases", "flat art"),
+            ) {
+                onChange(settings.copy(gameCases = it == "game cases"))
+            }
+            Text(
+                "app icon",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AppIconPicker()
+            Text(
+                "With themed icons on, your home screen shows the monochrome handheld for every choice. Android may take Savepoint off your home screen while the icon changes; add it back from your apps.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        SettingsCard("what you play on") {
+            Text(
+                "Savepoint offers these systems when you add games and search the catalog.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            PlatformChoices(settings.platforms) { onChange(settings.copy(platforms = it)) }
+        }
+        SettingsCard("time for yourself") {
+            Text(
+                "A general invitation to enjoy your games, with an optional evening check-in for your play log."
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("rest invitations", Modifier.weight(1f))
+                AeroSwitch(
+                    settings.reminders,
+                    { enabled ->
+                        if (enabled) onEnable()
+                        else onChange(settings.copy(reminders = false, laterAt = 0))
+                    },
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("rest invitations", Modifier.weight(1f))
-                    AeroSwitch(
-                        settings.reminders,
-                        { enabled ->
-                            if (enabled) onEnable()
-                            else onChange(settings.copy(reminders = false, laterAt = 0))
-                        },
-                    )
-                }
+            }
+            // Days, times and the evening check-in only apply while invitations are on.
+            Column(
+                Modifier.alpha(if (invitations) 1f else .45f),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Row(Modifier.fillMaxWidth()) {
                     listOf("mon", "tue", "wed", "thu", "fri", "sat", "sun").forEachIndexed {
                         index,
@@ -1422,7 +1444,7 @@ fun SettingsScreen(
                             Modifier.weight(1f)
                                 .height(64.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .toggleable(checked, role = Role.Checkbox) {
+                                .toggleable(checked, enabled = invitations, role = Role.Checkbox) {
                                     onChange(
                                         settings.copy(
                                             days =
@@ -1446,7 +1468,9 @@ fun SettingsScreen(
                         Text(
                             "from ${timeLabel(settings.startMinute)}",
                             Modifier.weight(1f)
-                                .clickable(role = Role.Button) { pickTime(true) }
+                                .clickable(enabled = invitations, role = Role.Button) {
+                                    pickTime(true)
+                                }
                                 .padding(horizontal = 16.dp, vertical = 14.dp),
                             style = MaterialTheme.typography.labelLarge,
                         )
@@ -1457,7 +1481,9 @@ fun SettingsScreen(
                         Text(
                             "to ${timeLabel(settings.endMinute)}",
                             Modifier.weight(1f)
-                                .clickable(role = Role.Button) { pickTime(false) }
+                                .clickable(enabled = invitations, role = Role.Button) {
+                                    pickTime(false)
+                                }
                                 .padding(horizontal = 16.dp, vertical = 14.dp),
                             textAlign = TextAlign.End,
                             style = MaterialTheme.typography.labelLarge,
@@ -1475,7 +1501,11 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    AeroSwitch(settings.logReminder, { onChange(settings.copy(logReminder = it)) })
+                    AeroSwitch(
+                        settings.logReminder,
+                        { onChange(settings.copy(logReminder = it)) },
+                        enabled = invitations,
+                    )
                 }
                 Text(
                     "Delivery can vary with Android battery settings. Invitations arriving after your window are discarded.",
@@ -1484,64 +1514,95 @@ fun SettingsScreen(
                 AeroButton(
                     onClick = {
                         onChange(settings.copy(skipDate = LocalDate.now().toString(), laterAt = 0))
-                    }
+                    },
+                    enabled = invitations,
                 ) {
                     Text("skip today")
                 }
             }
         }
-        Glass(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    "catalog search",
-                    fontSize = 19.sp,
-                    fontFamily = FontFamily.SansSerif,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    "GameTDB works without an account. Your search service adds broader Nintendo and PC results."
-                )
-                AeroTextField(
-                    endpoint,
-                    { endpoint = it },
-                    label = "catalog service HTTPS address",
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                AeroButton(
-                    onClick = {
-                        try {
-                            if (endpoint.isNotBlank())
-                                require(
-                                    URI(endpoint).scheme == "https" &&
-                                        URI(endpoint).host != null &&
-                                        URI(endpoint).userInfo == null &&
-                                        URI(endpoint).query == null &&
-                                        URI(endpoint).fragment == null
-                                ) {
-                                    "Use an HTTPS base address"
-                                }
-                            onChange(settings.copy(catalogUrl = endpoint.trim().trimEnd('/')))
-                            endpointError = null
-                        } catch (e: Exception) {
-                            endpointError = e.message
-                        }
+        SettingsCard("catalog search") {
+            Text(
+                "GameTDB works without an account for recent Nintendo consoles. Your catalog service adds every other system you play on."
+            )
+            AeroTextField(
+                endpoint,
+                { endpoint = it },
+                label = "catalog service HTTPS address",
+                modifier = Modifier.fillMaxWidth(),
+            )
+            AeroButton(
+                onClick = {
+                    try {
+                        if (endpoint.isNotBlank())
+                            require(
+                                URI(endpoint).scheme == "https" &&
+                                    URI(endpoint).host != null &&
+                                    URI(endpoint).userInfo == null &&
+                                    URI(endpoint).query == null &&
+                                    URI(endpoint).fragment == null
+                            ) {
+                                "Use an HTTPS base address"
+                            }
+                        onChange(settings.copy(catalogUrl = endpoint.trim().trimEnd('/')))
+                        endpointError = null
+                    } catch (e: Exception) {
+                        endpointError = e.message
                     }
-                ) {
-                    Text("save address")
                 }
-                Text(
-                    "Only catalog searches leave your phone. Your shelves and notes stay local.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+            ) {
+                Text("save address")
             }
+            Text(
+                "Only catalog searches leave your phone. Your shelves and notes stay local.",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         endpointError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        AeroButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) { Text("export backup") }
-        AeroButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("import backup") }
+        SettingsCard("backup") {
+            Text(
+                "Your library lives only on this phone. A backup file carries it, artwork included, to a new phone or a fresh install.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AeroActionRow(
+                first = { AeroButton(onClick = onExport) { Text("export backup") } },
+                second = { AeroButton(onClick = onImport) { Text("import backup") } },
+            )
+        }
         Text(
             "Savepoint · ${LocalContext.current.packageManager.getPackageInfo(LocalContext.current.packageName, 0).versionName}\nOriginal code © cmyksoda · GPLv3\nGame artwork belongs to its respective owners.",
             style = MaterialTheme.typography.bodySmall,
         )
+    }
+}
+
+@Composable
+private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Glass(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(title, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
+            content()
+        }
+    }
+}
+
+/** Console families as chips; one always stays chosen so adding a game still offers systems. */
+@Composable
+fun PlatformChoices(platforms: Set<String>, onChange: (Set<String>) -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        systemFamilies.forEach { family ->
+            val chosen = family.key in platforms
+            AeroChip(chosen, {
+                if (!chosen) onChange(platforms + family.key)
+                else if (platforms.size > 1) onChange(platforms - family.key)
+            }) {
+                Text(family.label)
+            }
+        }
     }
 }
 
@@ -1550,7 +1611,7 @@ fun timeLabel(minute: Int): String =
         .format(DateTimeFormatter.ofPattern("h:mm a"))
 
 @Composable
-fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
+fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val library = remember { Library(context) }
@@ -1840,6 +1901,8 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                 library.change(::updateStarterArtwork)
             artwork.prepareLibraryArtwork(library.games.value)
             settings = settingsStore.read()
+            if (!settings.onboarded && library.games.value.isNotEmpty())
+                settings = settingsStore.change { it.copy(onboarded = true) }
             preparedCalendar =
                 withContext(Dispatchers.Default) {
                     playCalendarMonth(YearMonth.from(today), calendarLocale)
@@ -1847,6 +1910,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
             loaded = true
             Reminders.schedule(context, settings)
             if (openLater) dialog = "later"
+            if (openSettings) route = "settings"
             if (openDailyLog) {
                 dailyDate = LocalDate.now().toString()
                 route = "log"
@@ -1974,6 +2038,10 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                 }
                 Box(Modifier.weight(1f)) {
                     if (!loaded) CircularProgressIndicator(Modifier.align(Alignment.Center))
+                    else if (!settings.onboarded && games.isEmpty())
+                        WelcomeScreen { chosen ->
+                            updateSettings(settings.copy(platforms = chosen, onboarded = true))
+                        }
                     else
                         ScreenContentHost(route, Modifier.fillMaxSize()) { screen ->
                             val stateKey =
@@ -2311,6 +2379,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                                                     route = "form"
                                                 },
                                                 onHunt = { startAdding(Shelf.HUNTS, "add") },
+                                                families = settings.platforms,
                                             )
                                         "cover" ->
                                             selectedGame?.let { game ->
@@ -2384,6 +2453,10 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                                                             route = "add"
                                                         }
                                                     },
+                                                    playableSystems(
+                                                        settings.platforms,
+                                                        listOf(initial.system),
+                                                    ),
                                                 )
                                             }
                                         "settings" ->
@@ -2418,7 +2491,11 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                                 }
                             }
                         }
-                    if (route in dockRoutes || (route == "form" && selectedGame == null))
+                    val welcoming = loaded && !settings.onboarded && games.isEmpty()
+                    if (
+                        !welcoming &&
+                            (route in dockRoutes || (route == "form" && selectedGame == null))
+                    )
                         AeroDock(
                             if (route in setOf("daily", "finished")) "log" else route,
                             { route = it },

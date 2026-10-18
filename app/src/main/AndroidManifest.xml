@@ -4,12 +4,32 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application android:label="Savepoint" android:icon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="true" android:usesCleartextTraffic="false">
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".SavepointActivity" android:exported="false" />
+        <!-- One launcher entry per app icon; the first keeps the original name so home screens keep it. -->
+        <activity-alias android:name=".MainActivity" android:targetActivity=".SavepointActivity" android:exported="true" android:enabled="true" android:icon="@mipmap/ic_launcher_midnight">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <activity-alias android:name=".IconLavender" android:targetActivity=".SavepointActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_lavender">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".IconBlush" android:targetActivity=".SavepointActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_blush">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".IconBerry" android:targetActivity=".SavepointActivity" android:exported="true" android:enabled="false" android:icon="@mipmap/ic_launcher_berry">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <receiver android:name=".LogReminderReceiver" android:exported="false" />
         <receiver android:name=".ReminderReceiver" android:exported="false" />
         <receiver android:name=".ScheduleReceiver" android:exported="true">

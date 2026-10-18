@@ -72,38 +72,15 @@ fun Modifier.caseFinish(kind: CaseKind): Modifier = drawWithContent {
             drawRect(
                 Brush.linearGradient(
                     0f to Color.Transparent,
-                    .15f to Color.White.copy(alpha = .2f),
-                    .33f to Color.Transparent,
-                    .56f to Color.White.copy(alpha = .07f),
-                    .7f to Color.Transparent,
+                    .18f to Color.White.copy(alpha = .07f),
+                    .38f to Color.Transparent,
                     start = Offset.Zero,
                     end = Offset(w, h),
                 )
             )
-            // The hinge where the sleeve rolls over the spine.
-            val hinge = w * .035f
-            drawLine(
-                Brush.verticalGradient(
-                    listOf(
-                        Color.White.copy(alpha = 0f),
-                        Color.White.copy(alpha = .5f),
-                        Color.White.copy(alpha = .45f),
-                        Color.White.copy(alpha = 0f),
-                    )
-                ),
-                Offset(hinge, 0f),
-                Offset(hinge, h),
-                dp(1.2f),
-            )
-            drawLine(
-                Color.Black.copy(alpha = .14f),
-                Offset(hinge + dp(1.2f), 0f),
-                Offset(hinge + dp(1.2f), h),
-                dp(1f),
-            )
             drawRect(
                 Brush.horizontalGradient(
-                    listOf(Color.Transparent, Color.Black.copy(alpha = .22f)),
+                    listOf(Color.Transparent, Color.Black.copy(alpha = .14f)),
                     startX = w - dp(5f),
                     endX = w,
                 ),
@@ -111,12 +88,12 @@ fun Modifier.caseFinish(kind: CaseKind): Modifier = drawWithContent {
                 Size(dp(5f), h),
             )
             drawRect(
-                Brush.verticalGradient(listOf(Color.White.copy(alpha = .3f), Color.Transparent), endY = dp(3f)),
+                Brush.verticalGradient(listOf(Color.White.copy(alpha = .2f), Color.Transparent), endY = dp(3f)),
                 size = Size(w, dp(3f)),
             )
             drawRect(
                 Brush.verticalGradient(
-                    listOf(Color.Transparent, Color.Black.copy(alpha = .16f)),
+                    listOf(Color.Transparent, Color.Black.copy(alpha = .12f)),
                     startY = h - dp(4f),
                     endY = h,
                 ),

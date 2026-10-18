@@ -55,30 +55,86 @@ fun mergeSettings(current: Settings, previous: Settings, changed: Settings) =
             else current.shelfStyle,
         gameCases =
             if (changed.gameCases != previous.gameCases) changed.gameCases else current.gameCases,
+        platforms =
+            if (changed.platforms != previous.platforms) changed.platforms else current.platforms,
+        onboarded =
+            if (changed.onboarded != previous.onboarded) changed.onboarded else current.onboarded,
     )
 
-val systems =
+data class SystemFamily(val key: String, val label: String, val systems: List<String>)
+
+val systemFamilies =
     listOf(
-        "PC",
-        "NES",
-        "Famicom Disk System",
-        "SNES",
-        "Nintendo 64",
-        "GameCube",
-        "Wii",
-        "Wii U",
-        "Nintendo Switch",
-        "Nintendo Switch 2",
-        "Game Boy",
-        "Game Boy Color",
-        "Game Boy Advance",
-        "Nintendo DS",
-        "Nintendo DSi",
-        "Nintendo 3DS",
-        "Virtual Boy",
-        "Pokémon mini",
-        "Other",
+        SystemFamily("pc", "PC", listOf("PC")),
+        SystemFamily(
+            "nintendo",
+            "Nintendo",
+            listOf(
+                "NES",
+                "Famicom Disk System",
+                "SNES",
+                "Nintendo 64",
+                "GameCube",
+                "Wii",
+                "Wii U",
+                "Nintendo Switch",
+                "Nintendo Switch 2",
+                "Game Boy",
+                "Game Boy Color",
+                "Game Boy Advance",
+                "Nintendo DS",
+                "Nintendo DSi",
+                "Nintendo 3DS",
+                "Virtual Boy",
+                "Pokémon mini",
+            ),
+        ),
+        SystemFamily(
+            "playstation",
+            "PlayStation",
+            listOf(
+                "PlayStation",
+                "PlayStation 2",
+                "PlayStation 3",
+                "PlayStation 4",
+                "PlayStation 5",
+                "PSP",
+                "PlayStation Vita",
+            ),
+        ),
+        SystemFamily("xbox", "Xbox", listOf("Xbox", "Xbox 360", "Xbox One", "Xbox Series X|S")),
+        SystemFamily(
+            "sega",
+            "Sega",
+            listOf("Master System", "Genesis", "Sega CD", "Sega Saturn", "Dreamcast", "Game Gear"),
+        ),
+        SystemFamily("mobile", "phone & tablet", listOf("iOS", "Android")),
+        SystemFamily(
+            "retro",
+            "other retro",
+            listOf(
+                "Atari 2600",
+                "Atari 7800",
+                "Atari Lynx",
+                "TurboGrafx-16",
+                "Neo Geo",
+                "Neo Geo Pocket Color",
+                "WonderSwan",
+                "Arcade",
+            ),
+        ),
     )
+
+val defaultPlatforms = setOf("pc", "nintendo")
+
+val systems = systemFamilies.flatMap { it.systems } + "Other"
+
+fun systemFamily(system: String): String? =
+    systemFamilies.firstOrNull { system in it.systems }?.key
+
+/** The systems someone plays on, plus any they already used, so an existing game never loses its system. */
+fun playableSystems(platforms: Set<String>, keep: Collection<String> = emptyList()): List<String> =
+    systems.filter { it == "Other" || systemFamily(it) in platforms || it in keep }
 
 enum class Feeling(val label: String) {
     DIDNT_LIKE("didn't like"),

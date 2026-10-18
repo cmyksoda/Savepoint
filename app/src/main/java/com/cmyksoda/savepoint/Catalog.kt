@@ -272,9 +272,10 @@ class Catalog(private val context: Context) {
         endpoint: String,
         offset: Int = 0,
         refreshGameTdb: Boolean = false,
+        families: Set<String> = defaultPlatforms,
     ): Flow<CatalogPage> {
         val requested =
-            if (offset > 0) emptyMap()
+            if (offset > 0 || "nintendo" !in families) emptyMap()
             else if (system.isNotEmpty()) sources.filterKeys { it == system } else sources
         val pages = mutableListOf<Flow<CatalogPage>>()
         pages +=
@@ -283,7 +284,7 @@ class Catalog(private val context: Context) {
                         emit(
                             CatalogPage(
                                 emptyList(),
-                                "GameTDB search is available. Configure the catalog service for PC and other Nintendo systems.",
+                                "GameTDB covers recent Nintendo consoles. Add a catalog service address in settings to search everything else.",
                                 null,
                             )
                         )
@@ -293,7 +294,8 @@ class Catalog(private val context: Context) {
                             JSONObject(
                                 String(
                                     fetchBytes(
-                                        "${endpoint.trimEnd('/')}/search?q=$encoded&offset=$offset"
+                                        "${endpoint.trimEnd('/')}/search?q=$encoded&offset=$offset" +
+                                            "&families=${families.sorted().joinToString(",")}"
                                     )
                                 )
                             )

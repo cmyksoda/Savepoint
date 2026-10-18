@@ -88,7 +88,7 @@ object LogReminders {
             PendingIntent.getActivity(
                 context,
                 REQUEST,
-                Intent(context, MainActivity::class.java)
+                Intent(context, SavepointActivity::class.java)
                     .putExtra("log-play", true)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

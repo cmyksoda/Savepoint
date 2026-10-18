@@ -38,6 +38,8 @@ data class Settings(
     val celebratedMilestones: Set<String> = emptySet(),
     val shelfStyle: String = ShelfStyle.LEDGE.key,
     val gameCases: Boolean = true,
+    val platforms: Set<String> = defaultPlatforms,
+    val onboarded: Boolean = false,
 )
 
 object JsonCodec {
@@ -223,6 +225,8 @@ object JsonCodec {
             put("celebratedMilestones", JSONArray(s.celebratedMilestones.sorted()))
             put("shelfStyle", s.shelfStyle)
             put("gameCases", s.gameCases)
+            put("platforms", JSONArray(s.platforms.sorted()))
+            put("onboarded", s.onboarded)
         }
 
     fun settings(j: JSONObject) =
@@ -265,6 +269,14 @@ object JsonCodec {
                     } ?: emptySet(),
                 shelfStyle = shelfStyle(j.optString("shelfStyle")).key,
                 gameCases = j.optBoolean("gameCases", true),
+                platforms =
+                    j.optJSONArray("platforms")?.let { a ->
+                        (0 until a.length())
+                            .map { a.getString(it) }
+                            .filter { key -> systemFamilies.any { it.key == key } }
+                            .toSet()
+                    }?.ifEmpty { null } ?: defaultPlatforms,
+                onboarded = j.optBoolean("onboarded"),
             )
             .also {
                 require(it.theme in listOf("system", "light", "dark"))

@@ -128,7 +128,7 @@ object Reminders {
     fun invitationNotification(context: Context, timeout: Long, allowLater: Boolean): Notification {
         val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         val open =
-            PendingIntent.getActivity(context, 1, Intent(context, MainActivity::class.java), flags)
+            PendingIntent.getActivity(context, 1, Intent(context, SavepointActivity::class.java), flags)
         fun action(name: String, code: Int) =
             PendingIntent.getBroadcast(
                 context,
@@ -149,7 +149,7 @@ object Reminders {
                 PendingIntent.getActivity(
                     context,
                     2,
-                    Intent(context, MainActivity::class.java).putExtra("later", true),
+                    Intent(context, SavepointActivity::class.java).putExtra("later", true),
                     flags,
                 )
             builder.addAction(Notification.Action.Builder(null, "Later", later).build())

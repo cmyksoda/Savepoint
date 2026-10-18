@@ -36,7 +36,7 @@ class BottomTabInstrumentedTest {
         val disposals = AtomicInteger()
         val measurements = AtomicInteger()
         val draws = bottomTabRoutes.associateWith { AtomicInteger() }
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        ActivityScenario.launch(SavepointActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 activity.setContent {
                     MaterialTheme {
