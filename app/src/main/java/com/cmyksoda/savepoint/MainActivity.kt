@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -2497,8 +2498,11 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                             }
                         }
                     val welcoming = loaded && !settings.onboarded && games.isEmpty()
+                    // While you type, the keyboard needs the room more than the tabs do.
+                    val typing = WindowInsets.ime.getBottom(LocalDensity.current) > 0
                     if (
                         !welcoming &&
+                            !typing &&
                             (route in dockRoutes || (route == "form" && selectedGame == null))
                     )
                         AeroDock(
