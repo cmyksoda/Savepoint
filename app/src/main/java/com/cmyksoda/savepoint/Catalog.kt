@@ -318,6 +318,8 @@ class Catalog(private val context: Context) {
                             .sortedWith(
                                 compareBy<Game> { !it.title.equals(query, true) }
                                     .thenBy { searchMatchScore(it.title, query) ?: Int.MAX_VALUE }
+                                    // Stray database entries rarely carry a release date; real games do.
+                                    .thenBy { it.release == null }
                                     .thenBy { rank[it.source + it.sourceId] ?: Int.MAX_VALUE }
                             )
                 )

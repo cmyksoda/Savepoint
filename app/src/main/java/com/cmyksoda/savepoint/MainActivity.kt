@@ -2014,7 +2014,12 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                             "finished" -> "Finished games"
                             "daily" -> "Log play"
                             "journal" -> "Finished playthroughs"
-                            else -> route
+                            "add" -> "Add a game"
+                            "backlog" -> "Backlog"
+                            "paused" -> "Paused"
+                            "settings" -> "Settings"
+                            "collections" -> "Collections"
+                            else -> route.replaceFirstChar { it.uppercase() }
                         },
                         fontWeight = FontWeight.Medium,
                         fontSize = 22.sp,
