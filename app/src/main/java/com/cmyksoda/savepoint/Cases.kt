@@ -34,7 +34,8 @@ fun caseKind(system: String): CaseKind =
         "Atari 7800",
         "Atari Lynx",
         "Neo Geo Pocket Color",
-        "WonderSwan" -> CaseKind.CARDBOARD
+        "WonderSwan",
+        "Game Gear" -> CaseKind.CARDBOARD
         "PC",
         "iOS",
         "Android",
@@ -47,11 +48,29 @@ fun caseKind(system: String): CaseKind =
 fun plasticCorner(system: String): Float =
     when (catalogSystemName(system)) {
         "Nintendo Switch",
-        "Nintendo Switch 2" -> .045f
+        "Nintendo Switch 2" -> .032f
         "Nintendo DS",
         "Nintendo DSi",
-        "Nintendo 3DS" -> .035f
-        else -> .03f
+        "Nintendo 3DS" -> .021f
+        "Wii",
+        "Wii U",
+        "Xbox 360" -> .029f
+        "GameCube" -> .02f
+        "PlayStation 2" -> .019f
+        "PlayStation 3",
+        "PlayStation 4",
+        "PlayStation 5" -> .027f
+        "PSP" -> .037f
+        "PlayStation Vita" -> .042f
+        "Xbox" -> .026f
+        "Xbox One",
+        "Xbox Series X|S" -> .016f
+        "PlayStation",
+        "Sega Saturn",
+        "Dreamcast",
+        "Sega CD",
+        "TurboGrafx-16" -> .009f
+        else -> .024f
     }
 
 /** Plastic cases round like the real case at any size; cardboard boxes stay crisp. */
