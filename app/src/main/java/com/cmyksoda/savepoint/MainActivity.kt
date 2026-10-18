@@ -44,7 +44,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -111,6 +113,7 @@ fun Art(
     reserveHeight: Boolean = true,
     imageScale: ContentScale = ContentScale.Fit,
     cornerRadius: Dp = 8.dp,
+    describe: Boolean = true,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     var bitmap by remember(url) { mutableStateOf(artwork.memoryBitmap(url, sprite)) }
@@ -165,7 +168,7 @@ fun Art(
             if (bitmap != null) {
                 Image(
                     bitmap!!.asImageBitmap(),
-                    title,
+                    if (describe) title else null,
                     Modifier.fillMaxSize(),
                     contentScale = imageScale,
                     filterQuality =
@@ -220,8 +223,11 @@ fun GameCover(
     val hunt = game.shelf == Shelf.HUNTS
     if (hunt) {
         Column(
-            modifier.width(112.dp).clickable(onClick = onOpen).semantics {
-                contentDescription = game.title
+            modifier.width(112.dp).clickable(onClick = onOpen).clearAndSetSemantics {
+                contentDescription =
+                    "${displayPokemonName(game.pokemon).ifBlank { "shiny hunt" }}, " +
+                        (huntVersions[game.pokemonVersion] ?: game.title)
+                role = Role.Button
             },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -234,6 +240,7 @@ fun GameCover(
                 sprite = true,
                 transparent = true,
                 showPlaceholderTitle = false,
+                describe = false,
             )
             Text(
                 displayPokemonName(game.pokemon).ifBlank { "shiny hunt" },
@@ -268,6 +275,7 @@ fun GameCover(
             sprite = hunt,
             cornerRadius = 10.dp,
             reserveHeight = false,
+            describe = false,
             system = game.system,
             coverBounds =
                 when {
@@ -567,126 +575,68 @@ fun ShelfEditor(
             }
         }
         items(row, key = { it.id }) { game ->
-            val modifier =
-                Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f))
-            if (shelf == Shelf.HUNTS) {
-                HuntArrangementCard(
-                    game,
-                    artwork,
-                    modifier,
-                    canMoveUp = row.first().id != game.id,
-                    canMoveDown = row.last().id != game.id,
-                    onOpen = { onOpen(game.id) },
-                    onMove = { onMove(game.id, it) },
-                )
-            } else {
-                Glass(modifier) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AeroButton(onClick = { onOpen(game.id) }) {
-                            Text(game.title, fontWeight = FontWeight.SemiBold)
+            val name = displayPokemonName(game.pokemon).ifBlank { "shiny hunt" }
+            ArrangeCard(
+                Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f)),
+                canMoveUp = row.first().id != game.id,
+                canMoveDown = row.last().id != game.id,
+                onOpen = { onOpen(game.id) },
+                onMove = { onMove(game.id, it) },
+                extra =
+                    if (shelf == Shelf.HUNTS) null
+                    else {
+                        {
+                            AeroIconButton(
+                                AeroSymbol.BACKLOG,
+                                "send ${game.title} to backlog",
+                                { onBacklog(game.id) },
+                            )
                         }
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            AeroButton(
-                                onClick = { onMove(game.id, -1) },
-                                enabled = row.first().id != game.id,
-                            ) {
-                                AeroIcon(AeroSymbol.UP, Modifier.size(14.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("move up")
-                            }
-                            AeroButton(
-                                onClick = { onMove(game.id, 1) },
-                                enabled = row.last().id != game.id,
-                            ) {
-                                AeroIcon(AeroSymbol.DOWN, Modifier.size(14.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("move down")
-                            }
-                            AeroButton(onClick = { onBacklog(game.id) }) { Text("to backlog") }
-                        }
+                    },
+            ) {
+                if (shelf == Shelf.HUNTS) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            huntVersions[game.pokemonVersion] ?: game.title,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            encounterLabel(game.encounters),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                }
+                    Art(
+                        game.sprite,
+                        artwork,
+                        name,
+                        Modifier.size(72.dp),
+                        sprite = true,
+                        transparent = true,
+                        showPlaceholderTitle = false,
+                        describe = false,
+                    )
+                } else
+                    GameArrangeIdentity(
+                        game,
+                        artwork,
+                        if (shelf == Shelf.PLAY_THROUGH && row.first().id == game.id) "playing now"
+                        else null,
+                    )
             }
         }
     }
 }
 
-@Composable
-private fun HuntArrangementCard(
-    game: Game,
-    artwork: Artwork,
-    modifier: Modifier,
-    canMoveUp: Boolean,
-    canMoveDown: Boolean,
-    onOpen: () -> Unit,
-    onMove: (Int) -> Unit,
-) {
-    val name = displayPokemonName(game.pokemon).ifBlank { "shiny hunt" }
-    Glass(modifier) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                Modifier.fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable(role = Role.Button, onClick = onOpen)
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        huntVersions[game.pokemonVersion] ?: game.title,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        "${NumberFormat.getIntegerInstance().format(game.encounters)} " +
-                            if (game.encounters == 1L) "encounter" else "encounters",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Art(
-                    game.sprite,
-                    artwork,
-                    name,
-                    Modifier.size(72.dp),
-                    sprite = true,
-                    transparent = true,
-                    showPlaceholderTitle = false,
-                )
-                AeroIcon(
-                    AeroSymbol.NEXT,
-                    Modifier.size(14.dp),
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
-                )
-            }
-            AeroActionRow(
-                first = {
-                    AeroButton(onClick = { onMove(-1) }, enabled = canMoveUp) {
-                        AeroIcon(AeroSymbol.UP, Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("move up")
-                    }
-                },
-                second = {
-                    AeroButton(onClick = { onMove(1) }, enabled = canMoveDown) {
-                        AeroIcon(AeroSymbol.DOWN, Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("move down")
-                    }
-                },
-            )
-        }
-    }
-}
+fun encounterLabel(encounters: Long): String =
+    "${NumberFormat.getIntegerInstance().format(encounters)} " +
+        if (encounters == 1L) "encounter" else "encounters"
 
 @Composable
 fun GameDetails(
@@ -703,6 +653,7 @@ fun GameDetails(
     onRelocate: () -> Unit,
     onDelete: () -> Unit,
     onCover: () -> Unit,
+    playingNow: Boolean = false,
 ) {
     Column(
         Modifier.fillMaxSize()
@@ -710,7 +661,7 @@ fun GameDetails(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        GameIdentity(game, artwork, showShelf = true, prominent = true)
+        GameIdentity(game, artwork, showShelf = true, prominent = true, playingNow = playingNow)
         if (game.shelf != Shelf.HUNTS && game.pauseNote.isNotBlank())
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -719,7 +670,11 @@ fun GameDetails(
                 }
             }
         if (game.shelf == Shelf.HUNTS)
-            AeroButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) { Text("edit hunt") }
+            AeroButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
+                AeroIcon(AeroSymbol.EDIT, Modifier.size(17.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("edit hunt")
+            }
         else {
             AeroActionRow(
                 first = {
@@ -741,11 +696,25 @@ fun GameDetails(
         if (game.shelf != Shelf.HUNTS) {
             if (game.place == Place.ACTIVE || game.place == Place.BACKLOG) {
                 AeroActionRow(
-                    first = { AeroButton(onClick = onRelocate) { Text("move game") } },
-                    second = { AeroButton(onClick = onPause) { Text("pause game") } },
+                    first = {
+                        AeroButton(onClick = onRelocate) {
+                            AeroIcon(AeroSymbol.SHELVES, Modifier.size(17.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("move game")
+                        }
+                    },
+                    second = {
+                        AeroButton(onClick = onPause) {
+                            AeroIcon(AeroSymbol.PAUSE, Modifier.size(17.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("pause game")
+                        }
+                    },
                 )
             } else
                 AeroButton(onClick = onRelocate, modifier = Modifier.fillMaxWidth()) {
+                    AeroIcon(AeroSymbol.SHELVES, Modifier.size(17.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text("move game")
                 }
         }
@@ -765,7 +734,7 @@ fun GameDetails(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            "${game.encounters} ${if (game.encounters == 1L) "encounter" else "encounters"}",
+                            encounterLabel(game.encounters),
                             fontSize = 24.sp,
                             modifier = Modifier.weight(1f),
                         )
@@ -775,12 +744,13 @@ fun GameDetails(
                             MaterialTheme.colorScheme.primary,
                         )
                     }
-                    Text(game.method)
+                    Text(game.method.ifBlank { "custom method" })
                     Text(
                         odds.first?.let { "1 in ${formatHuntOdds(it)} · ${odds.second}" }
-                            ?: odds.second
+                            ?: odds.second,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text(huntVersions[game.pokemonVersion] ?: game.pokemonVersion)
                     if (
                         game.shinyCharm &&
                             charmApplies(game.pokemonVersion, game.method, game.pokemon)
@@ -817,7 +787,7 @@ fun GameDetails(
             }
         }
         if (game.place == Place.ACTIVE) {
-            if (game.shelf == Shelf.PLAY_THROUGH)
+            if (game.shelf == Shelf.PLAY_THROUGH && !playingNow)
                 PinkButton(
                     onClick = { onMove(Place.ACTIVE, true) },
                     modifier = Modifier.fillMaxWidth(),
@@ -846,16 +816,20 @@ fun GameDetails(
                 )
             }
         }
-        if (game.source == "gametdb")
-            Text("Title source: GameTDB", style = MaterialTheme.typography.bodySmall)
-        if (game.source == "igdb")
-            Text("Game data provided by IGDB", style = MaterialTheme.typography.bodySmall)
-        if (game.cover.isNotBlank() && game.shelf != Shelf.HUNTS)
-            Text("Cover via ${coverProvider(game)}", style = MaterialTheme.typography.bodySmall)
-        if (game.sprite.startsWith("https://raw.githubusercontent.com/PokeAPI"))
+        val credits =
+            listOfNotNull(
+                "Title source: GameTDB".takeIf { game.source == "gametdb" },
+                "Game data provided by IGDB".takeIf { game.source == "igdb" },
+                "Cover via ${coverProvider(game)}"
+                    .takeIf { game.cover.isNotBlank() && game.shelf != Shelf.HUNTS },
+                "Pokémon artwork via PokéAPI · respective owners retain artwork rights"
+                    .takeIf { game.sprite.startsWith("https://raw.githubusercontent.com/PokeAPI") },
+            )
+        if (credits.isNotEmpty())
             Text(
-                "Pokémon artwork via PokéAPI · respective owners retain artwork rights",
+                credits.joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         Row(
             Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
@@ -2351,6 +2325,16 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false) {
                                                     },
                                                     { dialog = "delete" },
                                                     { route = "cover" },
+                                                    playingNow =
+                                                        game.place == Place.ACTIVE &&
+                                                            game.shelf == Shelf.PLAY_THROUGH &&
+                                                            games
+                                                                .filter {
+                                                                    it.place == Place.ACTIVE &&
+                                                                        it.shelf == Shelf.PLAY_THROUGH
+                                                                }
+                                                                .minByOrNull { it.position }
+                                                                ?.id == game.id,
                                                 )
                                             }
                                         "hunt-add" ->

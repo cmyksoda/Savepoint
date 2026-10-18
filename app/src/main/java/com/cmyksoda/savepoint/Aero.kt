@@ -1205,6 +1205,7 @@ fun GameIdentity(
     artwork: Artwork,
     showShelf: Boolean = false,
     prominent: Boolean = false,
+    playingNow: Boolean = false,
 ) {
     if (prominent || game.shelf == Shelf.HUNTS) {
         Column(
@@ -1241,9 +1242,11 @@ fun GameIdentity(
             )
             if (showShelf && !hunt)
                 Text(
-                    game.shelf.label,
+                    if (playingNow) "playing now · ${game.shelf.label}" else game.shelf.label,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color =
+                        if (playingNow) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
         }
         return

@@ -201,9 +201,11 @@ fun CollectionsScreen(
                             CollectionCollage(games.filter { it.collection == collection }, artwork)
                             Column(Modifier.weight(1f)) {
                                 Text(collection, fontWeight = FontWeight.Medium)
+                                val count = games.count { it.collection == collection }
                                 Text(
-                                    "${games.count { it.collection == collection }} games",
+                                    "$count ${if (count == 1) "game" else "games"}",
                                     style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             AeroIcon(AeroSymbol.NEXT, Modifier.size(17.dp))
@@ -251,64 +253,26 @@ fun CollectionsScreen(
                         )
                     }
                 items(row, key = { it.id }) { game ->
-                    Glass(
-                        Modifier.fillMaxWidth()
-                            .animateItem(placementSpec = spring(stiffness = 350f))
-                    ) {
-                        Column(
-                            Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth().clickable { onOpen(game.id) },
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                GameThumbnail(game, artwork)
-                                Column(Modifier.weight(1f)) {
-                                    Text(game.title, fontWeight = FontWeight.Medium)
-                                    Text(
-                                        game.system,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ArrangeCard(
+                        Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f)),
+                        canMoveUp = pendingMove == null && row.first().id != game.id,
+                        canMoveDown = pendingMove == null && row.last().id != game.id,
+                        onOpen = { onOpen(game.id) },
+                        onMove = { move(game.id, it) },
+                        extra = {
+                            AeroIconButton(
+                                AeroSymbol.REMOVE,
+                                "remove ${game.title} from collection",
+                                {
+                                    onMembers(
+                                        selected,
+                                        row.filter { it.id != game.id }.map { it.id }.toSet(),
                                     )
-                                }
-                            }
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                AeroButton(
-                                    onClick = { move(game.id, -1) },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = pendingMove == null && row.first().id != game.id,
-                                ) {
-                                    AeroIcon(AeroSymbol.UP, Modifier.size(14.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("move up", maxLines = 1)
-                                }
-                                AeroButton(
-                                    onClick = { move(game.id, 1) },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = pendingMove == null && row.last().id != game.id,
-                                ) {
-                                    AeroIcon(AeroSymbol.DOWN, Modifier.size(14.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("move down", maxLines = 1)
-                                }
-                                AeroIconButton(
-                                    AeroSymbol.REMOVE,
-                                    "remove ${game.title} from collection",
-                                    {
-                                        onMembers(
-                                            selected,
-                                            row.filter { it.id != game.id }.map { it.id }.toSet(),
-                                        )
-                                    },
-                                )
-                            }
-                        }
+                                },
+                            )
+                        },
+                    ) {
+                        GameArrangeIdentity(game, artwork)
                     }
                 }
             }

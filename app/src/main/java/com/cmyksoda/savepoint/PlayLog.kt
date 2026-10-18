@@ -21,6 +21,11 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+fun finishedDate(timestamp: Long): String =
+    Instant.ofEpochMilli(timestamp)
+        .atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
+
 fun formatHours(hours: Double): String =
     NumberFormat.getNumberInstance().apply { maximumFractionDigits = 2 }.format(hours)
 
@@ -141,6 +146,14 @@ fun GameJournal(
         Glass(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    latest?.finishedAt?.let {
+                        Text(
+                            finishedDate(it),
+                            Modifier.padding(end = 42.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Box(Modifier.fillMaxWidth().padding(end = 42.dp)) {
                         latest?.feeling?.let { FeelingBadge(it) }
                             ?: Text(
@@ -180,11 +193,10 @@ fun GameJournal(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 entry.finishedAt?.let { timestamp ->
                                     Text(
-                                        Instant.ofEpochMilli(timestamp)
-                                            .atZone(ZoneId.systemDefault())
-                                            .format(DateTimeFormatter.ofPattern("MMM d, yyyy")),
+                                        finishedDate(timestamp),
                                         modifier = Modifier.weight(1f),
                                         style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 } ?: Spacer(Modifier.weight(1f))
                                 AeroIconButton(
@@ -215,7 +227,7 @@ fun GameJournal(
             AeroButton(onClick = { onReplay(false) }, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     if (game.shelf == Shelf.PLAY_THROUGH) "queue a replay"
-                    else "return to ${game.shelf.label}"
+                    else "send to ${game.shelf.label}"
                 )
             }
         }
