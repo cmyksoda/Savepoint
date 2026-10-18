@@ -285,6 +285,7 @@ fun GameCover(
         modifier.then(
             when (ground) {
                 CoverGround.CONTACT -> Modifier.contactShadow(dark)
+                CoverGround.FOOT -> Modifier.footShadow(dark)
                 CoverGround.REFLECTION -> Modifier.coverReflection(26.dp, dark)
                 CoverGround.NONE -> Modifier
             }

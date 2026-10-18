@@ -10,7 +10,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -18,7 +17,6 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +37,7 @@ fun shelfStyle(key: String): ShelfStyle =
 enum class CoverGround {
     NONE,
     CONTACT,
+    FOOT,
     REFLECTION,
 }
 
@@ -118,13 +117,12 @@ fun ShelfSection(
                         Spacer(Modifier.fillMaxWidth().height(ShelfSurfaceInset).glassShelf(dark))
                     }
             ShelfStyle.DOUGH ->
-                Box(Modifier.fillMaxWidth().height(height + if (hunt) 30.dp else 16.dp)) {
+                Box(Modifier.fillMaxWidth().height(height + if (hunt) 34.dp else 26.dp)) {
                     Spacer(
                         Modifier.align(Alignment.BottomCenter)
-                            .padding(horizontal = 12.dp)
                             .fillMaxWidth()
-                            .height(22.dp)
-                            .doughPlank(dark)
+                            .height(30.dp)
+                            .doughPlank(dark, top = 10.dp)
                     )
                     ShelfGames(
                         row,
@@ -132,9 +130,9 @@ fun ShelfSection(
                         artwork,
                         onOpen,
                         Modifier.fillMaxSize(),
-                        // Covers settle a little way into the cushion of the plank.
-                        PaddingValues(start = 24.dp, end = 24.dp, bottom = if (hunt) 26.dp else 15.dp),
-                        if (hunt) CoverGround.NONE else CoverGround.CONTACT,
+                        // Covers stand on the plank's top, a little behind its rounded front.
+                        PaddingValues(start = 20.dp, end = 20.dp, bottom = if (hunt) 34.dp else 25.dp),
+                        if (hunt) CoverGround.NONE else CoverGround.FOOT,
                     )
                 }
             ShelfStyle.MIRROR ->
@@ -208,53 +206,90 @@ fun Modifier.contactShadow(dark: Boolean): Modifier = drawBehind {
     shade(size.width * .56f, 4.5.dp.toPx(), if (dark) .75f else .46f)
 }
 
-/** Tinted pink so the plank still reads against the pale sky. */
-fun Modifier.doughPlank(dark: Boolean): Modifier =
-    softGlassShadow(11.dp, 12.dp).drawWithCache {
-        val radius = size.height / 2
-        val body =
-            Brush.verticalGradient(
-                if (dark) listOf(Color(0xFF6A7293), Color(0xFF474E6D), Color(0xFF30364F), Color(0xFF262B42))
-                else listOf(Color.White, Color(0xFFFDE8F3), Color(0xFFF2C6DE), Color(0xFFE6B0D0))
-            )
-        val gloss =
-            Brush.verticalGradient(
-                listOf(Color.White.copy(alpha = if (dark) .32f else .9f), Color.White.copy(alpha = 0f)),
-                startY = 1.dp.toPx(),
-                endY = size.height * .5f,
-            )
-        val bounce =
-            Brush.verticalGradient(
-                listOf(Color.Transparent, Color.White.copy(alpha = if (dark) .12f else .45f)),
-                startY = size.height * .68f,
-                endY = size.height,
-            )
-        val rim =
-            Brush.verticalGradient(
-                listOf(
-                    Color.White.copy(alpha = if (dark) .6f else 1f),
-                    Color.White.copy(alpha = .1f),
-                    (if (dark) Color(0xFF8E9AC0) else Color(0xFFD08FB7)).copy(alpha = .6f),
-                )
-            )
-        onDrawBehind {
-            drawRoundRect(body, cornerRadius = CornerRadius(radius))
-            drawRoundRect(
-                gloss,
-                topLeft = Offset(radius * .5f, 1.dp.toPx()),
-                size = Size(size.width - radius, size.height * .48f),
-                cornerRadius = CornerRadius(radius * .7f),
-            )
-            drawRoundRect(bounce, cornerRadius = CornerRadius(radius))
-            drawRoundRect(
-                rim,
-                topLeft = Offset(.5.dp.toPx(), .5.dp.toPx()),
-                size = Size(size.width - 1.dp.toPx(), size.height - 1.dp.toPx()),
-                cornerRadius = CornerRadius(radius),
-                style = Stroke(1.dp.toPx()),
-            )
-        }
+// Lit from above, a standing case only darkens the shelf right at its foot.
+fun Modifier.footShadow(dark: Boolean): Modifier = drawBehind {
+    val center = Offset(size.width / 2, size.height)
+    val radius = size.width * .54f
+    val squash = 3.dp.toPx() / radius
+    withTransform({ scale(1f, squash, pivot = center) }) {
+        drawCircle(
+            Brush.radialGradient(
+                listOf(Color(0xFF3A1838).copy(alpha = if (dark) .5f else .26f), Color.Transparent),
+                center = center,
+                radius = radius,
+            ),
+            radius,
+            center,
+        )
     }
+}
+
+/** Runs off both edges, lit from above: covers stand on its top while the doughy front rolls into shade. */
+fun Modifier.doughPlank(dark: Boolean, top: Dp): Modifier = drawWithCache {
+    val t = top.toPx()
+    val h = size.height
+    val face = h - t
+    val surface =
+        Brush.verticalGradient(
+            if (dark) listOf(Color(0xFF5A6390).copy(alpha = .55f), Color(0xFF6E78A4))
+            else listOf(Color(0xFFF6DCEA).copy(alpha = .6f), Color(0xFFFFF8FB)),
+            startY = 0f,
+            endY = t,
+        )
+    val front =
+        Brush.verticalGradient(
+            0f to (if (dark) Color(0xFF7C86AE) else Color(0xFFFFF3F8)),
+            .35f to (if (dark) Color(0xFF5B648F) else Color(0xFFFBE0ED)),
+            .8f to (if (dark) Color(0xFF3D4469) else Color(0xFFF0C2DA)),
+            1f to (if (dark) Color(0xFF30365A) else Color(0xFFE6AFCD)),
+            startY = t,
+            endY = h,
+        )
+    val crest =
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0f),
+                Color.White.copy(alpha = if (dark) .45f else .9f),
+                Color.White.copy(alpha = 0f),
+            ),
+            startY = t - 2.dp.toPx(),
+            endY = t + 5.dp.toPx(),
+        )
+    val bounce =
+        Brush.verticalGradient(
+            listOf(
+                Color.Transparent,
+                Color(0xFFFFEAF4).copy(alpha = if (dark) .08f else .35f),
+                Color.Transparent,
+            ),
+            startY = t + face * .55f,
+            endY = h - 2.dp.toPx(),
+        )
+    val underside =
+        Brush.verticalGradient(
+            listOf(Color.Transparent, Color(0xFF3A1838).copy(alpha = if (dark) .22f else .1f)),
+            startY = h - 4.dp.toPx(),
+            endY = h,
+        )
+    val shade =
+        Brush.verticalGradient(
+            listOf(
+                Color(0xFF3A1838).copy(alpha = if (dark) .3f else .13f),
+                Color(0xFF3A1838).copy(alpha = if (dark) .08f else .035f),
+                Color.Transparent,
+            ),
+            startY = h,
+            endY = h + 16.dp.toPx(),
+        )
+    onDrawBehind {
+        drawRect(shade, Offset(0f, h), Size(size.width, 16.dp.toPx()))
+        drawRect(surface, size = Size(size.width, t))
+        drawRect(front, Offset(0f, t), Size(size.width, face))
+        drawRect(crest, Offset(0f, t - 2.dp.toPx()), Size(size.width, 7.dp.toPx()))
+        drawRect(bounce, Offset(0f, t + face * .55f), Size(size.width, face * .45f - 2.dp.toPx()))
+        drawRect(underside, Offset(0f, h - 4.dp.toPx()), Size(size.width, 4.dp.toPx()))
+    }
+}
 
 fun Modifier.coverReflection(depth: Dp, dark: Boolean): Modifier = drawWithCache {
     val layer = obtainGraphicsLayer()
