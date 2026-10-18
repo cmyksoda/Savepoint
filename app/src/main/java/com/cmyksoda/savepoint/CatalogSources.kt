@@ -98,6 +98,9 @@ internal fun pathSegment(text: String): String = URLEncoder.encode(text, "UTF-8"
 private fun startOfDay(date: LocalDate): Long =
     date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
+// LaunchBox only answers a search at its lowercase address and redirects every other spelling.
+fun launchBoxSearchUrl(query: String) = "$launchBoxRoot/games/results/${pathSegment(query.lowercase())}"
+
 /** One game per card on LaunchBox's results page; [Game.sourceId] keeps its address. */
 fun parseLaunchBoxResults(html: String): List<Game> {
     val links = Regex("href=\"/games/details/(\\d+-[^\"<>]*)\"").findAll(html).toList()

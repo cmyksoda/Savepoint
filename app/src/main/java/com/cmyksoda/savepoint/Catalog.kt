@@ -33,19 +33,27 @@ fun imageAvailable(url: String): Boolean {
 
 class SourceUnavailable(val status: Int) : IOException("Source unavailable ($status)")
 
-fun fetchBytes(url: String): ByteArray {
-    require(URI(url).scheme == "https") { "An HTTPS address is required" }
-    val connection = URI(url).toURL().openConnection() as HttpURLConnection
+fun fetchBytes(url: String, redirects: Int = 3): ByteArray {
+    val address = URI(url)
+    require(address.scheme == "https") { "An HTTPS address is required" }
+    val connection = address.toURL().openConnection() as HttpURLConnection
     connection.connectTimeout = 15000
     connection.readTimeout = 15000
     connection.instanceFollowRedirects = false
     connection.setRequestProperty("User-Agent", "Savepoint/0.1 (personal game library)")
-    return try {
-        if (connection.responseCode != 200) throw SourceUnavailable(connection.responseCode)
-        connection.inputStream.use { it.readBytes() }
-    } finally {
-        connection.disconnect()
-    }
+    val moved =
+        try {
+            val status = connection.responseCode
+            if (status == 200) return connection.inputStream.use { it.readBytes() }
+            // LaunchBox moves bare and renamed game addresses to their current page; follow only within the same site.
+            connection.getHeaderField("Location")
+                ?.let { runCatching { address.resolve(it) }.getOrNull() }
+                ?.takeIf { status in 300..399 && redirects > 0 && it.scheme == "https" && it.host == address.host }
+                ?: throw SourceUnavailable(status)
+        } finally {
+            connection.disconnect()
+        }
+    return fetchBytes(moved.toString(), redirects - 1)
 }
 
 // Covers saved from GameTDB before 0.6 still load their sharper HQ variant.
@@ -269,8 +277,7 @@ class Catalog(private val context: Context) {
     // Result thumbnails and the cover screen read the same LaunchBox pages.
     private val coverPages = LruCache<String, List<CoverCandidate>>(200)
 
-    private fun launchBoxSearch(query: String) =
-        parseLaunchBoxResults(String(fetchBytes("$launchBoxRoot/games/results/${pathSegment(query)}")))
+    private fun launchBoxSearch(query: String) = parseLaunchBoxResults(String(fetchBytes(launchBoxSearchUrl(query))))
 
     private fun steamSearch(query: String) = parseSteamResults(String(fetchBytes(steamSearchUrl(query))))
 

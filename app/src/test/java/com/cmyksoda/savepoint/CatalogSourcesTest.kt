@@ -36,6 +36,12 @@ class CatalogSourcesTest {
     }
 
     @Test
+    fun launchBoxSearchesUseTheLowercaseAddress() {
+        assertEquals("$launchBoxRoot/games/results/mother%203", launchBoxSearchUrl("Mother 3"))
+        assertEquals("$launchBoxRoot/games/results/pok%C3%A9mon%20emerald", launchBoxSearchUrl("Pokémon Emerald"))
+    }
+
+    @Test
     fun launchBoxCoversPutOfficialFrontsFirstAndKeepFanArt() {
         fun image(name: String, label: String, host: String = "images.launchbox-app.com") =
             """<a href="https://$host/$name.jpg" data-title="$label">"""
