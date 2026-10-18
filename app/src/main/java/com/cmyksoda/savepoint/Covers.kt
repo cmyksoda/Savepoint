@@ -178,8 +178,10 @@ fun CoverSelection(
                                                 system = game.system,
                                                 coverBounds = CoverSize(116f, 146f),
                                             )
+                                            val current = existing && cover.url == game.cover
                                             Text(
-                                                if (provider == "LaunchBox")
+                                                if (current) "current cover"
+                                                else if (provider == "LaunchBox")
                                                     Regex("\\(([^()]*)\\)$")
                                                         .find(cover.label)
                                                         ?.groupValues
@@ -187,6 +189,9 @@ fun CoverSelection(
                                                 else if (provider == "GameTDB") cover.label
                                                 else "use this cover",
                                                 style = MaterialTheme.typography.bodySmall,
+                                                color =
+                                                    if (current) MaterialTheme.colorScheme.primary
+                                                    else MaterialTheme.colorScheme.onSurface,
                                             )
                                         }
                                     }
@@ -223,7 +228,7 @@ fun CoverSelection(
                 ) {
                     Text(if (loading.isEmpty()) "retry cover search" else "finding covers…")
                 }
-                PinkButton(
+                AeroButton(
                     onClick = { picker.launch("image/*") },
                     modifier = Modifier.fillMaxWidth(),
                 ) {

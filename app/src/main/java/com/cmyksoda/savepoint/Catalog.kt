@@ -420,7 +420,9 @@ class Catalog(private val context: Context) {
                             .map(::preferPublisherCover)
                             .distinctBy { Triple(it.title.lowercase(), it.system, it.source) }
                             .sortedWith(
+                                // Exact titles first, then titles that contain the words, then near misses.
                                 compareBy<Game> { !it.title.equals(query, true) }
+                                    .thenBy { searchMatchScore(it.title, query) ?: Int.MAX_VALUE }
                                     .thenBy { it.title.length }
                             )
                 )

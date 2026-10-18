@@ -912,8 +912,27 @@ fun Choice(
                     HorizontalDivider(Modifier.padding(vertical = 4.dp))
                 }
                 options.forEach { item ->
+                    val chosen = item == value
                     DropdownMenuItem(
-                        text = { Text(item) },
+                        text = {
+                            Text(
+                                item,
+                                fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
+                                color =
+                                    if (chosen) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface,
+                            )
+                        },
+                        trailingIcon =
+                            if (chosen) {
+                                {
+                                    AeroIcon(
+                                        AeroSymbol.CHECK,
+                                        Modifier.size(18.dp),
+                                        MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            } else null,
                         onClick = {
                             expanded = false
                             onSelect(item)
@@ -926,6 +945,8 @@ fun Choice(
 }
 
 enum class AeroSymbol {
+    CHECK,
+    PREVIOUS,
     CLOSE,
     CALENDAR,
     GRID,
@@ -972,6 +993,8 @@ fun AeroIcon(
                 )
             }
             when (symbol) {
+                AeroSymbol.CHECK -> path(5f, 12.5f, 10f, 17.5f, 19.5f, 7f)
+                AeroSymbol.PREVIOUS -> path(15f, 5f, 8f, 12f, 15f, 19f)
                 AeroSymbol.CLOSE -> {
                     path(6f, 6f, 18f, 18f)
                     path(18f, 6f, 6f, 18f)

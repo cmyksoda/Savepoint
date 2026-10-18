@@ -918,12 +918,43 @@ fun GameForm(
                     label = "position in collection",
                     modifier = Modifier.fillMaxWidth(),
                 )
-            AeroTextField(
-                release,
-                { release = it },
-                label = "release date · YYYY-MM-DD (optional)",
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "release date (optional)",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AeroButton(
+                        onClick = {
+                            val shown = release.takeIf { it.isNotBlank() }?.let(LocalDate::parse) ?: LocalDate.now()
+                            android.app.DatePickerDialog(
+                                    context,
+                                    { _, y, m, d -> release = LocalDate.of(y, m + 1, d).toString() },
+                                    shown.year,
+                                    shown.monthValue - 1,
+                                    shown.dayOfMonth,
+                                )
+                                .show()
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        AeroIcon(AeroSymbol.CALENDAR, Modifier.size(17.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            release.takeIf { it.isNotBlank() }
+                                ?.let { LocalDate.parse(it).format(DateTimeFormatter.ofPattern("MMMM d, yyyy")) }
+                                ?: "choose a date",
+                            Modifier.weight(1f),
+                        )
+                    }
+                    if (release.isNotBlank())
+                        AeroIconButton(AeroSymbol.CLOSE, "clear release date", { release = "" })
+                }
+            }
             AeroButton(
                 onClick = {
                     selectingSprite = false
@@ -1109,6 +1140,12 @@ fun GameForm(
             }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+        AeroButton(onClick = onCancel) { Text("cancel") }
         PinkButton(
             onClick = {
                 try {
@@ -1169,7 +1206,7 @@ fun GameForm(
                     error = e.message ?: "Please check these values"
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.weight(1f),
             enabled =
                 !busy &&
                     (shelf != Shelf.HUNTS ||
@@ -1178,7 +1215,7 @@ fun GameForm(
         ) {
             Text(if (shelf == Shelf.HUNTS) "save hunt" else "save game")
         }
-        AeroButton(onClick = onCancel) { Text("cancel") }
+        }
     }
 }
 
@@ -2605,6 +2642,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                     onDismissRequest = { dialog = "" },
                     title = { Text("where should it go?") },
                     text = {
+                        val now = games.firstOrNull { it.id == form?.id }
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 form!!.title,
@@ -2630,12 +2668,16 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                     },
                                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                                 ) {
+                                    val here = now?.place == Place.ACTIVE && now.shelf == destination
                                     AeroIcon(AeroSymbol.SHELVES, Modifier.size(20.dp))
                                     Text(
-                                        destination.label,
+                                        if (here) "${destination.label} · here now" else destination.label,
                                         Modifier.weight(1f).padding(start = 12.dp),
                                     )
-                                    AeroIcon(AeroSymbol.NEXT, Modifier.size(14.dp))
+                                    AeroIcon(
+                                        if (here) AeroSymbol.CHECK else AeroSymbol.NEXT,
+                                        Modifier.size(if (here) 18.dp else 14.dp),
+                                    )
                                 }
                             }
                             HorizontalDivider(
@@ -2674,8 +2716,15 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                             else AeroSymbol.LOG,
                                             Modifier.size(20.dp),
                                         )
-                                        Text(label, Modifier.weight(1f).padding(start = 12.dp))
-                                        AeroIcon(AeroSymbol.NEXT, Modifier.size(14.dp))
+                                        val here = now?.place == place
+                                        Text(
+                                            if (here) "$label · here now" else label,
+                                            Modifier.weight(1f).padding(start = 12.dp),
+                                        )
+                                        AeroIcon(
+                                            if (here) AeroSymbol.CHECK else AeroSymbol.NEXT,
+                                            Modifier.size(if (here) 18.dp else 14.dp),
+                                        )
                                     }
                                 }
                         }

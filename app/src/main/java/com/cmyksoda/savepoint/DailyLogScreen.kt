@@ -165,7 +165,7 @@ fun DailyLogScreen(
                 Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         AeroIconButton(
-                            AeroSymbol.BACK,
+                            AeroSymbol.PREVIOUS,
                             "previous month",
                             {
                                 feedback(false)
