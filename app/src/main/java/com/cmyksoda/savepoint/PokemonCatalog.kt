@@ -12,9 +12,13 @@ data class PokemonChoice(
     val default: Boolean = form.isBlank(),
     val huntForm: Int? = null,
     val gameFilter: Set<String> = emptySet(),
+    val sprite: Int? = null,
 ) {
     val label: String
         get() = displayPokemonName(slug)
+
+    val spriteUrl: String?
+        get() = sprite?.let { "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$it.png" }
 }
 
 fun searchPokemon(choices: List<PokemonChoice>, query: String): List<PokemonChoice> =

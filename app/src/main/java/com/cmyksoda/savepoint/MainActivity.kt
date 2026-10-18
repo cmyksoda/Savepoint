@@ -105,7 +105,9 @@ fun Art(
     var bitmap by remember(url) { mutableStateOf(artwork.memoryBitmap(url, sprite)) }
     LaunchedEffect(url, sprite) {
         if (sprite) {
-            bitmap = runCatching { artwork.spriteBitmap(url) }.getOrNull()
+            bitmap =
+                runCatching { if (preview) artwork.previewSprite(url) else artwork.spriteBitmap(url) }
+                    .getOrNull()
             return@LaunchedEffect
         }
         if (preview) {
@@ -869,7 +871,7 @@ fun GameForm(
             title = { Text("choose a Pokémon") },
             text = {
                 Box(Modifier.height(400.dp).fillMaxWidth()) {
-                    PokemonPicker(catalog.pokemon) { choice ->
+                    PokemonPicker(catalog.pokemon, artwork) { choice ->
                         if (pokemon != choice.slug) {
                             pokemon = choice.slug
                             spriteRequest++
@@ -2340,7 +2342,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                             Box(
                                                 Modifier.fillMaxSize().padding(horizontal = 20.dp)
                                             ) {
-                                                PokemonPicker(catalog.pokemon) { pokemon ->
+                                                PokemonPicker(catalog.pokemon, artwork) { pokemon ->
                                                     form =
                                                         Game(
                                                             title = "",

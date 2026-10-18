@@ -116,43 +116,33 @@ class Artwork(private val context: Context) {
     suspend fun spriteBitmap(url: String): Bitmap? =
         withContext(Dispatchers.IO) {
             memoryBitmap(url, true)
-                ?: bitmap(url)?.let { original ->
-                    var left = original.width
-                    var top = original.height
-                    var right = -1
-                    var bottom = -1
-                    val pixels = IntArray(original.width * original.height)
-                    original.getPixels(
-                        pixels,
-                        0,
-                        original.width,
-                        0,
-                        0,
-                        original.width,
-                        original.height,
-                    )
-                    for (y in 0 until original.height) for (x in 0 until original.width) {
-                        if ((pixels[y * original.width + x] ushr 24) != 0) {
-                            left = minOf(left, x)
-                            top = minOf(top, y)
-                            right = maxOf(right, x)
-                            bottom = maxOf(bottom, y)
-                        }
-                    }
-                    val trimmed =
-                        if (right < left) original
-                        else
-                            Bitmap.createBitmap(
-                                original,
-                                left,
-                                top,
-                                right - left + 1,
-                                bottom - top + 1,
-                            )
-                    decoded.put("sprite:$url", trimmed)
-                    trimmed
-                }
+                ?: bitmap(url)?.let { trimmed(it) }?.also { decoded.put("sprite:$url", it) }
         }
+
+    // Search lists show many sprites the player may never pick, so they use the expiring cache.
+    suspend fun previewSprite(url: String): Bitmap? =
+        withContext(Dispatchers.IO) {
+            decoded.get("sprite:$url") ?: previewBitmap(url)?.let { trimmed(it) }?.also { decoded.put("sprite:$url", it) }
+        }
+
+    private fun trimmed(original: Bitmap): Bitmap {
+        var left = original.width
+        var top = original.height
+        var right = -1
+        var bottom = -1
+        val pixels = IntArray(original.width * original.height)
+        original.getPixels(pixels, 0, original.width, 0, 0, original.width, original.height)
+        for (y in 0 until original.height) for (x in 0 until original.width) {
+            if ((pixels[y * original.width + x] ushr 24) != 0) {
+                left = minOf(left, x)
+                top = minOf(top, y)
+                right = maxOf(right, x)
+                bottom = maxOf(bottom, y)
+            }
+        }
+        return if (right < left) original
+        else Bitmap.createBitmap(original, left, top, right - left + 1, bottom - top + 1)
+    }
 
     private fun decode(url: String): Bitmap? {
         memoryBitmap(url)?.let {

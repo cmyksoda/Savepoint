@@ -95,7 +95,7 @@ def build(raw, csv_dir):
         number = int(parent["species_id"])
         pokemon.append({
             "slug": row["identifier"], "species": species[str(number)]["identifier"],
-            "number": number, "form": row["form_identifier"],
+            "number": number, "sprite": int(row["pokemon_id"]), "form": row["form_identifier"],
             "default": parent["is_default"] == "1" and row["is_default"] == "1",
             "gameFilter": ["sword", "shield"] if "gmax" in row["identifier"] else [],
             "huntForm": match_form(row, parent, names, forms.get(number, {}), species[str(number)]["identifier"]),

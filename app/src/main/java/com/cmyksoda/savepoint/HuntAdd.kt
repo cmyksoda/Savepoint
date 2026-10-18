@@ -7,15 +7,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun PokemonPicker(catalog: PokemonCatalog, onChoose: (PokemonChoice) -> Unit) {
+fun PokemonPicker(catalog: PokemonCatalog, artwork: Artwork, onChoose: (PokemonChoice) -> Unit) {
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     var query by rememberSaveable { mutableStateOf("") }
@@ -68,7 +70,28 @@ fun PokemonPicker(catalog: PokemonCatalog, onChoose: (PokemonChoice) -> Unit) {
                         onChoose(pokemon)
                     }
                 ) {
-                    Text(pokemon.label, Modifier.padding(16.dp))
+                    Row(
+                        Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(Modifier.size(44.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
+                            pokemon.spriteUrl?.let { url ->
+                                Art(
+                                    url,
+                                    artwork,
+                                    pokemon.label,
+                                    sprite = true,
+                                    transparent = true,
+                                    showPlaceholderTitle = false,
+                                    coverBounds = CoverSize(44f, 44f),
+                                    reserveHeight = false,
+                                    preview = true,
+                                )
+                            }
+                        }
+                        Text(pokemon.label)
+                    }
                 }
             }
         }

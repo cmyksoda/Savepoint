@@ -71,6 +71,7 @@ class HuntCatalogIndex(
                                 (0 until filter.length()).map { filter.getString(it) }.toSet()
                             }
                             .orEmpty(),
+                        sprite = item.optInt("sprite").takeIf { it > 0 },
                     )
                 }
             val data = root.getJSONObject("encounters")
