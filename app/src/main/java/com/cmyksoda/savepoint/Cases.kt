@@ -60,7 +60,6 @@ fun coverRim(system: String): Color =
     if (LocalGameCases.current && caseKind(system) == CaseKind.CARDBOARD) Color.Black.copy(alpha = .14f)
     else Color.White.copy(alpha = .65f)
 
-/** Light and shade of the physical box drawn over the art: a sleeve's sheen or a carton's folds. */
 fun Modifier.caseFinish(kind: CaseKind): Modifier = drawWithContent {
     drawContent()
     val w = size.width

@@ -544,7 +544,6 @@ fun pinkPearl(dark: Boolean): List<Color> =
     if (dark) listOf(Color(0xFFFFEAF5), Color(0xFFFAC3DF), Color(0xFFE697C5), Color(0xFFF8B9DF))
     else listOf(Color(0xFF9A3C6E), Color(0xFF8A2A58), Color(0xFF7B1E4E), Color(0xFFA34479))
 
-/** The pearl's highlight: a bright cap over the top and light pooling at the bottom. */
 fun Modifier.pearlGloss(radius: Dp): Modifier = drawWithContent {
     val inset = 1.5.dp.toPx()
     val corner = (radius.toPx() - inset).coerceAtLeast(0f)

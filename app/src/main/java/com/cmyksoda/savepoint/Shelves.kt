@@ -220,7 +220,6 @@ private fun ShelfGames(
     }
 }
 
-/** Shade where a cover meets the surface it rests on: a tight dark core inside a wide soft spread. */
 fun Modifier.contactShadow(dark: Boolean): Modifier = drawBehind {
     val center = Offset(size.width / 2, size.height + 1.dp.toPx())
     fun shade(radius: Float, height: Float, alpha: Float) {
@@ -241,7 +240,7 @@ fun Modifier.contactShadow(dark: Boolean): Modifier = drawBehind {
     shade(size.width * .56f, 4.5.dp.toPx(), if (dark) .75f else .46f)
 }
 
-/** A long, puffy plank in the same dough as the buttons, tinted pink so it reads on the pale sky. */
+/** Tinted pink so the plank still reads against the pale sky. */
 fun Modifier.doughPlank(dark: Boolean): Modifier =
     softGlassShadow(11.dp, 12.dp).drawWithCache {
         val radius = size.height / 2
@@ -289,7 +288,6 @@ fun Modifier.doughPlank(dark: Boolean): Modifier =
         }
     }
 
-/** Draws the content again below itself, mirrored and fading, as if standing on polished glass. */
 fun Modifier.coverReflection(depth: Dp, dark: Boolean): Modifier = drawWithCache {
     val layer = obtainGraphicsLayer()
     val gap = 2.dp.toPx()
