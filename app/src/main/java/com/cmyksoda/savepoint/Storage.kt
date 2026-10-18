@@ -1,6 +1,7 @@
 package com.cmyksoda.savepoint
 
 import android.content.Context
+import androidx.glance.appwidget.updateAll
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -290,6 +291,7 @@ object JsonCodec {
 }
 
 class Library(context: Context) : AutoCloseable {
+    private val appContext = context.applicationContext
     private val database =
         Room.databaseBuilder(context.applicationContext, LibraryDatabase::class.java, "library.db")
             .build()
@@ -307,19 +309,26 @@ class Library(context: Context) : AutoCloseable {
 
     suspend fun change(transform: (List<Game>) -> List<Game>) =
         withContext(Dispatchers.IO) {
-            mutex.withLock {
-                val changed = transform(games.value)
-                dao.replace(
-                    changed.map { g ->
-                        GameRow().apply {
-                            id = g.id
-                            payload = JsonCodec.game(g).toString()
+            val redraw =
+                mutex.withLock {
+                    val shown = playingNow(games.value)
+                    val changed = transform(games.value)
+                    dao.replace(
+                        changed.map { g ->
+                            GameRow().apply {
+                                id = g.id
+                                payload = JsonCodec.game(g).toString()
+                            }
                         }
-                    }
-                )
-                games.value = changed
-            }
+                    )
+                    games.value = changed
+                    face(playingNow(changed)) != face(shown)
+                }
+            // The widget only shows the playing-now game, so a hunt's counter taps don't redraw it.
+            if (redraw) runCatching { SavepointWidget().updateAll(appContext) }
         }
+
+    private fun face(game: Game?) = listOf(game?.id, game?.title, game?.system, game?.cover)
 }
 
 class SettingsStore(private val context: Context) {
