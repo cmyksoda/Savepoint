@@ -10,6 +10,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.security.MessageDigest
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -72,11 +73,15 @@ fun preferredCoverUrl(url: String): String {
 
 class Artwork(private val context: Context) {
     val directory = File(context.filesDir, "artwork").apply { mkdirs() }
+    // A quarter of the app's memory, as image libraries like Coil use, keeps a long backlog decoded.
     private val decoded =
-        object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 8 / 1024).toInt()) {
+        object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 4 / 1024).toInt()) {
             override fun sizeOf(key: String, value: Bitmap): Int =
                 (value.allocationByteCount + 1023) / 1024
         }
+
+    // No screen shows a cover taller than 244 dp, so larger decodes only push other covers out.
+    private val coverPixels = (256 * context.resources.displayMetrics.density).roundToInt()
 
     private val ratios = java.util.concurrent.ConcurrentHashMap<String, Float>()
 
@@ -162,12 +167,21 @@ class Artwork(private val context: Context) {
         if (bounds.outWidth > 0 && bounds.outHeight > 0)
             ratios[url] = bounds.outWidth.toFloat() / bounds.outHeight
         var sample = 1
-        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 720) sample *= 2
-        return BitmapFactory.decodeFile(
-                file.path,
-                BitmapFactory.Options().apply { inSampleSize = sample },
-            )
-            ?.also { decoded.put(url, it) }
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= coverPixels) sample *= 2
+        val sampled =
+            BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })
+                ?: return null
+        val scale = coverPixels.toFloat() / maxOf(sampled.width, sampled.height)
+        val fitted =
+            if (scale >= 1f) sampled
+            else
+                Bitmap.createScaledBitmap(
+                    sampled,
+                    (sampled.width * scale).roundToInt().coerceAtLeast(1),
+                    (sampled.height * scale).roundToInt().coerceAtLeast(1),
+                    true,
+                )
+        return fitted.also { decoded.put(url, it) }
     }
 
     fun filename(url: String) =

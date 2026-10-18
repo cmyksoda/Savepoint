@@ -9,7 +9,9 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -108,32 +111,45 @@ fun Art(
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     var bitmap by remember(url) { mutableStateOf(artwork.memoryBitmap(url, sprite)) }
+    var settled by remember(url) { mutableStateOf(bitmap != null) }
     LaunchedEffect(url, sprite) {
-        if (sprite) {
+        try {
+            if (sprite) {
+                bitmap =
+                    runCatching { if (preview) artwork.previewSprite(url) else artwork.spriteBitmap(url) }
+                        .getOrNull()
+                return@LaunchedEffect
+            }
+            if (preview) {
+                bitmap = runCatching { artwork.previewBitmap(url) }.getOrNull()
+                return@LaunchedEffect
+            }
+            bitmap = runCatching { artwork.cachedCoverBitmap(url) }.getOrNull() ?: bitmap
+            if (bitmap != null) return@LaunchedEffect
+            val preferred = preferredCoverUrl(url)
             bitmap =
-                runCatching { if (preview) artwork.previewSprite(url) else artwork.spriteBitmap(url) }
-                    .getOrNull()
-            return@LaunchedEffect
+                runCatching { artwork.bitmap(preferred) }.getOrNull()
+                    ?: bitmap
+                    ?: runCatching { artwork.bitmap(url) }.getOrNull()
+        } finally {
+            settled = true
         }
-        if (preview) {
-            bitmap = runCatching { artwork.previewBitmap(url) }.getOrNull()
-            return@LaunchedEffect
-        }
-        bitmap = runCatching { artwork.cachedCoverBitmap(url) }.getOrNull() ?: bitmap
-        if (bitmap != null) return@LaunchedEffect
-        val preferred = preferredCoverUrl(url)
-        bitmap =
-            runCatching { artwork.bitmap(preferred) }.getOrNull()
-                ?: bitmap
-                ?: runCatching { artwork.bitmap(url) }.getOrNull()
     }
+    // A cover already saved on the phone fades in while it decodes instead of flashing the no-cover art.
+    val reveal by
+        animateFloatAsState(
+            if (settled || artwork.cachedAspectRatio(url) == null) 1f else 0f,
+            tween(140),
+            label = "cover reveal",
+        )
     val frame =
         coverBounds?.let {
             if (sprite) it
             else
                 fitCover(
-                    bitmap?.let { cover -> cover.width.toFloat() / cover.height }
-                        ?: artwork.cachedAspectRatio(url)
+                    // The saved file's shape comes first, so a card keeps one height whether or not it's decoded.
+                    artwork.cachedAspectRatio(url)
+                        ?: bitmap?.let { cover -> cover.width.toFloat() / cover.height }
                         ?: coverAspectRatio(catalogSystemName(system), null, null),
                     it,
                 )
@@ -152,6 +168,7 @@ fun Art(
     val body: @Composable () -> Unit = {
         Box(
             size
+                .graphicsLayer { alpha = reveal }
                 .then(if (shadow > 0.dp) Modifier.softGlassShadow(radius, shadow) else Modifier)
                 .then(
                     if (sprite || cornerRadius == 0.dp) Modifier
