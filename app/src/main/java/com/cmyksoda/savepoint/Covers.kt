@@ -2,7 +2,6 @@ package com.cmyksoda.savepoint
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -158,7 +157,7 @@ fun CoverSelection(
                                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     items(options, key = { it.url }) { cover ->
                                         Column(
-                                            Modifier.width(116.dp).clickable { onPick(cover) },
+                                            Modifier.width(116.dp).feedbackClickable { onPick(cover) },
                                             verticalArrangement = Arrangement.spacedBy(6.dp),
                                         ) {
                                             Art(

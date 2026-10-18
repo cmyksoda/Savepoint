@@ -1,6 +1,5 @@
 package com.cmyksoda.savepoint
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -64,7 +63,7 @@ fun PokemonPicker(catalog: PokemonCatalog, artwork: Artwork, onChoose: (PokemonC
         ) {
             items(results, key = { it.slug }) { pokemon ->
                 Glass(
-                    Modifier.fillMaxWidth().clickable {
+                    Modifier.fillMaxWidth().feedbackClickable {
                         focus.clearFocus()
                         keyboard?.hide()
                         onChoose(pokemon)

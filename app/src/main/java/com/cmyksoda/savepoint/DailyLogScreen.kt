@@ -3,11 +3,9 @@ package com.cmyksoda.savepoint
 import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -65,16 +63,8 @@ fun DailyLogScreen(
             games.filter { game -> game.dailyPlays.any { it.date == date.toString() } }
         }
     val context = LocalContext.current
-    val feedback = rememberActionFeedback()
     fun selectDate(chosen: LocalDate) {
-        if (chosen != date) {
-            feedback(false)
-            onDate(chosen)
-        }
-    }
-    fun openLog() {
-        feedback(false)
-        onLog()
+        if (chosen != date) onDate(chosen)
     }
     fun pickDate() {
         DatePickerDialog(
@@ -167,17 +157,14 @@ fun DailyLogScreen(
                         AeroIconButton(
                             AeroSymbol.PREVIOUS,
                             "Previous month",
-                            {
-                                feedback(false)
-                                monthText = month.minusMonths(1).toString()
-                            },
+                            { monthText = month.minusMonths(1).toString() },
                             compact = true,
                         )
                         Text(
                             monthModel.title,
                             Modifier.weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
-                                .clickable(role = Role.Button, onClick = ::pickDate)
+                                .feedbackClickable(role = Role.Button, onClick = ::pickDate)
                                 .padding(vertical = 13.dp)
                                 .semantics { contentDescription = "Choose a date" },
                             fontSize = 17.sp,
@@ -188,10 +175,7 @@ fun DailyLogScreen(
                             AeroIconButton(
                                 AeroSymbol.NEXT,
                                 "Next month",
-                                {
-                                    feedback(false)
-                                    monthText = month.plusMonths(1).toString()
-                                },
+                                { monthText = month.plusMonths(1).toString() },
                                 compact = true,
                             )
                         else Spacer(Modifier.size(48.dp))
@@ -248,7 +232,7 @@ fun DailyLogScreen(
                                                     )
                                                 else Modifier
                                             )
-                                            .clickable(enabled = !future, role = Role.Button) {
+                                            .feedbackClickable(enabled = !future, role = Role.Button) {
                                                 selectDate(cell)
                                             }
                                             .semantics {
@@ -324,7 +308,7 @@ fun DailyLogScreen(
                         compact = true,
                     )
                 if (entries.isNotEmpty())
-                    PinkButton(onClick = ::openLog) {
+                    PinkButton(onClick = onLog) {
                         AeroIcon(AeroSymbol.EDIT, Modifier.size(15.dp))
                         Spacer(Modifier.width(7.dp))
                         Text("Edit day", fontSize = 13.sp)
@@ -344,7 +328,7 @@ fun DailyLogScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        PinkButton(onClick = ::openLog, modifier = Modifier.fillMaxWidth()) {
+                        PinkButton(onClick = onLog, modifier = Modifier.fillMaxWidth()) {
                             AeroIcon(AeroSymbol.ADD, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Log what I played")
@@ -354,7 +338,7 @@ fun DailyLogScreen(
             }
         items(entries, key = { it.id }) { game ->
             val entry = game.dailyPlays.first { it.date == date.toString() }
-            Glass(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = ::openLog)) {
+            Glass(Modifier.fillMaxWidth().feedbackClickable(role = Role.Button, onClick = onLog)) {
                 Row(
                     Modifier.fillMaxWidth().padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -418,7 +402,6 @@ fun DailyPlayEditor(
         }
     var query by rememberSaveable { mutableStateOf("") }
     var editingTime by rememberSaveable { mutableStateOf<String?>(null) }
-    val feedback = rememberActionFeedback()
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val ordered =
@@ -492,9 +475,8 @@ fun DailyPlayEditor(
                 Glass(Modifier.fillMaxWidth()) {
                     Row(
                         Modifier.fillMaxWidth()
-                            .toggleable(selected, enabled = !busy, role = Role.Checkbox) { checked
+                            .feedbackToggleable(selected, enabled = !busy, role = Role.Checkbox) { checked
                                 ->
-                                feedback(false)
                                 chosen = if (checked) chosen + game.id else chosen - game.id
                             }
                             .semantics {
@@ -556,7 +538,6 @@ fun DailyPlayEditor(
                 onClick = {
                     focus.clearFocus()
                     keyboard?.hide()
-                    feedback(false)
                     onSave(chosen.associateWith { times[it] })
                 },
                 enabled = !busy && (chosen.isNotEmpty() || initial.isNotEmpty()),

@@ -1,12 +1,10 @@
 package com.cmyksoda.savepoint
 
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -190,7 +188,7 @@ fun CollectionsScreen(
                 items(names, key = { it }) { collection ->
                     Glass(
                         Modifier.fillMaxWidth()
-                            .clickable { onOpenCollection(collection) }
+                            .feedbackClickable { onOpenCollection(collection) }
                             .animateItem()
                     ) {
                         Row(
@@ -374,7 +372,7 @@ fun CollectionsScreen(
                             Row(
                                 Modifier.fillMaxWidth()
                                     .heightIn(min = 48.dp)
-                                    .toggleable(game.id in checked, role = Role.Checkbox) {
+                                    .feedbackToggleable(game.id in checked, role = Role.Checkbox) {
                                         checked =
                                             if (game.id in checked) checked - game.id
                                             else checked + game.id
@@ -468,7 +466,7 @@ fun FindGames(
             items(results, key = { it.id }) { game ->
                 Glass(
                     Modifier.fillMaxWidth()
-                        .clickable {
+                        .feedbackClickable {
                             focus.clearFocus()
                             keyboard?.hide()
                             onOpen(game.id)

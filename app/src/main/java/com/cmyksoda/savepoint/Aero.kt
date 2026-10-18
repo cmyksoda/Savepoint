@@ -460,7 +460,7 @@ private fun AeroControl(
     modifier: Modifier,
     enabled: Boolean,
     primary: Boolean,
-    haptic: Boolean,
+    strongHaptic: Boolean,
     minHeight: Dp = 44.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
@@ -491,7 +491,7 @@ private fun AeroControl(
                 enabled = enabled,
                 role = Role.Button,
                 onClick = {
-                    if (haptic) feedback(true)
+                    feedback(strongHaptic)
                     onClick()
                 },
             ),
@@ -572,7 +572,7 @@ fun PinkButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    haptic: Boolean = false,
+    strongHaptic: Boolean = false,
     minHeight: Dp = 44.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
@@ -581,7 +581,7 @@ fun PinkButton(
         modifier,
         enabled,
         primary = true,
-        haptic = haptic,
+        strongHaptic = strongHaptic,
         minHeight = minHeight,
         content = content,
     )
@@ -592,7 +592,7 @@ fun AeroButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    haptic: Boolean = false,
+    strongHaptic: Boolean = false,
     minHeight: Dp = 44.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
@@ -601,7 +601,7 @@ fun AeroButton(
         modifier,
         enabled,
         primary = false,
-        haptic = haptic,
+        strongHaptic = strongHaptic,
         minHeight = minHeight,
         content = content,
     )
@@ -697,7 +697,7 @@ fun AeroCheckbox(
             .size(22.dp)
             .then(
                 if (onCheckedChange != null)
-                    Modifier.toggleable(checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+                    Modifier.feedbackToggleable(checked, role = Role.Checkbox, onValueChange = onCheckedChange)
                 else Modifier
             )
             .glassMaterial(dark, radius = 7, elevation = 3.dp)
@@ -755,7 +755,7 @@ fun AeroSwitch(
     Box(
         modifier
             .size(54.dp, 32.dp)
-            .toggleable(
+            .feedbackToggleable(
                 checked,
                 enabled = enabled && onCheckedChange != null,
                 role = Role.Switch,
@@ -838,11 +838,13 @@ fun AeroChip(
             spring(dampingRatio = .55f, stiffness = 900f),
             label = "chip squish",
         )
+    val feedback = rememberActionFeedback()
     val shape = RoundedCornerShape(14.dp)
     Box(
         modifier
             .heightIn(min = 48.dp)
             .toggleable(selected, interactionSource = interaction, indication = null, role = Role.Checkbox) {
+                feedback(false)
                 onClick()
             },
         contentAlignment = Alignment.Center,
@@ -887,6 +889,7 @@ fun Choice(
     var expanded by remember { mutableStateOf(false) }
     var anchorWidth by remember { mutableStateOf(0) }
     val density = LocalDensity.current
+    val feedback = rememberActionFeedback()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Text(
             label,
@@ -915,6 +918,7 @@ fun Choice(
                         leadingIcon = { AeroIcon(AeroSymbol.EDIT, Modifier.size(18.dp)) },
                         onClick = {
                             expanded = false
+                            feedback(false)
                             action()
                         },
                     )
@@ -944,6 +948,7 @@ fun Choice(
                             } else null,
                         onClick = {
                             expanded = false
+                            feedback(false)
                             onSelect(item)
                         },
                     )
@@ -1232,6 +1237,7 @@ fun AeroIconButton(
             spring(dampingRatio = .55f, stiffness = 900f),
             label = "icon squish",
         )
+    val feedback = rememberActionFeedback()
     Box(
         modifier
             .size(48.dp)
@@ -1239,7 +1245,10 @@ fun AeroIconButton(
                 interactionSource = interaction,
                 indication = null,
                 role = Role.Button,
-                onClick = onClick,
+                onClick = {
+                    feedback(false)
+                    onClick()
+                },
             )
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,

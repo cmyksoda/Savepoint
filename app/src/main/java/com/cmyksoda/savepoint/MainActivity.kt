@@ -15,14 +15,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -245,7 +243,7 @@ fun GameCover(
     val hunt = game.shelf == Shelf.HUNTS
     if (hunt) {
         Column(
-            modifier.width(112.dp).clickable(onClick = onOpen).clearAndSetSemantics {
+            modifier.width(112.dp).feedbackClickable(onClick = onOpen).clearAndSetSemantics {
                 contentDescription =
                     "${displayPokemonName(game.pokemon).ifBlank { "shiny hunt" }}, " +
                         (huntVersions[game.pokemonVersion] ?: game.title)
@@ -296,7 +294,7 @@ fun GameCover(
             game.cover,
             artwork,
             game.title,
-            Modifier.clickable(onClick = onOpen)
+            Modifier.feedbackClickable(onClick = onOpen)
                 .semantics {
                     contentDescription = "${game.title}${if (focus) ", playing now" else ""}"
                 },
@@ -655,7 +653,7 @@ fun GameDetails(
                     Row(
                         Modifier.fillMaxWidth()
                             .heightIn(min = 48.dp)
-                            .clickable(onClick = onEditCount)
+                            .feedbackClickable(onClick = onEditCount)
                             .semantics { contentDescription = "Change encounter count" },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -693,7 +691,7 @@ fun GameDetails(
                             onClick = { onEncounter(-1) },
                             modifier = Modifier.weight(1f),
                             enabled = game.encounters > 0,
-                            haptic = true,
+                            strongHaptic = true,
                             minHeight = 56.dp,
                         ) {
                             Text("−1", fontSize = 20.sp)
@@ -702,7 +700,7 @@ fun GameDetails(
                             onClick = { onEncounter(1) },
                             modifier = Modifier.weight(1f),
                             enabled = game.encounters < Long.MAX_VALUE,
-                            haptic = true,
+                            strongHaptic = true,
                             minHeight = 56.dp,
                         ) {
                             Text("+1", fontSize = 20.sp)
@@ -1369,7 +1367,7 @@ private fun CatalogResultRow(result: CatalogResult, catalog: Catalog, artwork: A
         produceState(result.covers.firstOrNull()?.url ?: "", game.source, game.sourceId) {
             if (value.isBlank()) value = runCatching { catalog.resultCover(game) }.getOrNull() ?: ""
         }
-    Glass(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    Glass(Modifier.fillMaxWidth().feedbackClickable(onClick = onClick)) {
         Row(
             Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1514,7 +1512,7 @@ fun SettingsScreen(
                             Modifier.weight(1f)
                                 .height(64.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .toggleable(checked, enabled = scheduled, role = Role.Checkbox) {
+                                .feedbackToggleable(checked, enabled = scheduled, role = Role.Checkbox) {
                                     onChange(
                                         settings.copy(
                                             days =
@@ -1538,7 +1536,7 @@ fun SettingsScreen(
                         Text(
                             "From ${timeLabel(settings.startMinute)}",
                             Modifier.weight(1f)
-                                .clickable(enabled = invitations, role = Role.Button) {
+                                .feedbackClickable(enabled = invitations, role = Role.Button) {
                                     pickTime(true)
                                 }
                                 .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -1551,7 +1549,7 @@ fun SettingsScreen(
                         Text(
                             "To ${timeLabel(settings.endMinute)}",
                             Modifier.weight(1f)
-                                .clickable(enabled = invitations, role = Role.Button) {
+                                .feedbackClickable(enabled = invitations, role = Role.Button) {
                                     pickTime(false)
                                 }
                                 .padding(horizontal = 16.dp, vertical = 14.dp),

@@ -1,6 +1,5 @@
 package com.cmyksoda.savepoint
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -93,7 +92,7 @@ fun LibraryGameCard(
             bounds = if (grid) CoverSize(140f, 188f) else CoverSize(54f, 72f),
         )
     }
-    Glass(modifier.fillMaxWidth().clickable(onClick = onOpen)) {
+    Glass(modifier.fillMaxWidth().feedbackClickable(onClick = onOpen)) {
         if (grid)
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { image() }
@@ -157,7 +156,7 @@ fun ArrangeCard(
             Row(
                 Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable(role = Role.Button, onClick = onOpen)
+                    .feedbackClickable(role = Role.Button, onClick = onOpen)
                     .padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,

@@ -72,6 +72,7 @@ fun setAppIcon(context: Context, chosen: AppIcon) {
 @Composable
 fun AppIconPicker() {
     val context = LocalContext.current
+    val feedback = rememberActionFeedback()
     var current by remember { mutableStateOf(currentAppIcon(context)) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         AppIcon.entries.forEach { icon ->
@@ -79,6 +80,7 @@ fun AppIconPicker() {
             Column(
                 Modifier.clip(RoundedCornerShape(16.dp))
                     .selectable(selected, role = Role.RadioButton) {
+                        feedback(false)
                         if (!selected) {
                             setAppIcon(context, icon)
                             current = icon
