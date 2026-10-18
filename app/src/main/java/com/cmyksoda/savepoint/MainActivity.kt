@@ -311,7 +311,7 @@ fun Home(
     onOpen: (String) -> Unit,
     onEditShelf: (Shelf) -> Unit,
     onAdd: () -> Unit,
-    onSeed: () -> Unit,
+    onRestore: () -> Unit,
     style: ShelfStyle = ShelfStyle.LEDGE,
 ) {
     val active = remember(games) { games.filter { it.place == Place.ACTIVE } }
@@ -336,9 +336,7 @@ fun Home(
                         Text("Bring a few games onto your shelves. The rest can stay tucked away.")
                         PinkButton(onClick = onAdd) { Text("add a game") }
                         if (games.isEmpty())
-                            AeroButton(onClick = onSeed) {
-                                Text("start with the games we discussed")
-                            }
+                            AeroButton(onClick = onRestore) { Text("restore a backup") }
                     }
                 }
             }
@@ -2093,7 +2091,14 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                                     route = "shelf"
                                                 },
                                                 { startAdding(Shelf.PLAY_THROUGH, "home") },
-                                                { mutate { old -> old + starterGames() } },
+                                                {
+                                                    import.launch(
+                                                        arrayOf(
+                                                            "application/zip",
+                                                            "application/octet-stream",
+                                                        )
+                                                    )
+                                                },
                                                 shelfStyle(settings.shelfStyle),
                                             )
                                         "backlog",

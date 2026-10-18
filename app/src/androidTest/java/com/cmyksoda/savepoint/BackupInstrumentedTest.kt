@@ -51,7 +51,7 @@ class BackupInstrumentedTest {
         val artwork = Artwork(context)
         val archive = File(context.cacheDir, "test-${UUID.randomUUID()}.zip")
         artwork.installBundledCovers()
-        val games = starterGames()
+        val games = bundledCovers.map { Game(title = it.title, system = it.system, cover = it.url) }
         try {
             for (game in games) {
                 val bitmap = artwork.cachedBitmap(preferredCoverUrl(game.cover))

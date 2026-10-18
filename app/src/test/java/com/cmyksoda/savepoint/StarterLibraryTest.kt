@@ -5,25 +5,6 @@ import org.junit.Test
 
 class StarterLibraryTest {
     @Test
-    fun everyStarterHasACoverWhileTheQueueAndCollectionsStayOrdered() {
-        val games = starterGames()
-        assertEquals(5, games.size)
-        assertTrue(games.all { it.cover.startsWith("https://") })
-        assertEquals(
-            listOf("Rhythm Heaven Groove", "DELTARUNE", "Metroid: Zero Mission", "AM2R"),
-            games
-                .filter { it.shelf == Shelf.PLAY_THROUGH }
-                .sortedBy { it.position }
-                .map { it.title },
-        )
-        assertEquals(
-            listOf(1, 2),
-            games.filter { it.collection == "2d metroid" }.map { it.collectionOrder },
-        )
-        assertEquals(Shelf.EASY, games.last().shelf)
-    }
-
-    @Test
     fun aMissingCoverIsFilledWithoutChangingAnyPersonalData() {
         val game =
             Game(
@@ -66,13 +47,6 @@ class StarterLibraryTest {
         val updated = fillMissingStarterCovers(listOf(game))
         assertEquals(updated, fillMissingStarterCovers(updated))
         assertEquals(game.id, updated.single().id)
-    }
-
-    @Test
-    fun deltaruneStarterUsesBlackPublisherArtworkAndSwitch2() {
-        val game = starterGames().first { it.title == "DELTARUNE" }
-        assertEquals("Nintendo Switch 2", game.system)
-        assertEquals(deltarunePublisherCover, game.cover)
     }
 
     @Test
