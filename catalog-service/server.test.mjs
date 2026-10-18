@@ -80,3 +80,12 @@ test('results carry how many people rated each game, so apps can put well-known 
     { id: 2, name: 'Metroid Fool', platforms: [{ id: 21 }] }]);
   assert.deepEqual(results.map(game => game.popularity), [812, 0]);
 });
+
+test('a Wii game re-released on the Wii U eShop appears once, on Wii', () => {
+  const results = normalize([{ id: 14, name: 'Metroid: Other M', platforms: [{ id: 5 }, { id: 41 }],
+    release_dates: [{ platform: 5, date: 100 }, { platform: 41, date: 1000 }] }]);
+  assert.deepEqual(results.map(game => game.system), ['Wii']);
+  const hd = normalize([{ id: 15, name: 'A Wii game HD', platforms: [{ id: 5 }, { id: 41 }],
+    release_dates: [{ platform: 5, date: 100 }, { platform: 41, date: 1000 }] }]);
+  assert.deepEqual(hd.map(game => game.system), ['Wii', 'Wii U']);
+});

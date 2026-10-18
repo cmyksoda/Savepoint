@@ -58,7 +58,7 @@ export function catalogSearchQuery(query, offset = 0, exact = false) {
 
 export function normalize(games, families = defaultFamilies) {
   const results = [];
-  const retroNintendo = new Set([18, 51, 58, 4, 33, 22, 24, 20, 21]);
+  const retroNintendo = new Set([18, 51, 58, 4, 33, 22, 24, 20, 21, 5]);
   const virtualConsoleHosts = new Set([5, 41, 37, 130]);
   for (const game of games) {
     if (game.game_type === 14) continue;
