@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
@@ -57,7 +58,9 @@ fun CoverSelection(
     var failed by remember(game.id) { mutableStateOf(emptySet<String>()) }
     var attempt by remember(game.id) { mutableStateOf(0) }
     var imageError by remember { mutableStateOf<String?>(null) }
-    val providers = coverProviders(game.system)
+    val context = LocalContext.current
+    // A phone game can also take its own app icon, when that app is installed here.
+    val providers = (if (game.system in mobileSystems) listOf("This phone") else emptyList()) + coverProviders(game.system)
     val scope = rememberCoroutineScope()
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -82,13 +85,15 @@ fun CoverSelection(
                     launch {
                         loading = loading + provider
                         try {
-                            val found = catalog.covers(game, provider, refresh = attempt > 0)
+                            val found =
+                                if (provider == "This phone") phoneCovers(context, artwork, game)
+                                else catalog.covers(game, provider, refresh = attempt > 0)
                             choices = (choices + found).distinctBy { it.url }
-                            if (found.isEmpty()) unavailable = unavailable + provider
+                            if (found.isEmpty() && provider != "This phone") unavailable = unavailable + provider
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
                         } catch (e: Exception) {
-                            failed = failed + provider
+                            if (provider != "This phone") failed = failed + provider
                         } finally {
                             loading = loading - provider
                         }

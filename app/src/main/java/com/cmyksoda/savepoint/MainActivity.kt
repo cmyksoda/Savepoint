@@ -1329,7 +1329,7 @@ fun AddScreen(
     val phoneGames by
         produceState(emptyList<PhoneGame>(), "mobile" in families) {
             value =
-                if ("mobile" in families) withContext(Dispatchers.IO) { installedGames(context) }
+                if ("mobile" in families) withContext(Dispatchers.IO) { installedApps(context) }
                 else emptyList()
         }
     val onPhone =
