@@ -1730,6 +1730,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
     var encounterError by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf<RestoredLibrary?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
     val selectedGame = games.find { it.id == selected }
 
     fun mutate(action: (List<Game>) -> List<Game>) {
@@ -1911,7 +1912,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                 scope.launch {
                     try {
                         Backup.export(context, uri, games, settings, artwork)
-                        error = "backup exported"
+                        notice = "backup exported"
                     } catch (e: Exception) {
                         error = "Export failed: ${e.message}"
                     }
@@ -2550,6 +2551,10 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                             },
                             modifier = Modifier.align(Alignment.BottomCenter),
                         )
+                    // Good news shouldn't need a tap to go away, unlike an error.
+                    Notice(notice, Modifier.align(Alignment.BottomCenter).padding(bottom = 104.dp)) {
+                        notice = null
+                    }
                 }
             }
             if (dialog == "encounters" && selectedGame != null) {
@@ -2883,7 +2888,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                         Reminders.clear(context)
                                         route = "home"
                                         dialog = ""
-                                        error = "backup restored"
+                                        notice = "backup restored"
                                     } catch (e: Exception) {
                                         error = "Restore failed: ${e.message}"
                                     } finally {
@@ -2914,6 +2919,37 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                     text = { Text(message) },
                     confirmButton = { AeroButton(onClick = { error = null }) { Text("okay") } },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Notice(message: String?, modifier: Modifier, onGone: () -> Unit) {
+    var shown by remember { mutableStateOf("") }
+    if (message != null) shown = message
+    LaunchedEffect(message) {
+        if (message != null) {
+            kotlinx.coroutines.delay(2600)
+            onGone()
+        }
+    }
+    androidx.compose.animation.AnimatedVisibility(
+        message != null,
+        modifier,
+        enter =
+            androidx.compose.animation.fadeIn() +
+                androidx.compose.animation.slideInVertically { it / 2 },
+        exit = androidx.compose.animation.fadeOut(),
+    ) {
+        Glass(strong = true) {
+            Row(
+                Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AeroIcon(AeroSymbol.CHECK, Modifier.size(18.dp), MaterialTheme.colorScheme.primary)
+                Text(shown, style = MaterialTheme.typography.labelLarge)
             }
         }
     }
