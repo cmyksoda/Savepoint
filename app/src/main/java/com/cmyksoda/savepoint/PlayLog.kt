@@ -87,12 +87,12 @@ fun LogExtras(game: Game) {
 
 @Composable
 fun PlayLogList(games: List<Game>, artwork: Artwork, grid: Boolean, onOpen: (String) -> Unit) {
-    var sort by rememberSaveable { mutableStateOf("recently finished") }
+    var sort by rememberSaveable { mutableStateOf("Recently finished") }
     val filtered = games.filter { it.inPlayLog }
     val ordered =
         when (sort) {
-            "title · A–Z" -> filtered.sortedBy { it.title.lowercase() }
-            "title · Z–A" -> filtered.sortedByDescending { it.title.lowercase() }
+            "Title · A–Z" -> filtered.sortedBy { it.title.lowercase() }
+            "Title · Z–A" -> filtered.sortedByDescending { it.title.lowercase() }
             else ->
                 filtered.sortedWith(
                     compareBy<Game> { it.playthroughs.lastOrNull()?.finishedAt == null }
@@ -105,7 +105,7 @@ fun PlayLogList(games: List<Game>, artwork: Artwork, grid: Boolean, onOpen: (Str
         grid,
         "Games you finish will stay here, along with any thoughts you leave.",
         controls = {
-            Choice("sort", sort, listOf("recently finished", "title · A–Z", "title · Z–A")) {
+            Choice("Sort", sort, listOf("Recently finished", "Title · A–Z", "Title · Z–A")) {
                 sort = it
             }
         },
@@ -154,7 +154,7 @@ fun GameJournal(
                     Box(Modifier.fillMaxWidth().padding(end = 42.dp)) {
                         latest?.feeling?.let { FeelingBadge(it) }
                             ?: Text(
-                                "thoughts",
+                                "Thoughts",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -164,7 +164,7 @@ fun GameJournal(
                 }
                 AeroIconButton(
                     AeroSymbol.EDIT,
-                    "edit thoughts and extras",
+                    "Edit thoughts and extras",
                     { onEdit(latest ?: Playthrough(finishedAt = null)) },
                     Modifier.align(Alignment.TopEnd).padding(top = 5.dp, end = 8.dp),
                     compact = true,
@@ -173,7 +173,7 @@ fun GameJournal(
         }
         if (game.playthroughs.size > 1) {
             AeroButton(onClick = { showHistory = !showHistory }) {
-                Text(if (showHistory) "hide earlier playthroughs" else "earlier playthroughs")
+                Text(if (showHistory) "Hide earlier playthroughs" else "Earlier playthroughs")
             }
             if (showHistory)
                 game.playthroughs.dropLast(1).asReversed().forEach { entry ->
@@ -198,7 +198,7 @@ fun GameJournal(
                                 } ?: Spacer(Modifier.weight(1f))
                                 AeroIconButton(
                                     AeroSymbol.EDIT,
-                                    "edit earlier playthrough",
+                                    "Edit earlier playthrough",
                                     { onEdit(entry) },
                                     compact = true,
                                 )
@@ -213,18 +213,18 @@ fun GameJournal(
         }
         if (game.place == Place.ACTIVE) {
             AeroButton(onClick = onCurrentGame, modifier = Modifier.fillMaxWidth()) {
-                Text("open current game")
+                Text("Open current game")
             }
         } else {
             PinkButton(onClick = { onReplay(true) }, modifier = Modifier.fillMaxWidth()) {
                 AeroIcon(AeroSymbol.REPLAY, Modifier.size(18.dp))
                 Spacer(Modifier.width(9.dp))
-                Text("replay now")
+                Text("Replay now")
             }
             AeroButton(onClick = { onReplay(false) }, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    if (game.shelf == Shelf.PLAY_THROUGH) "queue a replay"
-                    else "send to ${game.shelf.label}"
+                    if (game.shelf == Shelf.PLAY_THROUGH) "Queue a replay"
+                    else "Send to ${game.shelf.label.lowercase()}"
                 )
             }
         }
@@ -256,12 +256,12 @@ fun PlaythroughEditor(
     var error by remember { mutableStateOf<String?>(null) }
     AeroDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isNew) "finished ${game.title}?" else "thoughts & details") },
+        title = { Text(if (isNew) "Finished ${game.title}?" else "Thoughts & details") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (isNew)
                     Text("Leave a thought if you'd like. Your earlier playthroughs stay saved.")
-                Text("how did it feel?", style = MaterialTheme.typography.labelLarge)
+                Text("How did it feel?", style = MaterialTheme.typography.labelLarge)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -277,7 +277,7 @@ fun PlaythroughEditor(
                 AeroTextField(
                     thoughts,
                     { thoughts = it },
-                    label = "thoughts (optional)",
+                    label = "Thoughts (optional)",
                     minLines = 2,
                     maxLines = 5,
                     modifier = Modifier.fillMaxWidth(),
@@ -286,24 +286,24 @@ fun PlaythroughEditor(
                     AeroButton(
                         onClick = { showExtras = true },
                         modifier =
-                            Modifier.semantics { contentDescription = "add optional details" },
+                            Modifier.semantics { contentDescription = "Add optional details" },
                     ) {
                         AeroIcon(AeroSymbol.EDIT, Modifier.size(16.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("optional details")
+                        Text("Optional details")
                     }
                 if (showExtras) {
                     AeroTextField(
                         hours,
                         { hours = it },
-                        label = "hours for this playthrough (optional)",
+                        label = "Hours for this playthrough (optional)",
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     AeroTextField(
                         replays,
                         { replays = it },
-                        label = "replays overall (optional)",
+                        label = "Replays overall (optional)",
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -340,9 +340,9 @@ fun PlaythroughEditor(
                     }
                 }
             ) {
-                Text(if (isNew) "finish & save" else "save")
+                Text(if (isNew) "Finish & save" else "Save")
             }
         },
-        dismissButton = { QuietAction(onClick = onDismiss) { Text("cancel") } },
+        dismissButton = { QuietAction(onClick = onDismiss) { Text("Cancel") } },
     )
 }

@@ -27,7 +27,7 @@ fun WelcomeScreen(onDone: (Set<String>) -> Unit) {
         Image(painterResource(R.drawable.icon_handheld), null, Modifier.size(84.dp))
         Glass(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("what do you play on?", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                Text("What do you play on?", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
                 Text(
                     "Choose as many as you like. You can change this any time in settings.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -38,7 +38,7 @@ fun WelcomeScreen(onDone: (Set<String>) -> Unit) {
                     enabled = chosen.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("continue")
+                    Text("Continue")
                 }
             }
         }

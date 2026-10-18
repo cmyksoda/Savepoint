@@ -54,7 +54,7 @@ fun PokemonPicker(catalog: PokemonCatalog, artwork: Artwork, onChoose: (PokemonC
         Text("Choose a Pokémon first, then its game.", style = MaterialTheme.typography.bodySmall)
         error?.let {
             Text(it)
-            AeroButton(onClick = { attempt++ }) { Text("try again") }
+            AeroButton(onClick = { attempt++ }) { Text("Try again") }
         }
         if (all.isEmpty() && error == null) CircularProgressIndicator(Modifier.size(24.dp))
         LazyColumn(

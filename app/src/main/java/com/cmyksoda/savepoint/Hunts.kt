@@ -123,8 +123,8 @@ fun HuntStatistics(game: Game) {
         val chance = if (stats.chance >= .9999) "≥99.99%" else "${formatHours(stats.chance * 100)}%"
         listOf(
                 listOf(
-                    "chance at these settings" to chance,
-                    "times over odds" to "${formatHours(stats.oddsMultiples)}×",
+                    "Chance at these settings" to chance,
+                    "Times over odds" to "${formatHours(stats.oddsMultiples)}×",
                 ),
                 listOf(
                     "50% chance at" to NumberFormat.getIntegerInstance().format(stats.encounters50),

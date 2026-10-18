@@ -49,7 +49,7 @@ class CatalogSourcesTest {
                 image("elsewhere", "Kururin Paradise - Box - Front Image", host = "example.org")
         val covers = parseLaunchBoxCovers(html)
         assertEquals(
-            listOf("North America", "Japan", "reconstructed", "fan art", "fan art · Japan"),
+            listOf("North America", "Japan", "Reconstructed", "Fan art", "Fan art · Japan"),
             covers.map { it.label },
         )
         assertTrue(covers.all { it.provider == "LaunchBox" && "launchbox-app.com" in it.url })

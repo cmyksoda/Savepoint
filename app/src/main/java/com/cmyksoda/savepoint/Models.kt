@@ -3,11 +3,11 @@ package com.cmyksoda.savepoint
 import java.util.UUID
 
 enum class Shelf(val label: String) {
-    PLAY_THROUGH("play through"),
-    KEEP_PLAYING("keep playing"),
-    EASY("take it easy"),
-    FRIENDS("with friends"),
-    HUNTS("shiny hunts"),
+    PLAY_THROUGH("Play through"),
+    KEEP_PLAYING("Keep playing"),
+    EASY("Take it easy"),
+    FRIENDS("With friends"),
+    HUNTS("Shiny hunts"),
 }
 
 enum class Place {
@@ -105,10 +105,10 @@ val systemFamilies =
             "Sega",
             listOf("Master System", "Genesis", "Sega CD", "Sega Saturn", "Dreamcast", "Game Gear"),
         ),
-        SystemFamily("mobile", "mobile", listOf("iOS", "Android")),
+        SystemFamily("mobile", "Mobile", listOf("iOS", "Android")),
         SystemFamily(
             "retro",
-            "other retro",
+            "Other retro",
             listOf(
                 "Atari 2600",
                 "Atari 7800",
@@ -134,9 +134,9 @@ fun playableSystems(platforms: Set<String>, keep: Collection<String> = emptyList
     systems.filter { it == "Other" || systemFamily(it) in platforms || it in keep }
 
 enum class Feeling(val label: String) {
-    DIDNT_LIKE("didn't like"),
-    LIKED("liked"),
-    LOVED("loved"),
+    DIDNT_LIKE("Didn't like"),
+    LIKED("Liked"),
+    LOVED("Loved"),
 }
 
 data class Playthrough(
@@ -287,14 +287,14 @@ fun increasedEncounterCount(current: Long, amount: Long): Long {
 }
 
 enum class LibrarySort(val label: String) {
-    ADDED_NEW("date added · newest"),
-    ADDED_OLD("date added · oldest"),
-    RELEASE_NEW("release date · newest"),
-    RELEASE_OLD("release date · oldest"),
-    AZ("title · A–Z"),
-    ZA("title · Z–A"),
-    SYSTEM("system"),
-    COLLECTION("collection order"),
+    ADDED_NEW("Date added · newest"),
+    ADDED_OLD("Date added · oldest"),
+    RELEASE_NEW("Release date · newest"),
+    RELEASE_OLD("Release date · oldest"),
+    AZ("Title · A–Z"),
+    ZA("Title · Z–A"),
+    SYSTEM("System"),
+    COLLECTION("Collection order"),
 }
 
 fun sortedLibrary(games: List<Game>, sort: LibrarySort): List<Game> =

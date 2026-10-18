@@ -115,7 +115,7 @@ private fun PlayingNow(game: Game?, cover: Bitmap?) {
         }
         Column(GlanceModifier.defaultWeight().fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (game == null) "nothing playing yet" else "playing now",
+                if (game == null) "Nothing playing yet" else "Playing now",
                 style = TextStyle(color = berry, fontSize = 12.sp, fontWeight = FontWeight.Medium),
             )
             Spacer(GlanceModifier.height(2.dp))
@@ -139,7 +139,7 @@ private fun PlayingNow(game: Game?, cover: Bitmap?) {
                     .clickable(openSavepoint(context, logPlay = game != null)),
             ) {
                 Text(
-                    if (game == null) "open savepoint" else "log play",
+                    if (game == null) "Open Savepoint" else "Log play",
                     style =
                         TextStyle(
                             color = ColorProvider(day = Color.White, night = Color.White),

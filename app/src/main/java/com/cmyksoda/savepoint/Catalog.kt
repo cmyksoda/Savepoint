@@ -363,12 +363,12 @@ class Catalog(private val context: Context) {
                     listOf("library_600x900_2x.jpg", "library_600x900.jpg")
                         .map { steamArt(id, it) }
                         .firstOrNull { runCatching { imageAvailable(it) }.getOrDefault(false) }
-                        ?.let { listOf(CoverCandidate(it, "Steam", "library art")) } ?: emptyList()
+                        ?.let { listOf(CoverCandidate(it, "Steam", "Library art")) } ?: emptyList()
                 }
                 "App Store" ->
                     appStoreSearch(game.title, game.system)
                         .filter { catalogTitleKey(it.title) == key && it.cover.isNotBlank() }
-                        .map { CoverCandidate(it.cover, "App Store", "app icon") }
+                        .map { CoverCandidate(it.cover, "App Store", "App icon") }
                         .distinctBy { it.url }
                 else -> emptyList()
             }

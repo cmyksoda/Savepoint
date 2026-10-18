@@ -25,9 +25,9 @@ fun groupCatalogResults(games: List<Game>): List<CatalogResult> =
                             it.cover,
                             provider,
                             when (provider) {
-                                "Steam" -> "library art"
-                                "App Store" -> "app icon"
-                                else -> "front cover"
+                                "Steam" -> "Library art"
+                                "App Store" -> "App icon"
+                                else -> "Front cover"
                             },
                         )
                     }

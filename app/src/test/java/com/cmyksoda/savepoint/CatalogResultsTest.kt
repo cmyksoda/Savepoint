@@ -24,7 +24,7 @@ class CatalogResultsTest {
             )
         val result = groupCatalogResults(listOf(steam, launchBox)).single()
         assertEquals(launchBox, result.game)
-        assertEquals(listOf(CoverCandidate(steamArt("367520"), "Steam", "library art")), result.covers)
+        assertEquals(listOf(CoverCandidate(steamArt("367520"), "Steam", "Library art")), result.covers)
     }
 
     @Test

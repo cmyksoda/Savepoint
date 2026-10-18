@@ -179,7 +179,7 @@ fun CollectionsScreen(
                     creating = true
                 }
             ) {
-                Text("new collection")
+                Text("New collection")
             }
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -218,7 +218,7 @@ fun CollectionsScreen(
                 Text(selected, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
                 AeroIconButton(
                     AeroSymbol.EDIT,
-                    "rename collection",
+                    "Rename collection",
                     {
                         name = selected
                         renameError = null
@@ -238,7 +238,7 @@ fun CollectionsScreen(
                         picking = true
                     }
                 ) {
-                    Text("choose games")
+                    Text("Choose games")
                 }
             }
             LazyColumn(
@@ -262,7 +262,7 @@ fun CollectionsScreen(
                         extra = {
                             AeroIconButton(
                                 AeroSymbol.REMOVE,
-                                "remove ${game.title} from collection",
+                                "Remove ${game.title} from collection",
                                 {
                                     onMembers(
                                         selected,
@@ -281,12 +281,12 @@ fun CollectionsScreen(
     if (creating)
         AeroDialog(
             onDismissRequest = { creating = false },
-            title = { Text("new collection") },
+            title = { Text("New collection") },
             text = {
                 AeroTextField(
                     name,
                     { name = it },
-                    label = "collection name",
+                    label = "Collection name",
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -302,15 +302,15 @@ fun CollectionsScreen(
                     },
                     enabled = name.isNotBlank(),
                 ) {
-                    Text("create")
+                    Text("Create")
                 }
             },
-            dismissButton = { AeroButton(onClick = { creating = false }) { Text("cancel") } },
+            dismissButton = { AeroButton(onClick = { creating = false }) { Text("Cancel") } },
         )
     if (renaming)
         AeroDialog(
             onDismissRequest = { if (!renameBusy) renaming = false },
-            title = { Text("rename collection") },
+            title = { Text("Rename collection") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AeroTextField(
@@ -319,7 +319,7 @@ fun CollectionsScreen(
                             name = it
                             renameError = null
                         },
-                        label = "collection name",
+                        label = "Collection name",
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -340,23 +340,23 @@ fun CollectionsScreen(
                     },
                     enabled = name.isNotBlank() && !renameBusy,
                 ) {
-                    Text(if (renameBusy) "saving…" else "save")
+                    Text(if (renameBusy) "Saving…" else "Save")
                 }
             },
             dismissButton = {
-                AeroButton(onClick = { renaming = false }, enabled = !renameBusy) { Text("cancel") }
+                AeroButton(onClick = { renaming = false }, enabled = !renameBusy) { Text("Cancel") }
             },
         )
     if (picking)
         AeroDialog(
             onDismissRequest = { picking = false },
-            title = { Text("games in $selected") },
+            title = { Text("Games in $selected") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AeroTextField(
                         query,
                         { query = it },
-                        label = "find a game",
+                        label = "Find a game",
                         onSubmit = {
                             focus.clearFocus()
                             keyboard?.hide()
@@ -388,7 +388,7 @@ fun CollectionsScreen(
                                     Text(game.title)
                                     if (game.collection.isNotBlank() && game.collection != selected)
                                         Text(
-                                            "in ${game.collection}",
+                                            "In ${game.collection}",
                                             style = MaterialTheme.typography.bodySmall,
                                         )
                                 }
@@ -404,10 +404,10 @@ fun CollectionsScreen(
                         picking = false
                     }
                 ) {
-                    Text("save collection")
+                    Text("Save collection")
                 }
             },
-            dismissButton = { AeroButton(onClick = { picking = false }) { Text("cancel") } },
+            dismissButton = { AeroButton(onClick = { picking = false }) { Text("Cancel") } },
         )
 }
 
@@ -443,7 +443,7 @@ fun FindGames(
         AeroTextField(
             query,
             { query = it },
-            label = "search your games",
+            label = "Search your games",
             onSubmit = {
                 focus.clearFocus()
                 keyboard?.hide()
@@ -459,7 +459,7 @@ fun FindGames(
                 onCollections()
             }
         ) {
-            Text("manage collections")
+            Text("Manage collections")
         }
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -486,7 +486,7 @@ fun FindGames(
                             Text(
                                 when (game.place) {
                                     Place.ACTIVE -> game.shelf.label
-                                    Place.FINISHED -> "finished games"
+                                    Place.FINISHED -> "Finished games"
                                     else -> game.place.name.lowercase()
                                 },
                                 style = MaterialTheme.typography.bodySmall,

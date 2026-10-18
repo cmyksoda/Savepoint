@@ -178,14 +178,14 @@ fun ArrangeCard(
                     AeroButton(onClick = { onMove(-1) }, enabled = canMoveUp) {
                         AeroIcon(AeroSymbol.UP, Modifier.size(14.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("move up", maxLines = 1)
+                        Text("Move up", maxLines = 1)
                     }
                 }
                 Box(Modifier.weight(1f).fillMaxHeight(), propagateMinConstraints = true) {
                     AeroButton(onClick = { onMove(1) }, enabled = canMoveDown) {
                         AeroIcon(AeroSymbol.DOWN, Modifier.size(14.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("move down", maxLines = 1)
+                        Text("Move down", maxLines = 1)
                     }
                 }
                 extra?.invoke()

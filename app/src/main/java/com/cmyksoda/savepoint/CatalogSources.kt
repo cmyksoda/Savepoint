@@ -136,14 +136,14 @@ fun parseLaunchBoxCovers(html: String): List<CoverCandidate> =
             val label = htmlText(match.groupValues[2])
             val (rank, kind) =
                 when {
-                    " - Fanart - Box - Front Image" in label -> 3 to "fan art"
-                    " - Box - Front - Reconstructed Image" in label -> 2 to "reconstructed"
+                    " - Fanart - Box - Front Image" in label -> 3 to "Fan art"
+                    " - Box - Front - Reconstructed Image" in label -> 2 to "Reconstructed"
                     " - Box - Front Image" in label -> 1 to null
                     else -> return@mapNotNull null
                 }
             val region = Regex("\\(([^()]*)\\)$").find(label)?.groupValues?.get(1)
             val order = if (rank == 1 && region in setOf(null, "North America", "United States")) 0 else rank
-            order to CoverCandidate(url, "LaunchBox", listOfNotNull(kind, region).joinToString(" · ").ifBlank { "front cover" })
+            order to CoverCandidate(url, "LaunchBox", listOfNotNull(kind, region).joinToString(" · ").ifBlank { "Front cover" })
         }
         .distinctBy { it.second.url }
         .sortedBy { it.first }

@@ -106,7 +106,7 @@ fun CoverSelection(
             Text(game.title, style = MaterialTheme.typography.titleLarge)
             Text(game.system, style = MaterialTheme.typography.bodySmall)
             Text(
-                "choose a cover",
+                "Choose a cover",
                 Modifier.padding(top = 12.dp),
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -119,13 +119,13 @@ fun CoverSelection(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Text(
-                            "current cover · ${coverProvider(game)}",
+                            "Current cover · ${coverProvider(game)}",
                             style = MaterialTheme.typography.labelLarge,
                         )
                         Art(
                             game.cover,
                             artwork,
-                            "current cover",
+                            "Current cover",
                             showPlaceholderTitle = false,
                             reserveHeight = false,
                             system = game.system,
@@ -164,14 +164,14 @@ fun CoverSelection(
                                             Art(
                                                 cover.url,
                                                 artwork,
-                                                "choose $provider cover: ${cover.label}",
+                                                "Choose $provider cover: ${cover.label}",
                                                 showPlaceholderTitle = false,
                                                 system = game.system,
                                                 coverBounds = CoverSize(116f, 146f),
                                             )
                                             val current = existing && cover.url == game.cover
                                             Text(
-                                                if (current) "current cover" else cover.label,
+                                                if (current) "Current cover" else cover.label,
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color =
                                                     if (current) MaterialTheme.colorScheme.primary
@@ -205,25 +205,25 @@ fun CoverSelection(
                     enabled = loading.isEmpty(),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(if (loading.isEmpty()) "retry cover search" else "finding covers…")
+                    Text(if (loading.isEmpty()) "Retry cover search" else "Finding covers…")
                 }
                 AeroButton(
                     onClick = { picker.launch("image/*") },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("choose image from phone")
+                    Text("Choose image from phone")
                 }
                 AeroButton(
                     onClick = {
                         onPick(
                             if (existing && game.cover.isNotBlank())
-                                CoverCandidate(game.cover, coverProvider(game), "current cover")
+                                CoverCandidate(game.cover, coverProvider(game), "Current cover")
                             else null
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(if (existing) "keep current cover" else "add without a cover")
+                    Text(if (existing) "Keep current cover" else "Add without a cover")
                 }
             }
         }

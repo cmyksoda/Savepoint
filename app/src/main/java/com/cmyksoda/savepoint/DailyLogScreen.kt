@@ -120,7 +120,7 @@ fun DailyLogScreen(
                             MaterialTheme.colorScheme.primary,
                         )
                         Text(
-                            if (streak > 0) "$streak day streak" else "your days of play",
+                            if (streak > 0) "$streak day streak" else "Your days of play",
                             fontWeight = FontWeight.Medium,
                             fontSize = 16.sp,
                         )
@@ -135,7 +135,7 @@ fun DailyLogScreen(
                 AeroButton(onClick = onFinished) {
                     AeroIcon(AeroSymbol.LOG, Modifier.size(16.dp))
                     Spacer(Modifier.width(7.dp))
-                    Text("finished", fontSize = 13.sp)
+                    Text("Finished", fontSize = 13.sp)
                 }
             }
         }
@@ -153,7 +153,7 @@ fun DailyLogScreen(
                         )
                         AeroIconButton(
                             AeroSymbol.CLOSE,
-                            "dismiss celebration",
+                            "Dismiss celebration",
                             onDismissCelebration,
                             compact = true,
                         )
@@ -166,7 +166,7 @@ fun DailyLogScreen(
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         AeroIconButton(
                             AeroSymbol.PREVIOUS,
-                            "previous month",
+                            "Previous month",
                             {
                                 feedback(false)
                                 monthText = month.minusMonths(1).toString()
@@ -179,7 +179,7 @@ fun DailyLogScreen(
                                 .clip(RoundedCornerShape(10.dp))
                                 .clickable(role = Role.Button, onClick = ::pickDate)
                                 .padding(vertical = 13.dp)
-                                .semantics { contentDescription = "choose a date" },
+                                .semantics { contentDescription = "Choose a date" },
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Medium,
                             textAlign = TextAlign.Center,
@@ -187,7 +187,7 @@ fun DailyLogScreen(
                         if (month < YearMonth.from(today))
                             AeroIconButton(
                                 AeroSymbol.NEXT,
-                                "next month",
+                                "Next month",
                                 {
                                     feedback(false)
                                     monthText = month.plusMonths(1).toString()
@@ -298,7 +298,7 @@ fun DailyLogScreen(
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        if (date == today) "today"
+                        if (date == today) "Today"
                         else date.format(DateTimeFormatter.ofPattern("MMMM d")),
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Medium,
@@ -316,7 +316,7 @@ fun DailyLogScreen(
                 if (date != today)
                     AeroIconButton(
                         AeroSymbol.CLOCK,
-                        "back to today",
+                        "Back to today",
                         {
                             monthText = YearMonth.from(today).toString()
                             selectDate(today)
@@ -327,7 +327,7 @@ fun DailyLogScreen(
                     PinkButton(onClick = ::openLog) {
                         AeroIcon(AeroSymbol.EDIT, Modifier.size(15.dp))
                         Spacer(Modifier.width(7.dp))
-                        Text("edit day", fontSize = 13.sp)
+                        Text("Edit day", fontSize = 13.sp)
                     }
             }
         }
@@ -347,7 +347,7 @@ fun DailyLogScreen(
                         PinkButton(onClick = ::openLog, modifier = Modifier.fillMaxWidth()) {
                             AeroIcon(AeroSymbol.ADD, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("log what I played")
+                            Text("Log what I played")
                         }
                     }
                 }
@@ -449,7 +449,7 @@ fun DailyPlayEditor(
         ) {
             item {
                 Text(
-                    if (date == today) "what did you play today?" else "what did you play?",
+                    if (date == today) "What did you play today?" else "What did you play?",
                     fontSize = 21.sp,
                     fontWeight = FontWeight.Medium,
                 )
@@ -464,7 +464,7 @@ fun DailyPlayEditor(
                 AeroTextField(
                     query,
                     { query = it },
-                    label = "find a game",
+                    label = "Find a game",
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     onSubmit = {
@@ -498,7 +498,7 @@ fun DailyPlayEditor(
                                 chosen = if (checked) chosen + game.id else chosen - game.id
                             }
                             .semantics {
-                                contentDescription = "log ${game.title}"
+                                contentDescription = "Log ${game.title}"
                                 this.selected = selected
                             }
                             .padding(12.dp),
@@ -538,7 +538,7 @@ fun DailyPlayEditor(
                         if (selected)
                             AeroIconButton(
                                 AeroSymbol.EDIT,
-                                "add time for ${game.title}",
+                                "Add time for ${game.title}",
                                 { editingTime = game.id },
                                 compact = true,
                             )
@@ -551,7 +551,7 @@ fun DailyPlayEditor(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AeroButton(onClick = onCancel, enabled = !busy) { Text("cancel") }
+            AeroButton(onClick = onCancel, enabled = !busy) { Text("Cancel") }
             PinkButton(
                 onClick = {
                     focus.clearFocus()
@@ -563,9 +563,9 @@ fun DailyPlayEditor(
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
-                    if (busy) "saving…"
-                    else if (chosen.isEmpty()) "save changes"
-                    else "save ${if (chosen.size == 1) "day" else "${chosen.size} games"}"
+                    if (busy) "Saving…"
+                    else if (chosen.isEmpty()) "Save changes"
+                    else "Save ${if (chosen.size == 1) "day" else "${chosen.size} games"}"
                 )
             }
         }
@@ -599,7 +599,7 @@ private fun DurationEditor(
     var error by remember { mutableStateOf<String?>(null) }
     AeroDialog(
         onDismissRequest = onDismiss,
-        title = { Text("time played") },
+        title = { Text("Time played") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(title, fontWeight = FontWeight.Medium)
@@ -607,7 +607,7 @@ private fun DurationEditor(
                     AeroTextField(
                         hours,
                         { hours = it },
-                        label = "hours",
+                        label = "Hours",
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         keyboardType = KeyboardType.Number,
@@ -615,13 +615,13 @@ private fun DurationEditor(
                     AeroTextField(
                         minutes,
                         { minutes = it },
-                        label = "minutes",
+                        label = "Minutes",
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         keyboardType = KeyboardType.Number,
                     )
                 }
-                if (initial != null) AeroButton(onClick = { onSave(null) }) { Text("clear time") }
+                if (initial != null) AeroButton(onClick = { onSave(null) }) { Text("Clear time") }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
@@ -637,9 +637,9 @@ private fun DurationEditor(
                     }
                 }
             ) {
-                Text("save")
+                Text("Save")
             }
         },
-        dismissButton = { AeroButton(onClick = onDismiss) { Text("cancel") } },
+        dismissButton = { AeroButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

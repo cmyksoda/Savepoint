@@ -27,12 +27,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 enum class ShelfStyle(val key: String, val label: String) {
-    LEDGE("ledge", "glass ledge"),
-    DOUGH("dough", "doughy plank"),
-    LIP("lip", "glass lip"),
-    MIRROR("mirror", "mirror glass"),
-    TRAY("tray", "glass tray"),
-    GLOW("glow", "light pool"),
+    LEDGE("ledge", "Glass ledge"),
+    DOUGH("dough", "Doughy plank"),
+    LIP("lip", "Glass lip"),
+    MIRROR("mirror", "Mirror glass"),
+    TRAY("tray", "Glass tray"),
+    GLOW("glow", "Light pool"),
 }
 
 fun shelfStyle(key: String): ShelfStyle =
@@ -73,7 +73,7 @@ fun ShelfSection(
             )
             AeroIconButton(
                 AeroSymbol.NEXT,
-                "edit ${shelf.label} shelf",
+                "Edit ${shelf.label.lowercase()} shelf",
                 { onEditShelf(shelf) },
                 compact = true,
             )

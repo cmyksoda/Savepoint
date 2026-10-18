@@ -107,15 +107,15 @@ fun HuntModifiers(
     ) {
         Glass(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("hunt settings", style = MaterialTheme.typography.titleSmall)
+                Text("Hunt settings", style = MaterialTheme.typography.titleSmall)
                 if (showCharm)
-                    HuntToggle("shiny charm", charm) { checked ->
+                    HuntToggle("Shiny charm", charm) { checked ->
                         if (research && config.research == 0)
                             onConfig(config.copy(research = 1))
                         onCharm(checked)
                     }
                 if (research) {
-                    val researchNames = listOf("not complete", "research level 10", "perfect entry")
+                    val researchNames = listOf("Not complete", "Research level 10", "Perfect entry")
                     Choice(
                         "Pokédex research · this Pokémon",
                         researchNames[maxOf(config.research, if (charm) 1 else 0)],
@@ -128,11 +128,11 @@ fun HuntModifiers(
                     if (chain)
                         HuntNumber(
                             when (method) {
-                                "Catch combo" -> "catch combo"
-                                "Chain fishing" -> "consecutive hooks"
-                                "Mass outbreaks" -> "caught or defeated in this outbreak"
-                                "DexNav" -> "chain · already caught or defeated"
-                                else -> "chain length"
+                                "Catch combo" -> "Catch combo"
+                                "Chain fishing" -> "Consecutive hooks"
+                                "Mass outbreaks" -> "Caught or defeated in this outbreak"
+                                "DexNav" -> "Chain · already caught or defeated"
+                                else -> "Chain length"
                             },
                             config.chain,
                         ) {
@@ -143,7 +143,7 @@ fun HuntModifiers(
                             onConfig(config.copy(searchLevel = it))
                         }
                     if (method == "Brilliant encounters")
-                        HuntNumber("number battled · Pokédex value", config.battled) {
+                        HuntNumber("Number battled · Pokédex value", config.battled) {
                             onConfig(config.copy(battled = it))
                         }
                 }
@@ -151,24 +151,24 @@ fun HuntModifiers(
                     Choice(
                         if (family == "legends-z-a") "Sparkling Power · donut"
                         else "Sparkling Power · meal",
-                        listOf("none", "level 1", "level 2", "level 3")[config.sparklingPower],
-                        listOf("none", "level 1", "level 2", "level 3"),
+                        listOf("None", "Level 1", "Level 2", "Level 3")[config.sparklingPower],
+                        listOf("None", "Level 1", "Level 2", "Level 3"),
                     ) {
                         onConfig(
                             config.copy(
                                 sparklingPower =
-                                    listOf("none", "level 1", "level 2", "level 3").indexOf(it)
+                                    listOf("None", "Level 1", "Level 2", "Level 3").indexOf(it)
                             )
                         )
                     }
                 if (family == "lets-go" && method in setOf("Random encounters", "Catch combo"))
-                    HuntToggle("lure active", config.lure) { onConfig(config.copy(lure = it)) }
+                    HuntToggle("Lure active", config.lure) { onConfig(config.copy(lure = it)) }
                 if (method == "Grand Underground")
                     HuntToggle("40-Diglett bonus active", config.diglett) {
                         onConfig(config.copy(diglett = it))
                     }
                 if (family == "x-y" && method == "Poké Radar")
-                    HuntToggle("upbeat Radar music", config.radarMusic) {
+                    HuntToggle("Upbeat Radar music", config.radarMusic) {
                         onConfig(config.copy(radarMusic = it))
                     }
                 note?.let {
@@ -189,12 +189,12 @@ fun HuntOddsPreview(game: Game) {
     Glass(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(
-                "shiny odds",
+                "Shiny odds",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                odds.first?.let { "1 in ${formatHuntOdds(it)}" } ?: "custom odds needed",
+                odds.first?.let { "1 in ${formatHuntOdds(it)}" } ?: "Custom odds needed",
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(odds.second, style = MaterialTheme.typography.bodySmall)

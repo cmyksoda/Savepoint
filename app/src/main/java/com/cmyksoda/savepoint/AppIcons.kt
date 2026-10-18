@@ -24,10 +24,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 
 enum class AppIcon(val alias: String, val label: String, val background: Int, val foreground: Int) {
-    MIDNIGHT("MainActivity", "midnight", R.drawable.icon_background_midnight, R.drawable.icon_handheld_midnight),
-    LAVENDER("IconLavender", "lavender", R.drawable.icon_background_lavender, R.drawable.icon_handheld_lavender),
-    BLUSH("IconBlush", "blush", R.drawable.icon_background_blush, R.drawable.icon_handheld_blush),
-    BERRY("IconBerry", "berry", R.drawable.icon_background_berry, R.drawable.icon_handheld_berry),
+    MIDNIGHT("MainActivity", "Midnight", R.drawable.icon_background_midnight, R.drawable.icon_handheld_midnight),
+    LAVENDER("IconLavender", "Lavender", R.drawable.icon_background_lavender, R.drawable.icon_handheld_lavender),
+    BLUSH("IconBlush", "Blush", R.drawable.icon_background_blush, R.drawable.icon_handheld_blush),
+    BERRY("IconBerry", "Berry", R.drawable.icon_background_berry, R.drawable.icon_handheld_berry),
 }
 
 private fun component(context: Context, icon: AppIcon) =

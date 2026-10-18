@@ -30,7 +30,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
-        <receiver android:name=".SavepointWidgetReceiver" android:exported="true" android:label="playing now">
+        <receiver android:name=".SavepointWidgetReceiver" android:exported="true" android:label="Playing now">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

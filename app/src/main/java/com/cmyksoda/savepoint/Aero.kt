@@ -1283,10 +1283,10 @@ fun AeroDock(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             listOf(
-                    Triple("home", "shelves", AeroSymbol.SHELVES),
-                    Triple("backlog", "backlog", AeroSymbol.BACKLOG),
-                    Triple("paused", "paused", AeroSymbol.PAUSE),
-                    Triple("log", "play log", AeroSymbol.CALENDAR),
+                    Triple("home", "Shelves", AeroSymbol.SHELVES),
+                    Triple("backlog", "Backlog", AeroSymbol.BACKLOG),
+                    Triple("paused", "Paused", AeroSymbol.PAUSE),
+                    Triple("log", "Play log", AeroSymbol.CALENDAR),
                 )
                 .forEach { (destination, label, icon) ->
                     val active = route == destination
@@ -1343,7 +1343,7 @@ fun AeroDock(
                         feedback(true)
                         onAdd()
                     }
-                    .semantics { contentDescription = "+ add" }
+                    .semantics { contentDescription = "Add" }
                     .scale(addScale)
                     .clip(CircleShape)
                     .glassMaterial(dark, 24)
@@ -1506,7 +1506,7 @@ fun GameIdentity(
             )
             if (showShelf && !hunt)
                 Text(
-                    if (playingNow) "playing now · ${game.shelf.label}" else game.shelf.label,
+                    if (playingNow) "Playing now · ${game.shelf.label}" else game.shelf.label,
                     style = MaterialTheme.typography.bodySmall,
                     color =
                         if (playingNow) MaterialTheme.colorScheme.primary
@@ -1535,7 +1535,7 @@ fun GameIdentity(
             )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    if (game.shelf == Shelf.HUNTS) game.pokemon.ifBlank { "shiny hunt" }
+                    if (game.shelf == Shelf.HUNTS) game.pokemon.ifBlank { "Shiny hunt" }
                     else game.title,
                     fontSize = 19.sp,
                     lineHeight = 24.sp,

@@ -248,7 +248,7 @@ fun GameCover(
                 describe = false,
             )
             Text(
-                displayPokemonName(game.pokemon).ifBlank { "shiny hunt" },
+                displayPokemonName(game.pokemon).ifBlank { "Shiny hunt" },
                 fontSize = 12.sp,
                 lineHeight = 15.sp,
                 maxLines = 1,
@@ -298,7 +298,7 @@ fun GameCover(
                     shape = RoundedCornerShape(12.dp),
                 ) {
                     Text(
-                        "playing now",
+                        "Playing now",
                         color = Color.White,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
@@ -332,15 +332,15 @@ fun Home(
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         Text(
-                            "a place for your games",
+                            "A place for your games",
                             fontSize = 22.sp,
                             fontFamily = FontFamily.SansSerif,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text("Bring a few games onto your shelves. The rest can stay tucked away.")
-                        PinkButton(onClick = onAdd) { Text("add a game") }
+                        PinkButton(onClick = onAdd) { Text("Add a game") }
                         if (games.isEmpty())
-                            AeroButton(onClick = onRestore) { Text("restore a backup") }
+                            AeroButton(onClick = onRestore) { Text("Restore a backup") }
                     }
                 }
             }
@@ -395,7 +395,7 @@ fun LibraryList(
         else "No games here yet.",
         controls = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Choice("sort", settings.sort.label, LibrarySort.entries.map { it.label }) { value ->
+                Choice("Sort", settings.sort.label, LibrarySort.entries.map { it.label }) { value ->
                     onSettings(
                         settings.copy(sort = LibrarySort.entries.first { it.label == value })
                     )
@@ -404,26 +404,26 @@ fun LibraryList(
                     Column(Modifier.weight(1f)) {
                         val present = games.filter { it.place == place }.map { it.system }.toSet()
                         Choice(
-                            "system",
-                            settings.systemFilter.ifBlank { "all systems" },
-                            listOf("all systems") +
+                            "System",
+                            settings.systemFilter.ifBlank { "All systems" },
+                            listOf("All systems") +
                                 systems.filter { it in present || it == settings.systemFilter },
                         ) {
                             onSettings(
-                                settings.copy(systemFilter = if (it == "all systems") "" else it)
+                                settings.copy(systemFilter = if (it == "All systems") "" else it)
                             )
                         }
                     }
                     Column(Modifier.weight(1f)) {
                         Choice(
-                            "collection",
-                            settings.collectionFilter.ifBlank { "all collections" },
-                            listOf("all collections") + collections,
-                            menuAction = "manage collections" to onCollections,
+                            "Collection",
+                            settings.collectionFilter.ifBlank { "All collections" },
+                            listOf("All collections") + collections,
+                            menuAction = "Manage collections" to onCollections,
                         ) {
                             onSettings(
                                 settings.copy(
-                                    collectionFilter = if (it == "all collections") "" else it
+                                    collectionFilter = if (it == "All collections") "" else it
                                 )
                             )
                         }
@@ -477,14 +477,14 @@ fun ShelfEditor(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 PinkButton(onClick = onAdd) {
-                    Text(if (shelf == Shelf.HUNTS) "add a hunt" else "add a game")
+                    Text(if (shelf == Shelf.HUNTS) "Add a hunt" else "Add a game")
                 }
                 if (shelf != Shelf.HUNTS)
-                    AeroButton(onClick = onChooseBacklog) { Text("from backlog") }
+                    AeroButton(onClick = onChooseBacklog) { Text("From backlog") }
             }
         }
         items(row, key = { it.id }) { game ->
-            val name = displayPokemonName(game.pokemon).ifBlank { "shiny hunt" }
+            val name = displayPokemonName(game.pokemon).ifBlank { "Shiny hunt" }
             ArrangeCard(
                 Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f)),
                 canMoveUp = row.first().id != game.id,
@@ -497,7 +497,7 @@ fun ShelfEditor(
                         {
                             AeroIconButton(
                                 AeroSymbol.BACKLOG,
-                                "send ${game.title} to backlog",
+                                "Send ${game.title} to backlog",
                                 { onBacklog(game.id) },
                             )
                         }
@@ -535,7 +535,7 @@ fun ShelfEditor(
                     GameArrangeIdentity(
                         game,
                         artwork,
-                        if (shelf == Shelf.PLAY_THROUGH && row.first().id == game.id) "playing now"
+                        if (shelf == Shelf.PLAY_THROUGH && row.first().id == game.id) "Playing now"
                         else null,
                     )
             }
@@ -574,7 +574,7 @@ fun GameDetails(
         if (game.shelf != Shelf.HUNTS && game.pauseNote.isNotBlank())
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("for when you return", fontWeight = FontWeight.SemiBold)
+                    Text("For when you return", fontWeight = FontWeight.SemiBold)
                     Text(game.pauseNote)
                 }
             }
@@ -582,7 +582,7 @@ fun GameDetails(
             AeroButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
                 AeroIcon(AeroSymbol.EDIT, Modifier.size(17.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("edit hunt")
+                Text("Edit hunt")
             }
         else {
             AeroActionRow(
@@ -590,14 +590,14 @@ fun GameDetails(
                     AeroButton(onClick = onNotes) {
                         AeroIcon(AeroSymbol.LOG, Modifier.size(17.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("notes")
+                        Text("Notes")
                     }
                 },
                 second = {
                     AeroButton(onClick = onEdit) {
                         AeroIcon(AeroSymbol.EDIT, Modifier.size(17.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("edit game")
+                        Text("Edit game")
                     }
                 },
             )
@@ -609,14 +609,14 @@ fun GameDetails(
                         AeroButton(onClick = onRelocate) {
                             AeroIcon(AeroSymbol.SHELVES, Modifier.size(17.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("move game")
+                            Text("Move game")
                         }
                     },
                     second = {
                         AeroButton(onClick = onPause) {
                             AeroIcon(AeroSymbol.PAUSE, Modifier.size(17.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("pause game")
+                            Text("Pause game")
                         }
                     },
                 )
@@ -624,12 +624,12 @@ fun GameDetails(
                 AeroButton(onClick = onRelocate, modifier = Modifier.fillMaxWidth()) {
                     AeroIcon(AeroSymbol.SHELVES, Modifier.size(17.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("move game")
+                    Text("Move game")
                 }
         }
         if (game.inPlayLog)
             AeroButton(onClick = onPlayLog, modifier = Modifier.fillMaxWidth()) {
-                Text("finished playthroughs")
+                Text("Finished playthroughs")
             }
         if (game.shelf == Shelf.HUNTS) {
             val odds = calculatedOdds(game)
@@ -639,7 +639,7 @@ fun GameDetails(
                         Modifier.fillMaxWidth()
                             .heightIn(min = 48.dp)
                             .clickable(onClick = onEditCount)
-                            .semantics { contentDescription = "change encounter count" },
+                            .semantics { contentDescription = "Change encounter count" },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -653,7 +653,7 @@ fun GameDetails(
                             MaterialTheme.colorScheme.primary,
                         )
                     }
-                    Text(game.method.ifBlank { "custom method" })
+                    Text(game.method.ifBlank { "Custom method" })
                     Text(
                         odds.first?.let { "1 in ${formatHuntOdds(it)} · ${odds.second}" }
                             ?: odds.second,
@@ -664,7 +664,7 @@ fun GameDetails(
                         game.shinyCharm &&
                             charmApplies(game.pokemonVersion, game.method, game.pokemon)
                     )
-                        Text("shiny charm enabled")
+                        Text("Shiny charm enabled")
                     huntModifierSummary(game).forEach {
                         Text(it, style = MaterialTheme.typography.bodySmall)
                     }
@@ -701,10 +701,10 @@ fun GameDetails(
                     onClick = { onMove(Place.ACTIVE, true) },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("play now")
+                    Text("Play now")
                 }
             AeroButton(onClick = onFinish, modifier = Modifier.fillMaxWidth()) {
-                Text(if (game.shelf == Shelf.HUNTS) "complete hunt" else "mark finished")
+                Text(if (game.shelf == Shelf.HUNTS) "Complete hunt" else "Mark finished")
             }
         } else {
             if (game.shelf == Shelf.PLAY_THROUGH)
@@ -712,16 +712,16 @@ fun GameDetails(
                     onClick = { onMove(Place.ACTIVE, true) },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(if (game.inPlayLog) "replay now" else "play now")
+                    Text(if (game.inPlayLog) "Replay now" else "Play now")
                 }
             AeroButton(
                 onClick = { onMove(Place.ACTIVE, false) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    if (game.shelf == Shelf.PLAY_THROUGH && game.inPlayLog) "queue a replay"
-                    else if (game.shelf == Shelf.PLAY_THROUGH) "add to queue"
-                    else "send to ${game.shelf.label}"
+                    if (game.shelf == Shelf.PLAY_THROUGH && game.inPlayLog) "Queue a replay"
+                    else if (game.shelf == Shelf.PLAY_THROUGH) "Add to queue"
+                    else "Send to ${game.shelf.label.lowercase()}"
                 )
             }
         }
@@ -750,11 +750,11 @@ fun GameDetails(
         ) {
             if (game.shelf != Shelf.HUNTS)
                 AeroButton(onClick = onCover, modifier = Modifier.weight(1f)) {
-                    Text("change cover art")
+                    Text("Change cover art")
                 }
             AeroIconButton(
                 AeroSymbol.DELETE,
-                "delete game",
+                "Delete game",
                 onDelete,
                 tint = MaterialTheme.colorScheme.error,
             )
@@ -873,7 +873,7 @@ fun GameForm(
     if (selectingPokemon)
         AeroDialog(
             onDismissRequest = { selectingPokemon = false },
-            title = { Text("choose a Pokémon") },
+            title = { Text("Choose a Pokémon") },
             text = {
                 Box(Modifier.height(400.dp).fillMaxWidth()) {
                     PokemonPicker(catalog.pokemon, artwork) { choice ->
@@ -900,7 +900,7 @@ fun GameForm(
                 }
             },
             confirmButton = {
-                AeroButton(onClick = { selectingPokemon = false }) { Text("cancel") }
+                AeroButton(onClick = { selectingPokemon = false }) { Text("Cancel") }
             },
         )
     Column(
@@ -911,30 +911,30 @@ fun GameForm(
             AeroTextField(
                 title,
                 { title = it },
-                label = "title",
+                label = "Title",
                 modifier = Modifier.fillMaxWidth(),
             )
-            Choice("system", system, offeredSystems) { system = it }
+            Choice("System", system, offeredSystems) { system = it }
             if (existing)
-                Choice("shelf", shelf.label, Shelf.entries.map { it.label }) { label ->
+                Choice("Shelf", shelf.label, Shelf.entries.map { it.label }) { label ->
                     shelf = Shelf.entries.first { it.label == label }
                 }
             AeroTextField(
                 collection,
                 { collection = it },
-                label = "collection (optional)",
+                label = "Collection (optional)",
                 modifier = Modifier.fillMaxWidth(),
             )
             if (collection.isNotBlank())
                 AeroTextField(
                     collectionOrder,
                     { collectionOrder = it },
-                    label = "position in collection",
+                    label = "Position in collection",
                     modifier = Modifier.fillMaxWidth(),
                 )
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    "release date (optional)",
+                    "Release date (optional)",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -961,12 +961,12 @@ fun GameForm(
                         Text(
                             release.takeIf { it.isNotBlank() }
                                 ?.let { LocalDate.parse(it).format(DateTimeFormatter.ofPattern("MMMM d, yyyy")) }
-                                ?: "choose a date",
+                                ?: "Choose a date",
                             Modifier.weight(1f),
                         )
                     }
                     if (release.isNotBlank())
-                        AeroIconButton(AeroSymbol.CLOSE, "clear release date", { release = "" })
+                        AeroIconButton(AeroSymbol.CLOSE, "Clear release date", { release = "" })
                 }
             }
             AeroButton(
@@ -975,7 +975,7 @@ fun GameForm(
                     imagePicker.launch("image/*")
                 }
             ) {
-                Text("choose cover image")
+                Text("Choose cover image")
             }
             if (cover.isNotBlank())
                 Art(
@@ -990,10 +990,10 @@ fun GameForm(
         }
         if (shelf == Shelf.HUNTS) {
             Text(displayPokemonName(pokemon), style = MaterialTheme.typography.titleLarge)
-            AeroButton(onClick = { selectingPokemon = true }) { Text("change Pokémon") }
+            AeroButton(onClick = { selectingPokemon = true }) { Text("Change Pokémon") }
             Choice(
                 "Pokémon game",
-                huntVersions[version] ?: "choose a game",
+                huntVersions[version] ?: "Choose a game",
                 availableGames.map { huntVersions.getValue(it) } + huntVersions.getValue("other"),
             ) { value ->
                 val nextVersion = huntVersions.entries.first { it.value == value }.key
@@ -1014,7 +1014,7 @@ fun GameForm(
                 }
             }
             if (huntIndex == null && !huntCatalogError)
-                Text("loading hunt options…", style = MaterialTheme.typography.bodySmall)
+                Text("Loading hunt options…", style = MaterialTheme.typography.bodySmall)
             if (huntCatalogError)
                 Text(
                     "Hunt options couldn’t load. Reopen this screen to retry.",
@@ -1044,7 +1044,7 @@ fun GameForm(
                         onClick = { findSprite() },
                         enabled = !busy && pokemon.isNotBlank() && version.isNotBlank(),
                     ) {
-                        Text(if (busy) "finding artwork…" else "find shiny artwork")
+                        Text(if (busy) "Finding artwork…" else "Find shiny artwork")
                     }
                     AeroButton(
                         onClick = {
@@ -1052,7 +1052,7 @@ fun GameForm(
                             imagePicker.launch("image/*")
                         }
                     ) {
-                        Text("choose image")
+                        Text("Choose image")
                     }
                 }
                 if (sprite.isNotBlank()) {
@@ -1071,7 +1071,7 @@ fun GameForm(
                         )
                 }
                 Choice(
-                    "hunt method",
+                    "Hunt method",
                     if (method in methods) method else "Other / custom",
                     methods + "Other / custom",
                 ) {
@@ -1104,13 +1104,13 @@ fun GameForm(
                             method = it
                             odds = ""
                         },
-                        label = "custom method",
+                        label = "Custom method",
                         modifier = Modifier.fillMaxWidth(),
                     )
                 AeroTextField(
                     count,
                     { count = it },
-                    label = "encounters",
+                    label = "Encounters",
                     modifier = Modifier.fillMaxWidth(),
                 )
                 HuntModifiers(
@@ -1142,7 +1142,7 @@ fun GameForm(
                 AeroTextField(
                     odds,
                     { odds = it },
-                    label = "odds override · 1 in… (optional)",
+                    label = "Odds override · 1 in… (optional)",
                     singleLine = true,
                     keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
                     modifier = Modifier.fillMaxWidth(),
@@ -1159,7 +1159,7 @@ fun GameForm(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-        AeroButton(onClick = onCancel) { Text("cancel") }
+        AeroButton(onClick = onCancel) { Text("Cancel") }
         PinkButton(
             onClick = {
                 try {
@@ -1227,7 +1227,7 @@ fun GameForm(
                         version == "other" ||
                         (huntIndex != null && version in huntVersions)),
         ) {
-            Text(if (shelf == Shelf.HUNTS) "save hunt" else "save game")
+            Text(if (shelf == Shelf.HUNTS) "Save hunt" else "Save game")
         }
         }
     }
@@ -1305,18 +1305,18 @@ fun AddScreen(
         AeroTextField(
             query,
             { query = it },
-            label = "game title",
+            label = "Game title",
             autoFocus = true,
             onSubmit = { if (query.isNotBlank()) search() },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
         Choice(
-            "system",
-            system.ifBlank { "all systems" },
-            listOf("all systems") + playableSystems(families),
+            "System",
+            system.ifBlank { "All systems" },
+            listOf("All systems") + playableSystems(families),
         ) {
-            system = if (it == "all systems") "" else it
+            system = if (it == "All systems") "" else it
         }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1326,10 +1326,10 @@ fun AddScreen(
                 onClick = { search() },
                 enabled = query.isNotBlank() && (!busy || activeSearch != (query.trim() to system)),
             ) {
-                Text(if (busy && activeSearch == (query.trim() to system)) "searching…" else "search")
+                Text(if (busy && activeSearch == (query.trim() to system)) "Searching…" else "Search")
             }
-            AeroButton(onClick = onManual) { Text("add manually") }
-            AeroButton(onClick = onHunt) { Text("add a hunt") }
+            AeroButton(onClick = onManual) { Text("Add manually") }
+            AeroButton(onClick = onHunt) { Text("Add a hunt") }
         }
         warning?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         LazyColumn(
@@ -1421,12 +1421,16 @@ fun SettingsScreen(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SettingsCard("appearance") {
-            Choice("theme", settings.theme, listOf("system", "light", "dark")) {
-                onChange(settings.copy(theme = it))
+        SettingsCard("Appearance") {
+            Choice(
+                "Theme",
+                settings.theme.replaceFirstChar { it.uppercase() },
+                listOf("System", "Light", "Dark"),
+            ) {
+                onChange(settings.copy(theme = it.lowercase()))
             }
             Choice(
-                "shelf style",
+                "Shelf style",
                 shelfStyle(settings.shelfStyle).label,
                 ShelfStyle.entries.map { it.label },
             ) { label ->
@@ -1435,14 +1439,14 @@ fun SettingsScreen(
                 )
             }
             Choice(
-                "cover style",
-                if (settings.gameCases) "game cases" else "flat art",
-                listOf("game cases", "flat art"),
+                "Cover style",
+                if (settings.gameCases) "Game cases" else "Flat art",
+                listOf("Game cases", "Flat art"),
             ) {
-                onChange(settings.copy(gameCases = it == "game cases"))
+                onChange(settings.copy(gameCases = it == "Game cases"))
             }
             Text(
-                "app icon",
+                "App icon",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1453,7 +1457,7 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        SettingsCard("what you play on") {
+        SettingsCard("What you play on") {
             Text(
                 "Savepoint offers these systems when you add games and search the catalog.",
                 style = MaterialTheme.typography.bodySmall,
@@ -1466,12 +1470,12 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        SettingsCard("time for yourself") {
+        SettingsCard("Time for yourself") {
             Text(
                 "A general invitation to enjoy your games, and an optional evening check-in for your play log. Each works on its own."
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("rest invitations", Modifier.weight(1f))
+                Text("Rest invitations", Modifier.weight(1f))
                 AeroSwitch(
                     settings.reminders,
                     { enabled ->
@@ -1515,7 +1519,7 @@ fun SettingsScreen(
                 Glass(Modifier.fillMaxWidth().alpha(if (invitations) 1f else .45f)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "from ${timeLabel(settings.startMinute)}",
+                            "From ${timeLabel(settings.startMinute)}",
                             Modifier.weight(1f)
                                 .clickable(enabled = invitations, role = Role.Button) {
                                     pickTime(true)
@@ -1528,7 +1532,7 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.outline.copy(alpha = .3f),
                         )
                         Text(
-                            "to ${timeLabel(settings.endMinute)}",
+                            "To ${timeLabel(settings.endMinute)}",
                             Modifier.weight(1f)
                                 .clickable(enabled = invitations, role = Role.Button) {
                                     pickTime(false)
@@ -1544,7 +1548,7 @@ fun SettingsScreen(
                         Modifier.weight(1f).padding(end = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Text("evening play log")
+                        Text("Evening play log")
                         Text(
                             "Around 9pm on these days. Skipped or already logged days stay quiet.",
                             style = MaterialTheme.typography.bodySmall,
@@ -1568,20 +1572,20 @@ fun SettingsScreen(
                     },
                     enabled = scheduled,
                 ) {
-                    Text("skip today")
+                    Text("Skip today")
                 }
             }
         }
         timeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        SettingsCard("backup") {
+        SettingsCard("Backup") {
             Text(
                 "Your library lives only on this phone. A backup file carries it, artwork included, to a new phone or a fresh install.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             AeroActionRow(
-                first = { AeroButton(onClick = onExport) { Text("export backup") } },
-                second = { AeroButton(onClick = onImport) { Text("import backup") } },
+                first = { AeroButton(onClick = onExport) { Text("Export backup") } },
+                second = { AeroButton(onClick = onImport) { Text("Import backup") } },
             )
         }
         Text(
@@ -1704,7 +1708,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
         }
     var note by rememberSaveable { mutableStateOf("") }
     var encounterValue by rememberSaveable { mutableStateOf("1") }
-    var encounterMode by rememberSaveable { mutableStateOf("add encounters") }
+    var encounterMode by rememberSaveable { mutableStateOf("Add encounters") }
     var encounterError by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var restored by remember { mutableStateOf<RestoredLibrary?>(null) }
@@ -1893,7 +1897,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                 scope.launch {
                     try {
                         Backup.export(context, uri, games, settings, artwork)
-                        notice = "backup exported"
+                        notice = "Backup exported"
                     } catch (e: Exception) {
                         error = "Export failed: ${e.message}"
                     }
@@ -1988,28 +1992,28 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (route != "home")
-                        AeroIconButton(AeroSymbol.BACK, "back", onClick = { route = backRoute() })
+                        AeroIconButton(AeroSymbol.BACK, "Back", onClick = { route = backRoute() })
                     else
                         Image(painterResource(R.drawable.icon_handheld), null, Modifier.size(48.dp))
                     Text(
                         when (route) {
                             "home" -> "Savepoint"
-                            "find" -> "search"
-                            "hunt-add" -> "add a hunt"
+                            "find" -> "Search"
+                            "hunt-add" -> "Add a hunt"
                             "shelf" -> editingShelf.label
-                            "collection" -> "collections"
+                            "collection" -> "Collections"
                             "details" ->
-                                if (selectedGame?.shelf == Shelf.HUNTS) "your hunt" else "your game"
+                                if (selectedGame?.shelf == Shelf.HUNTS) "Your hunt" else "Your game"
                             "catalog",
-                            "cover" -> "cover art"
+                            "cover" -> "Cover art"
                             "form" ->
                                 if (form?.shelf == Shelf.HUNTS) {
-                                    if (selectedGame == null) "add a hunt" else "edit hunt"
-                                } else if (selectedGame == null) "add game" else "edit game"
-                            "log" -> "play log"
-                            "finished" -> "finished games"
-                            "daily" -> "log play"
-                            "journal" -> "finished playthroughs"
+                                    if (selectedGame == null) "Add a hunt" else "Edit hunt"
+                                } else if (selectedGame == null) "Add game" else "Edit game"
+                            "log" -> "Play log"
+                            "finished" -> "Finished games"
+                            "daily" -> "Log play"
+                            "journal" -> "Finished playthroughs"
                             else -> route
                         },
                         fontWeight = FontWeight.Medium,
@@ -2017,11 +2021,11 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                         modifier = Modifier.weight(1f),
                     )
                     if (route == "home")
-                        AeroIconButton(AeroSymbol.SETTINGS, "settings", { route = "settings" })
+                        AeroIconButton(AeroSymbol.SETTINGS, "Settings", { route = "settings" })
                     if (route == "details" && selectedGame != null)
                         AeroIconButton(
                             AeroSymbol.CALENDAR,
-                            "log play",
+                            "Log play",
                             {
                                 dailyDate = LocalDate.now().toString()
                                 openDaily(selectedGame.id)
@@ -2033,8 +2037,8 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                 AeroSymbol.LIST
                             else AeroSymbol.GRID,
                             if ((if (route == "finished") "log" else route) in settings.gridViews)
-                                "list view"
-                            else "grid view",
+                                "List view"
+                            else "Grid view",
                             {
                                 updateSettings(
                                     settings.copy(
@@ -2053,7 +2057,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                             },
                         )
                     if (route in listOf("home", "backlog", "paused", "finished"))
-                        AeroIconButton(AeroSymbol.SEARCH, "search your games", { route = "find" })
+                        AeroIconButton(AeroSymbol.SEARCH, "Search your games", { route = "find" })
                 }
                 Box(Modifier.weight(1f)) {
                     if (!loaded) CircularProgressIndicator(Modifier.align(Alignment.Center))
@@ -2334,7 +2338,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                                         }
                                                     },
                                                     {
-                                                        encounterMode = "add encounters"
+                                                        encounterMode = "Add encounters"
                                                         encounterValue = "1"
                                                         encounterError = null
                                                         dialog = "encounters"
@@ -2548,13 +2552,13 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
             if (dialog == "encounters" && selectedGame != null) {
                 AeroDialog(
                     onDismissRequest = { dialog = "" },
-                    title = { Text("encounters") },
+                    title = { Text("Encounters") },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Choice("change", encounterMode, listOf("add encounters", "set total")) {
+                            Choice("Change", encounterMode, listOf("Add encounters", "Set total")) {
                                 encounterMode = it
                                 encounterValue =
-                                    if (it == "set total") selectedGame.encounters.toString()
+                                    if (it == "Set total") selectedGame.encounters.toString()
                                     else "1"
                                 encounterError = null
                             }
@@ -2565,8 +2569,8 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                     encounterError = null
                                 },
                                 label =
-                                    if (encounterMode == "set total") "total encounters"
-                                    else "how many to add?",
+                                    if (encounterMode == "Set total") "Total encounters"
+                                    else "How many to add?",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
                             )
@@ -2582,12 +2586,12 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                 if (
                                     amount == null ||
                                         amount < 0 ||
-                                        (encounterMode == "add encounters" && amount == 0L)
+                                        (encounterMode == "Add encounters" && amount == 0L)
                                 )
                                     encounterError =
                                         "Enter a ${if (encounterMode == "set total") "nonnegative" else "positive"} whole number"
                                 else {
-                                    val add = encounterMode == "add encounters"
+                                    val add = encounterMode == "Add encounters"
                                     changeEncounters(selectedGame.id) {
                                         if (add) increasedEncounterCount(it, amount) else amount
                                     }
@@ -2596,17 +2600,17 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                             }
                         ) {
                             Text(
-                                if (encounterMode == "set total") "save total" else "add encounters"
+                                if (encounterMode == "Set total") "Save total" else "Add encounters"
                             )
                         }
                     },
-                    dismissButton = { AeroButton(onClick = { dialog = "" }) { Text("cancel") } },
+                    dismissButton = { AeroButton(onClick = { dialog = "" }) { Text("Cancel") } },
                 )
             }
             if (dialog == "delete" && selectedGame != null) {
                 AeroDialog(
                     onDismissRequest = { dialog = "" },
-                    title = { Text("delete ${selectedGame.title}?") },
+                    title = { Text("Delete ${selectedGame.title}?") },
                     text = {
                         Text(
                             "Remove this game and its saved notes, daily logs and playthroughs from Savepoint?"
@@ -2623,16 +2627,16 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                     route = "backlog"
                             }
                         ) {
-                            Text("delete game", color = MaterialTheme.colorScheme.error)
+                            Text("Delete game", color = MaterialTheme.colorScheme.error)
                         }
                     },
-                    dismissButton = { AeroButton(onClick = { dialog = "" }) { Text("cancel") } },
+                    dismissButton = { AeroButton(onClick = { dialog = "" }) { Text("Cancel") } },
                 )
             }
             if (dialog == "destination" && form != null) {
                 AeroDialog(
                     onDismissRequest = { dialog = "" },
-                    title = { Text("where should it go?") },
+                    title = { Text("Where should it go?") },
                     text = {
                         val now = games.firstOrNull { it.id == form?.id }
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2676,7 +2680,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                 Modifier.padding(vertical = 6.dp),
                                 color = MaterialTheme.colorScheme.outline.copy(alpha = .3f),
                             )
-                            listOf(Place.BACKLOG to "backlog", Place.FINISHED to "finished games")
+                            listOf(Place.BACKLOG to "Backlog", Place.FINISHED to "Finished games")
                                 .forEach { (place, label) ->
                                     AeroButton(
                                         onClick = {
@@ -2721,7 +2725,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                 }
                         }
                     },
-                    confirmButton = { AeroButton(onClick = { dialog = "" }) { Text("cancel") } },
+                    confirmButton = { AeroButton(onClick = { dialog = "" }) { Text("Cancel") } },
                 )
             }
             if (
@@ -2752,7 +2756,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                 AeroDialog(
                     onDismissRequest = { dialog = "" },
                     title = {
-                        Text(if (dialog == "notes") "notes" else "pause ${selectedGame?.title}?")
+                        Text(if (dialog == "notes") "Notes" else "Pause ${selectedGame?.title}?")
                     },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -2767,8 +2771,8 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                 maxLines = 8,
                                 modifier = Modifier.fillMaxWidth(),
                                 label =
-                                    if (dialog == "notes") "general notes"
-                                    else "pause note (optional)",
+                                    if (dialog == "notes") "General notes"
+                                    else "Pause note (optional)",
                             )
                         }
                     },
@@ -2786,15 +2790,15 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                 dialog = ""
                             }
                         ) {
-                            Text(if (dialog == "notes") "save" else "save & pause")
+                            Text(if (dialog == "notes") "Save" else "Save & pause")
                         }
                     },
-                    dismissButton = { QuietAction(onClick = { dialog = "" }) { Text("cancel") } },
+                    dismissButton = { QuietAction(onClick = { dialog = "" }) { Text("Cancel") } },
                 )
             if (dialog == "later")
                 AeroDialog(
                     onDismissRequest = { dialog = "" },
-                    title = { Text("another time today?") },
+                    title = { Text("Another time today?") },
                     text = {
                         Text(
                             "Choose when you'd like one follow-up invitation. There won't be another unless you ask."
@@ -2834,10 +2838,10 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                     .show()
                             }
                         ) {
-                            Text("choose time")
+                            Text("Choose time")
                         }
                     },
-                    dismissButton = { QuietAction(onClick = { dialog = "" }) { Text("cancel") } },
+                    dismissButton = { QuietAction(onClick = { dialog = "" }) { Text("Cancel") } },
                 )
             if (dialog == "restore" && restored != null)
                 AeroDialog(
@@ -2846,7 +2850,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                         restored = null
                         dialog = ""
                     },
-                    title = { Text("replace this library?") },
+                    title = { Text("Replace this library?") },
                     text = {
                         Text(
                             "This backup contains ${restored!!.games.size} entries. Import replaces your current library. Rest invitations will be off."
@@ -2877,7 +2881,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                         LogReminders.clear(context)
                                         route = "home"
                                         dialog = ""
-                                        notice = "backup restored"
+                                        notice = "Backup restored"
                                     } catch (e: Exception) {
                                         error = "Restore failed: ${e.message}"
                                     } finally {
@@ -2887,7 +2891,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                 }
                             }
                         ) {
-                            Text("replace & import")
+                            Text("Replace & import")
                         }
                     },
                     dismissButton = {
@@ -2898,7 +2902,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                 dialog = ""
                             }
                         ) {
-                            Text("cancel")
+                            Text("Cancel")
                         }
                     },
                 )
@@ -2906,7 +2910,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                 AeroDialog(
                     onDismissRequest = { error = null },
                     text = { Text(message) },
-                    confirmButton = { AeroButton(onClick = { error = null }) { Text("okay") } },
+                    confirmButton = { AeroButton(onClick = { error = null }) { Text("Okay") } },
                 )
             }
         }
