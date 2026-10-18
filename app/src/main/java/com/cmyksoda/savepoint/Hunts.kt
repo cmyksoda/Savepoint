@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.text.NumberFormat
 import kotlin.math.ceil
 import kotlin.math.expm1
 import kotlin.math.ln
@@ -126,8 +127,8 @@ fun HuntStatistics(game: Game) {
                     "times over odds" to "${formatHours(stats.oddsMultiples)}×",
                 ),
                 listOf(
-                    "50% chance at" to "${stats.encounters50}",
-                    "90% chance at" to "${stats.encounters90}",
+                    "50% chance at" to NumberFormat.getIntegerInstance().format(stats.encounters50),
+                    "90% chance at" to NumberFormat.getIntegerInstance().format(stats.encounters90),
                 ),
             )
             .forEach { row ->

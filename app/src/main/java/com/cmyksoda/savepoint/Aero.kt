@@ -690,6 +690,8 @@ fun AeroCheckbox(
         )
     val pearl = pinkPearl(dark)
     val mark = if (dark) Color(0xFF421D39) else Color.White
+    // An empty box needs an edge of its own, or white dough vanishes on white glass.
+    val edge = MaterialTheme.colorScheme.outline.copy(alpha = if (dark) .7f else .6f)
     Box(
         modifier
             .size(22.dp)
@@ -701,6 +703,14 @@ fun AeroCheckbox(
             .glassMaterial(dark, radius = 7, elevation = 3.dp)
             .drawWithContent {
                 drawContent()
+                drawRoundRect(
+                    edge,
+                    topLeft = Offset(.75.dp.toPx(), .75.dp.toPx()),
+                    size = Size(size.width - 1.5.dp.toPx(), size.height - 1.5.dp.toPx()),
+                    cornerRadius = CornerRadius(6.dp.toPx()),
+                    style = Stroke(1.5.dp.toPx()),
+                    alpha = 1f - fill,
+                )
                 if (fill <= 0f) return@drawWithContent
                 val corner = CornerRadius(7.dp.toPx())
                 drawRoundRect(Brush.verticalGradient(pearl), cornerRadius = corner, alpha = fill)
