@@ -43,13 +43,24 @@ fun caseKind(system: String): CaseKind =
         else -> CaseKind.PLASTIC
     }
 
-/** Plastic cases round their corners a little less than flat art; cardboard boxes stay crisp. */
+/** A plastic case's corner radius as a share of its width, measured from each console's case. */
+fun plasticCorner(system: String): Float =
+    when (catalogSystemName(system)) {
+        "Nintendo Switch",
+        "Nintendo Switch 2" -> .045f
+        "Nintendo DS",
+        "Nintendo DSi",
+        "Nintendo 3DS" -> .035f
+        else -> .03f
+    }
+
+/** Plastic cases round like the real case at any size; cardboard boxes stay crisp. */
 @Composable
-fun coverRadius(system: String, flat: Dp): Dp =
+fun coverRadius(system: String, flat: Dp, width: Dp? = null): Dp =
     if (!LocalGameCases.current) flat
     else
         when (caseKind(system)) {
-            CaseKind.PLASTIC -> flat * .8f
+            CaseKind.PLASTIC -> width?.let { it * plasticCorner(system) } ?: (flat * .8f)
             CaseKind.CARDBOARD -> maxOf(flat * .25f, 1.5.dp)
             CaseKind.DIGITAL -> flat
         }

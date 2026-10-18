@@ -103,6 +103,8 @@ fun Art(
     cornerRadius: Dp = 8.dp,
     describe: Boolean = true,
     preview: Boolean = false,
+    shadow: Dp = 0.dp,
+    rim: Boolean = false,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     var bitmap by remember(url) { mutableStateOf(artwork.memoryBitmap(url, sprite)) }
@@ -144,15 +146,19 @@ fun Art(
         }
     val size = frame?.let { Modifier.size(it.width.dp, it.height.dp) } ?: Modifier
     val cased = LocalGameCases.current && !sprite && !transparent && cornerRadius > 0.dp
-    val radius = if (sprite || cornerRadius == 0.dp) cornerRadius else coverRadius(system, cornerRadius)
+    val radius =
+        if (sprite || cornerRadius == 0.dp) cornerRadius
+        else coverRadius(system, cornerRadius, frame?.width?.dp)
     val body: @Composable () -> Unit = {
         Box(
             size
-                .then(modifier)
+                .then(if (shadow > 0.dp) Modifier.softGlassShadow(radius, shadow) else Modifier)
                 .then(
                     if (sprite || cornerRadius == 0.dp) Modifier
                     else Modifier.clip(RoundedCornerShape(radius))
                 )
+                .then(modifier)
+                .then(if (rim) Modifier.border(1.dp, coverRim(system), RoundedCornerShape(radius)) else Modifier)
                 .then(if (cased) Modifier.caseFinish(caseKind(system)) else Modifier)
                 .then(
                     if (transparent) Modifier
@@ -269,15 +275,11 @@ fun GameCover(
             }
         )
     ) {
-        val corner = coverRadius(game.system, 10.dp)
         Art(
             game.cover,
             artwork,
             game.title,
-            Modifier.softGlassShadow(corner, 8.dp)
-                .clip(RoundedCornerShape(corner))
-                .border(1.dp, coverRim(game.system), RoundedCornerShape(corner))
-                .clickable(onClick = onOpen)
+            Modifier.clickable(onClick = onOpen)
                 .semantics {
                     contentDescription = "${game.title}${if (focus) ", playing now" else ""}"
                 },
@@ -286,6 +288,8 @@ fun GameCover(
             describe = false,
             system = game.system,
             coverBounds = if (focus) CoverSize(216f, 244f) else CoverSize(144f, 176f),
+            shadow = 8.dp,
+            rim = true,
         ) {
             if (focus)
                 Surface(

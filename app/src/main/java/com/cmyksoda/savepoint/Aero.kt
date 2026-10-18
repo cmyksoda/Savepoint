@@ -1483,14 +1483,11 @@ fun GameIdentity(
                 if (hunt) game.sprite else game.cover,
                 artwork,
                 game.title,
-                if (hunt) Modifier.size(if (prominent) 112.dp else 84.dp)
-                else {
-                    val corner = coverRadius(game.system, 16.dp)
-                    Modifier.softGlassShadow(corner, 10.dp)
-                        .border(1.dp, coverRim(game.system), RoundedCornerShape(corner))
-                },
+                if (hunt) Modifier.size(if (prominent) 112.dp else 84.dp) else Modifier,
                 sprite = hunt,
                 cornerRadius = 16.dp,
+                shadow = if (hunt) 0.dp else 10.dp,
+                rim = !hunt,
                 transparent = hunt,
                 showPlaceholderTitle = false,
                 system = game.system,
