@@ -1491,7 +1491,7 @@ fun SettingsScreen(
                 Row(Modifier.fillMaxWidth().alpha(if (scheduled) 1f else .45f)) {
                     (0L until 7L).map { firstDay.plus(it) }.forEach { weekday ->
                         val number = weekday.value
-                        val day = weekday.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).lowercase()
+                        val day = weekday.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
                         val checked = number in settings.days
                         Column(
                             Modifier.weight(1f)
