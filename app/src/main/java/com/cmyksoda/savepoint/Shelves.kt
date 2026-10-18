@@ -29,10 +29,8 @@ import androidx.compose.ui.unit.sp
 enum class ShelfStyle(val key: String, val label: String) {
     LEDGE("ledge", "Glass ledge"),
     DOUGH("dough", "Doughy plank"),
-    LIP("lip", "Glass lip"),
     MIRROR("mirror", "Mirror glass"),
     TRAY("tray", "Glass tray"),
-    GLOW("glow", "Light pool"),
 }
 
 fun shelfStyle(key: String): ShelfStyle =
@@ -139,24 +137,6 @@ fun ShelfSection(
                         if (hunt) CoverGround.NONE else CoverGround.CONTACT,
                     )
                 }
-            ShelfStyle.LIP ->
-                Box(Modifier.fillMaxWidth().height(height + if (hunt) 18.dp else 8.dp)) {
-                    ShelfGames(
-                        row,
-                        shelf,
-                        artwork,
-                        onOpen,
-                        Modifier.fillMaxSize(),
-                        PaddingValues(start = 20.dp, end = 20.dp, bottom = if (hunt) 18.dp else 8.dp),
-                    )
-                    // The lip stands in front of the covers' feet, so they sit inside the shelf.
-                    Spacer(
-                        Modifier.align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(if (hunt) 14.dp else 20.dp)
-                            .glassLip(dark)
-                    )
-                }
             ShelfStyle.MIRROR ->
                 Box(
                     Modifier.fillMaxWidth()
@@ -171,18 +151,6 @@ fun ShelfSection(
                         Modifier.fillMaxSize(),
                         PaddingValues(start = 20.dp, end = 20.dp, bottom = 30.dp),
                         if (hunt) CoverGround.NONE else CoverGround.REFLECTION,
-                    )
-                }
-            ShelfStyle.GLOW ->
-                Box(Modifier.fillMaxWidth().height(height + 18.dp).lightPool(dark, height)) {
-                    ShelfGames(
-                        row,
-                        shelf,
-                        artwork,
-                        onOpen,
-                        Modifier.fillMaxSize(),
-                        PaddingValues(start = 20.dp, end = 20.dp, bottom = 18.dp),
-                        if (hunt) CoverGround.NONE else CoverGround.CONTACT,
                     )
                 }
             ShelfStyle.TRAY -> Unit
@@ -311,52 +279,6 @@ fun Modifier.coverReflection(depth: Dp, dark: Boolean): Modifier = drawWithCache
     }
 }
 
-fun Modifier.glassLip(dark: Boolean): Modifier = drawWithCache {
-    val body =
-        Brush.verticalGradient(
-            if (dark) listOf(Color(0xCC5A6280), Color(0xB8394059), Color(0xD02B3149))
-            else listOf(Color(0xEBFFFFFF), Color(0xCCFCE8F2), Color(0xDDF1D3E5))
-        )
-    val gloss =
-        Brush.verticalGradient(
-            listOf(Color.White.copy(alpha = if (dark) .2f else .6f), Color.Transparent),
-            endY = size.height * .55f,
-        )
-    val shade =
-        Brush.verticalGradient(
-            listOf(Color(0xFF21152F).copy(alpha = if (dark) .3f else .15f), Color.Transparent),
-            startY = size.height,
-            endY = size.height + 14.dp.toPx(),
-        )
-    val sheen =
-        Brush.horizontalGradient(
-            listOf(
-                Color.Transparent,
-                Color(0xFFB5E5F0).copy(alpha = if (dark) .4f else .75f),
-                Color(0xFFF6B3DE).copy(alpha = if (dark) .4f else .75f),
-                Color.Transparent,
-            )
-        )
-    onDrawBehind {
-        drawRect(shade, Offset(0f, size.height), Size(size.width, 14.dp.toPx()))
-        drawRect(body)
-        drawRect(gloss, size = Size(size.width, size.height * .55f))
-        drawLine(sheen, Offset(0f, size.height * .58f), Offset(size.width, size.height * .58f), 1.dp.toPx())
-        drawLine(
-            Color.White.copy(alpha = if (dark) .6f else 1f),
-            Offset(0f, .5.dp.toPx()),
-            Offset(size.width, .5.dp.toPx()),
-            1.dp.toPx(),
-        )
-        drawLine(
-            (if (dark) Color(0xFF9AA4C4) else Color(0xFFD3A4C2)).copy(alpha = .6f),
-            Offset(0f, size.height - .5.dp.toPx()),
-            Offset(size.width, size.height - .5.dp.toPx()),
-            1.dp.toPx(),
-        )
-    }
-}
-
 fun Modifier.mirrorSlab(dark: Boolean, surface: Dp): Modifier = drawWithCache {
     val y = surface.toPx()
     val glass =
@@ -383,24 +305,5 @@ fun Modifier.mirrorSlab(dark: Boolean, surface: Dp): Modifier = drawWithCache {
             1.5.dp.toPx(),
         )
         drawLine(sheen, Offset(0f, y + 2.5.dp.toPx()), Offset(size.width, y + 2.5.dp.toPx()), 1.dp.toPx())
-    }
-}
-
-fun Modifier.lightPool(dark: Boolean, baseline: Dp): Modifier = drawWithCache {
-    val center = Offset(size.width / 2, baseline.toPx())
-    val radius = size.width * .64f
-    val pool =
-        Brush.radialGradient(
-            listOf(
-                (if (dark) Color(0xFFFF7CC2) else Color.White).copy(alpha = if (dark) .42f else 1f),
-                (if (dark) Color(0xFF7FD3E8) else Color(0xFFF7B9DA)).copy(alpha = if (dark) .14f else .55f),
-                Color.Transparent,
-            ),
-            center = center,
-            radius = radius,
-        )
-    val squash = 36.dp.toPx() / radius
-    onDrawBehind {
-        withTransform({ scale(1f, squash, pivot = center) }) { drawCircle(pool, radius, center) }
     }
 }
