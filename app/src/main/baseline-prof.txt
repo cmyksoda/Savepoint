@@ -1,0 +1,2 @@
+HSPLcom/cmyksoda/savepoint/**->**(**)**
+Lcom/cmyksoda/savepoint/**;
