@@ -1,5 +1,7 @@
 The first public release.
 
-• Restoring a backup into an empty library asks "Restore this backup?" and counts the games in it. Restoring over a library says how many games it replaces.
+• Search puts official releases first, best known on top, with ROM hacks below. Scrolling to the end loads more results.
+• A game's page shows its notes, and wide covers no longer leave a gap above them.
+• The widget picker shows a preview of the widget.
+• Restoring a backup into an empty library asks "Restore this backup?" and counts the games in it.
 • A finished game with hours on more than one playthrough shows the total as "hours in all".
-• The app no longer carries five bundled cover images, so it's about 1 MB smaller.

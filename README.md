@@ -61,7 +61,7 @@ Then build, test, and lint:
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 ```
 
-The APK is `app/build/outputs/apk/debug/app-debug.apk`. `./gradlew :app:assembleRelease` makes a minified release build.
+The APK is `app/build/outputs/apk/debug/app-debug.apk`. `./gradlew :app:assembleRelease` makes a minified release build, signed with the key described in `~/.local/share/savepoint-signing/keystore.properties` (or the file `SAVEPOINT_SIGNING` names), or left unsigned when there isn't one.
 
 The device tests change the library on the device they run on, and they uninstall the app, with its library, when they finish. Run them on an emulator, never on a phone you use:
 
