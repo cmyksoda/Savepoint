@@ -49,7 +49,7 @@ To keep a copy of your library or move it to a new phone, use **Export backup** 
 
 ## Building
 
-You need JDK 17 or newer and the Android SDK with platform 37. Put your SDK's path in an untracked `local.properties`:
+You need Java 21 and the Android SDK with platform 37. Gradle runs on Java 21 (`gradle/gradle-daemon-jvm.properties`), the same as F-Droid's build server, so release builds come out byte for byte the same everywhere. Put your SDK's path in an untracked `local.properties`:
 
 ```properties
 sdk.dir=/path/to/Android/Sdk
