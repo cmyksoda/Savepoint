@@ -1,0 +1,5 @@
+The first public release.
+
+• Restoring a backup into an empty library asks "Restore this backup?" and counts the games in it. Restoring over a library says how many games it replaces.
+• A finished game with hours on more than one playthrough shows the total as "hours in all".
+• The app no longer carries five bundled cover images, so it's about 1 MB smaller.

@@ -1,0 +1,20 @@
+<p>Savepoint keeps your place in your games. The games you're playing sit on shelves with their box art, the rest wait in a backlog, and a calendar remembers the days you played. Your library stays on your phone, and there's no account to make.</p>
+
+<ul>
+<li><b>Shelves:</b> Play through, Keep playing, Take it easy, With friends, and Shiny hunts. The first game on Play through is the one you're playing now, and the games after it are your near-future queue.</li>
+<li><b>Backlog and paused games</b> with search, sorting, and filters for a system or collection, in a list or a grid.</li>
+<li><b>Adding a game:</b> search LaunchBox's Games Database, Steam, and the App Store, then choose the box art you like. Games missing from those can be added by hand, and games installed on your phone can use their app icon as a cover.</li>
+<li><b>Covers shaped like game cases,</b> with plastic, cardboard, or digital finishes by system.</li>
+<li><b>Play log:</b> a calendar of the days you played, with optional time for each game, your current streak, and your lifetime days. Empty days stay plain, with no warnings.</li>
+<li><b>Finished games</b> keep every playthrough, with how it felt, your thoughts, and optional hours.</li>
+<li><b>Notes</b> for each game, and a separate note for where you left off when you pause one.</li>
+<li><b>Collections</b> that group games from anywhere in your library.</li>
+<li><b>Shiny hunts</b> for the main Pokémon games from Gold and Silver to Legends: Z-A, with an encounter counter, the shiny sprite, the odds for your game and method, and your chance of having seen a shiny by now.</li>
+<li><b>A home-screen widget</b> with your playing-now game and a button to log play.</li>
+<li><b>Optional reminders</b> to take some time for yourself, and an evening check-in for the play log. Both are off until you turn them on.</li>
+<li><b>Light and dark themes,</b> four shelf styles, and four app icon colors.</li>
+</ul>
+
+<p>Savepoint goes online only to search for games, download the cover art you choose, and download Pokémon sprites for shiny hunts. Export backup saves your whole library, cover art included, to a single file you can keep or move to a new phone.</p>
+
+<p>Savepoint isn't affiliated with Nintendo, The Pokémon Company, LaunchBox, Valve, or Apple.</p>
