@@ -205,7 +205,6 @@ foreach (var (key, v) in versions)
                 game = key,
                 species = s,
                 form = f,
-                name = strings.specieslist[s],
                 formName = f < forms.Length ? forms[f] : "",
                 methods,
             });
