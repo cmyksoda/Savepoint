@@ -618,6 +618,13 @@ fun GameDetails(
                     Text(game.pauseNote)
                 }
             }
+        if (game.shelf != Shelf.HUNTS && game.notes.isNotBlank())
+            Glass(Modifier.fillMaxWidth().feedbackClickable(onClick = onNotes)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Notes", fontWeight = FontWeight.SemiBold)
+                    Text(game.notes)
+                }
+            }
         if (game.shelf == Shelf.HUNTS)
             AeroButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
                 AeroIcon(AeroSymbol.EDIT, Modifier.size(17.dp))

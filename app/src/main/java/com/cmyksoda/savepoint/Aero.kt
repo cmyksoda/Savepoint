@@ -1539,6 +1539,7 @@ fun GameIdentity(
             showPlaceholderTitle = false,
             system = game.system,
             coverBounds = if (hunt) null else CoverSize(180f, 220f),
+            reserveHeight = false,
         )
 
         Text(
