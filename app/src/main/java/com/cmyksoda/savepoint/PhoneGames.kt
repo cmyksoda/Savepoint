@@ -48,7 +48,6 @@ fun phoneGameMatches(apps: List<PhoneGame>, library: List<Game>, query: String):
     }
 }
 
-/** The installed app a library game was added from, or else one with the same name. */
 fun phoneAppFor(game: Game, apps: List<PhoneGame>): PhoneGame? {
     if (game.source == "phone")
         apps.firstOrNull { it.packageName == game.sourceId }?.let { return it }
@@ -56,7 +55,6 @@ fun phoneAppFor(game: Game, apps: List<PhoneGame>): PhoneGame? {
     return apps.firstOrNull { catalogTitleKey(it.title) == title }
 }
 
-/** The game's own app icon as a cover choice, when that app is installed here. */
 suspend fun phoneCovers(context: Context, artwork: Artwork, game: Game): List<CoverCandidate> =
     withContext(Dispatchers.IO) {
         val app = phoneAppFor(game, installedApps(context)) ?: return@withContext emptyList()

@@ -495,7 +495,6 @@ private fun AeroControl(
     Box(
         modifier
             .graphicsLayer {
-                // Pressed buttons give a little, like dough.
                 scaleX = 1f - .03f * squish
                 scaleY = 1f - .05f * squish
             }
