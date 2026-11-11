@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="widget_description">Your playing-now game, with a quick way to log play.</string>
+    <string name="widget_preview_label">Playing now</string>
+    <string name="widget_preview_title">Your game</string>
+    <string name="widget_preview_action">Log play</string>
 </resources>
