@@ -19,12 +19,14 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
+private const val userAgent = "Savepoint/${BuildConfig.VERSION_NAME} (Android game library)"
+
 fun imageAvailable(url: String): Boolean {
     val connection = URI(url).toURL().openConnection() as HttpURLConnection
     connection.requestMethod = "HEAD"
     connection.connectTimeout = 10000
     connection.readTimeout = 10000
-    connection.setRequestProperty("User-Agent", "Savepoint/0.3 (personal game library)")
+    connection.setRequestProperty("User-Agent", userAgent)
     return try {
         connection.responseCode == 200 && connection.contentType?.startsWith("image/") == true
     } finally {
@@ -41,7 +43,7 @@ fun fetchBytes(url: String, redirects: Int = 3): ByteArray {
     connection.connectTimeout = 15000
     connection.readTimeout = 15000
     connection.instanceFollowRedirects = false
-    connection.setRequestProperty("User-Agent", "Savepoint/0.1 (personal game library)")
+    connection.setRequestProperty("User-Agent", userAgent)
     val moved =
         try {
             val status = connection.responseCode
