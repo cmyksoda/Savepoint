@@ -143,7 +143,7 @@ fun GameJournal(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        GameIdentity(game, artwork, prominent = true)
+        GameIdentity(game, artwork)
         Glass(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

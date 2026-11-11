@@ -1518,91 +1518,47 @@ fun GameIdentity(
     game: Game,
     artwork: Artwork,
     showShelf: Boolean = false,
-    prominent: Boolean = false,
     playingNow: Boolean = false,
 ) {
-    if (prominent || game.shelf == Shelf.HUNTS) {
-        Column(
-            Modifier.fillMaxWidth().padding(vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            val hunt = game.shelf == Shelf.HUNTS
-            Art(
-                if (hunt) game.sprite else game.cover,
-                artwork,
-                game.title,
-                if (hunt) Modifier.size(if (prominent) 112.dp else 84.dp) else Modifier,
-                sprite = hunt,
-                cornerRadius = 16.dp,
-                shadow = if (hunt) 0.dp else 10.dp,
-                rim = !hunt,
-                transparent = hunt,
-                showPlaceholderTitle = false,
-                system = game.system,
-                coverBounds = if (hunt) null else CoverSize(180f, 220f),
-            )
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        val hunt = game.shelf == Shelf.HUNTS
+        Art(
+            if (hunt) game.sprite else game.cover,
+            artwork,
+            game.title,
+            if (hunt) Modifier.size(112.dp) else Modifier,
+            sprite = hunt,
+            cornerRadius = 16.dp,
+            shadow = if (hunt) 0.dp else 10.dp,
+            rim = !hunt,
+            transparent = hunt,
+            showPlaceholderTitle = false,
+            system = game.system,
+            coverBounds = if (hunt) null else CoverSize(180f, 220f),
+        )
 
+        Text(
+            if (hunt) displayPokemonName(game.pokemon) else game.title,
+            fontWeight = FontWeight.Medium,
+            fontSize = 20.sp,
+            lineHeight = 25.sp,
+        )
+        Text(
+            if (hunt) huntVersions[game.pokemonVersion] ?: game.title else game.system,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (showShelf && !hunt)
             Text(
-                if (hunt) displayPokemonName(game.pokemon) else game.title,
-                fontWeight = FontWeight.Medium,
-                fontSize = 20.sp,
-                lineHeight = 25.sp,
-            )
-            Text(
-                if (hunt) huntVersions[game.pokemonVersion] ?: game.title else game.system,
+                if (playingNow) "Playing now · ${game.shelf.label}" else game.shelf.label,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color =
+                    if (playingNow) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (showShelf && !hunt)
-                Text(
-                    if (playingNow) "Playing now · ${game.shelf.label}" else game.shelf.label,
-                    style = MaterialTheme.typography.bodySmall,
-                    color =
-                        if (playingNow) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-        }
-        return
-    }
-    Glass(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Art(
-                if (game.shelf == Shelf.HUNTS) game.sprite else game.cover,
-                artwork,
-                game.title,
-                Modifier.softGlassShadow(12.dp, 6.dp)
-                    .border(1.dp, Color.White.copy(alpha = .5f), RoundedCornerShape(12.dp)),
-                game.shelf == Shelf.HUNTS,
-                cornerRadius = 12.dp,
-                showPlaceholderTitle = false,
-                system = game.system,
-                coverBounds = CoverSize(88f, 120f),
-            )
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    if (game.shelf == Shelf.HUNTS) game.pokemon.ifBlank { "Shiny hunt" }
-                    else game.title,
-                    fontSize = 19.sp,
-                    lineHeight = 24.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    game.system,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (showShelf)
-                    Text(
-                        game.shelf.label,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-            }
-        }
     }
 }

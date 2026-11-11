@@ -609,7 +609,7 @@ fun GameDetails(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        GameIdentity(game, artwork, showShelf = true, prominent = true, playingNow = playingNow)
+        GameIdentity(game, artwork, showShelf = true, playingNow = playingNow)
         if (game.shelf != Shelf.HUNTS && game.pauseNote.isNotBlank())
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
