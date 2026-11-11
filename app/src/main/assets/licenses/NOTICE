@@ -5,6 +5,14 @@ https://github.com/kwsch/PKHeX
 Pokémon names and form identifiers use PokéAPI data. BSD-3-Clause.
 https://github.com/PokeAPI/pokeapi
 
+Android Jetpack libraries (Compose, Room, DataStore, Glance, WorkManager and
+others): Copyright The Android Open Source Project. Apache-2.0.
+https://developer.android.com/jetpack
+
+kotlinx.coroutines: Copyright JetBrains s.r.o. and Kotlin Programming Language
+contributors. Apache-2.0.
+https://github.com/Kotlin/kotlinx.coroutines
+
 Shiny mechanics references:
 https://www.serebii.net/games/shiny.shtml
 https://www.serebii.net/legendsarceus/shinypokemon.shtml
