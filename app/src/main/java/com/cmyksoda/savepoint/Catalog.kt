@@ -219,26 +219,6 @@ class Artwork(private val context: Context) {
     suspend fun cachedBitmap(url: String): Bitmap? =
         withContext(Dispatchers.IO) { if (url.isBlank()) null else decode(url) }
 
-    suspend fun installBundledCovers() =
-        withContext(Dispatchers.IO) {
-            for (cover in bundledCovers) {
-                for (url in listOf(cover.url, preferredCoverUrl(cover.url)).distinct()) {
-                    val file = fileFor(url)
-                    if (file.exists()) continue
-                    val temporary = File.createTempFile("bundled-cover-", ".tmp", directory)
-                    try {
-                        context.assets.open("covers/${cover.asset}").use { input ->
-                            temporary.outputStream().use { input.copyTo(it) }
-                        }
-                        require(temporary.renameTo(file)) { "Could not save bundled cover" }
-                    } finally {
-                        temporary.delete()
-                    }
-                }
-            }
-            for (cover in bundledCovers) decode(preferredCoverUrl(cover.url))
-        }
-
     suspend fun bitmap(url: String, size: Int = 0): Bitmap? =
         withContext(Dispatchers.IO) {
             if (url.isBlank()) return@withContext null

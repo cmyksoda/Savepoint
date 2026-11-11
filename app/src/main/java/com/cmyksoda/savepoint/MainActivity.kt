@@ -1819,7 +1819,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
     fun mutate(action: (List<Game>) -> List<Game>) {
         scope.launch {
             try {
-                library.change { current -> fillMissingStarterCovers(action(current)) }
+                library.change(action)
             } catch (e: Exception) {
                 error = e.message ?: "Could not save this change"
             }
@@ -2018,11 +2018,8 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
         }
     LaunchedEffect(Unit) {
         try {
-            artwork.installBundledCovers()
             artwork.forgetOldPreviews()
             library.load()
-            if (updateStarterArtwork(library.games.value) != library.games.value)
-                library.change(::updateStarterArtwork)
             artwork.prepareLibraryArtwork(library.games.value)
             settings = settingsStore.read()
             if (!settings.onboarded && library.games.value.isNotEmpty())
@@ -2978,7 +2975,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                         val previous = games
                                         val previousSettings = settings
                                         try {
-                                            library.change { updateStarterArtwork(backup.games) }
+                                            library.change { backup.games }
                                             settings = settingsStore.change { backup.settings }
                                         } catch (e: Exception) {
                                             library.change { previous }
