@@ -47,7 +47,7 @@ fun fetchBytes(url: String, redirects: Int = 3): ByteArray {
             val status = connection.responseCode
             if (status == 200) return connection.inputStream.use { it.readBytes() }
             // LaunchBox moves bare and renamed game addresses to their current page;
-            // follow only within the same site.
+            // only redirects within the same site are taken.
             connection.getHeaderField("Location")
                 ?.let { runCatching { address.resolve(it) }.getOrNull() }
                 ?.takeIf {

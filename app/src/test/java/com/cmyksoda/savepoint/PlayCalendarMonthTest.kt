@@ -27,7 +27,7 @@ class PlayCalendarMonthTest {
     }
 
     @Test
-    fun preparedLabelsFollowTheChosenLocaleAndYear() {
+    fun preparedLabelsMatchTheChosenLocaleAndYear() {
         val month = playCalendarMonth(YearMonth.of(2027, 1), Locale.FRANCE)
         assertEquals("janvier 2027", month.title)
         assertEquals(4, month.firstWeekday)

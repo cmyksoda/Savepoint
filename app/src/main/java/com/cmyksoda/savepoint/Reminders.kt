@@ -26,10 +26,10 @@ fun reminderSettingsChanged(previous: Settings, updated: Settings): Boolean =
         previous.endMinute != updated.endMinute ||
         previous.skipDate != updated.skipDate ||
         previous.sentDate != updated.sentDate ||
-        previous.followupDate != updated.followupDate ||
+        previous.requestedDate != updated.requestedDate ||
         previous.laterAt != updated.laterAt
 
-data class Invitation(val at: Long, val expires: Long, val followup: Boolean)
+data class Invitation(val at: Long, val expires: Long, val requested: Boolean)
 
 fun canDeliver(settings: Settings, invitation: Invitation, now: Long, zone: ZoneId): Boolean {
     val local = Instant.ofEpochMilli(now).atZone(zone)
@@ -41,8 +41,8 @@ fun canDeliver(settings: Settings, invitation: Invitation, now: Long, zone: Zone
             now >= invitation.expires
     )
         return false
-    if (invitation.followup)
-        return settings.followupDate != date && settings.laterAt == invitation.at
+    if (invitation.requested)
+        return settings.requestedDate != date && settings.laterAt == invitation.at
     val minute = local.hour * 60 + local.minute
     return settings.sentDate != date &&
         local.dayOfWeek.value in settings.days &&
@@ -54,7 +54,7 @@ fun nextInvitation(settings: Settings, now: Long, zone: ZoneId): Invitation? {
     if (!settings.reminders || settings.days.isEmpty()) return null
     val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
     if (settings.skipDate == today.toString()) return nextDayInvitation(settings, now, zone, 1)
-    if (settings.laterAt > now && settings.followupDate != today.toString()) {
+    if (settings.laterAt > now && settings.requestedDate != today.toString()) {
         val date = Instant.ofEpochMilli(settings.laterAt).atZone(zone).toLocalDate()
         if (date == today)
             return Invitation(
@@ -109,7 +109,8 @@ object Reminders {
         base
             .putExtra("at", invitation.at)
             .putExtra("expires", invitation.expires)
-            .putExtra("followup", invitation.followup)
+            // The extra keeps its old name for alarms set before an update.
+            .putExtra("followup", invitation.requested)
         val updated =
             PendingIntent.getBroadcast(
                 context,
@@ -215,12 +216,12 @@ class ReminderReceiver : BroadcastReceiver() {
 
                 val now = System.currentTimeMillis()
                 val s = store.read()
-                val followup = intent.getBooleanExtra("followup", false)
+                val requested = intent.getBooleanExtra("followup", false)
                 val invitation =
                     Invitation(
                         intent.getLongExtra("at", Long.MAX_VALUE),
                         intent.getLongExtra("expires", 0),
-                        followup,
+                        requested,
                     )
                 val valid = canDeliver(s, invitation, now, ZoneId.systemDefault())
                 val notifications = context.getSystemService(NotificationManager::class.java)
@@ -236,7 +237,7 @@ class ReminderReceiver : BroadcastReceiver() {
                                 current
                             else {
                                 didClaim = true
-                                if (followup) current.copy(followupDate = today, laterAt = 0)
+                                if (requested) current.copy(requestedDate = today, laterAt = 0)
                                 else current.copy(sentDate = today)
                             }
                         }
@@ -257,7 +258,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         Reminders.invitationNotification(
                             context,
                             intent.getLongExtra("expires", now) - now,
-                            allowLater = !followup && claimed.followupDate != today,
+                            allowLater = !requested && claimed.requestedDate != today,
                         ),
                     )
                 }

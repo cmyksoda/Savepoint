@@ -54,20 +54,20 @@ class InvitationTest {
     fun ignoredInvitationDoesNotCauseAnotherThatDay() {
         val next = nextInvitation(settings.copy(sentDate = today.toString()), at(hour = 20), zone)!!
         assertEquals(at(today.plusDays(1), 19), next.at)
-        assertFalse(next.followup)
+        assertFalse(next.requested)
     }
 
     @Test
-    fun explicitLaterAllowsOnlyOneFollowup() {
+    fun explicitLaterAllowsOnlyOneRequestedInvitation() {
         val s = settings.copy(sentDate = today.toString(), laterAt = at(hour = 20))
-        assertTrue(nextInvitation(s, at(hour = 19, minute = 30), zone)!!.followup)
+        assertTrue(nextInvitation(s, at(hour = 19, minute = 30), zone)!!.requested)
         assertFalse(
             nextInvitation(
-                    s.copy(followupDate = today.toString()),
+                    s.copy(requestedDate = today.toString()),
                     at(hour = 19, minute = 30),
                     zone,
                 )!!
-                .followup
+                .requested
         )
     }
 

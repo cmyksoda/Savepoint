@@ -3042,7 +3042,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                     title = { Text("Another time today?") },
                     text = {
                         Text(
-                            "Choose when you'd like one follow-up invitation. There won't be another unless you ask."
+                            "Choose when you'd like one more invitation today. There won't be another unless you ask."
                         )
                     },
                     confirmButton = {
@@ -3060,7 +3060,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                                     .toEpochMilli()
                                             if (
                                                 at > System.currentTimeMillis() &&
-                                                    settings.followupDate !=
+                                                    settings.requestedDate !=
                                                         LocalDate.now().toString()
                                             ) {
                                                 updateSettings(
@@ -3070,7 +3070,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                                 dialog = ""
                                             } else
                                                 error =
-                                                    "Choose a future time today. Only one follow-up is available each day."
+                                                    "Choose a later time today. You can ask for one more invitation each day."
                                         },
                                         current.hour,
                                         current.minute,

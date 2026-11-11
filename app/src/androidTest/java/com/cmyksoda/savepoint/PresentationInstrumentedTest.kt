@@ -61,16 +61,16 @@ class PresentationInstrumentedTest {
     }
 
     @Test
-    fun invitationActionsOpenLaterPickerAndSuppressFurtherFollowups() {
+    fun invitationActionsOpenLaterPickerAndOfferNoFurtherRequests() {
         val first = Reminders.invitationNotification(context, 60000, allowLater = true)
-        val followup = Reminders.invitationNotification(context, 60000, allowLater = false)
+        val requested = Reminders.invitationNotification(context, 60000, allowLater = false)
         assertEquals(3, first.actions.size)
         assertTrue(first.actions.first().actionIntent.isActivity)
         assertTrue(first.actions.drop(1).all { it.actionIntent.isBroadcast })
-        assertEquals(2, followup.actions.size)
-        assertTrue(followup.actions.all { it.actionIntent.isBroadcast })
-        assertEquals(first.actions[1].actionIntent, followup.actions[0].actionIntent)
-        assertEquals(first.actions[2].actionIntent, followup.actions[1].actionIntent)
+        assertEquals(2, requested.actions.size)
+        assertTrue(requested.actions.all { it.actionIntent.isBroadcast })
+        assertEquals(first.actions[1].actionIntent, requested.actions[0].actionIntent)
+        assertEquals(first.actions[2].actionIntent, requested.actions[1].actionIntent)
         assertEquals(60000L, first.timeoutAfter)
         if (InstrumentationRegistry.getArguments().getString("notificationPreview") == "true") {
             val manager = context.getSystemService(android.app.NotificationManager::class.java)

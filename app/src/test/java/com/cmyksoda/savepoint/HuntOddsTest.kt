@@ -24,7 +24,7 @@ class HuntOddsTest {
         assertEquals(expected, calculatedOdds(game).first!!, tolerance)
 
     @Test
-    fun baseOddsAndCharmFollowTheActualEdition() {
+    fun baseOddsAndCharmMatchTheActualEdition() {
         listOf("gold", "ruby", "platinum", "soulsilver", "white").forEach { odds(8192.0, hunt(it)) }
         listOf("y", "sword", "scarlet", "legends-z-a").forEach { odds(4096.0, hunt(it)) }
         odds(8192.0, hunt("soulsilver", charm = true))

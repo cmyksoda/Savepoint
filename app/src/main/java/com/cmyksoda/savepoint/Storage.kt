@@ -31,7 +31,7 @@ data class Settings(
     val endMinute: Int = 1260,
     val skipDate: String = "",
     val sentDate: String = "",
-    val followupDate: String = "",
+    val requestedDate: String = "",
     val laterAt: Long = 0,
     val eveningCheckIn: Boolean = false,
     val logSentDate: String = "",
@@ -217,7 +217,8 @@ object JsonCodec {
             put("endMinute", s.endMinute)
             put("skipDate", s.skipDate)
             put("sentDate", s.sentDate)
-            put("followupDate", s.followupDate)
+            // The key keeps its old name so earlier backups still restore.
+            put("followupDate", s.requestedDate)
             put("laterAt", s.laterAt)
             put("eveningCheckIn", s.eveningCheckIn)
             put("logSentDate", s.logSentDate)
@@ -257,7 +258,7 @@ object JsonCodec {
                 endMinute = j.optInt("endMinute", 1260),
                 skipDate = j.optString("skipDate"),
                 sentDate = j.optString("sentDate"),
-                followupDate = j.optString("followupDate"),
+                requestedDate = j.optString("followupDate"),
                 laterAt = j.optLong("laterAt"),
                 // Before 0.6 the check-in only ran alongside rest invitations, so carry that over.
                 eveningCheckIn =
