@@ -94,17 +94,23 @@ def build(raw, csv_dir):
         parent = parents[row["pokemon_id"]]
         number = int(parent["species_id"])
         pokemon.append({
-            "slug": row["identifier"], "species": species[str(number)]["identifier"],
-            "number": number, "sprite": int(row["pokemon_id"]), "form": row["form_identifier"],
+            "slug": row["identifier"],
+            "species": species[str(number)]["identifier"],
+            "number": number,
+            "sprite": int(row["pokemon_id"]),
+            "form": row["form_identifier"],
             "default": parent["is_default"] == "1" and row["is_default"] == "1",
             "gameFilter": ["sword", "shield"] if "gmax" in row["identifier"] else [],
-            "huntForm": match_form(row, parent, names, forms.get(number, {}), species[str(number)]["identifier"]),
+            "huntForm": match_form(
+                row, parent, names, forms.get(number, {}), species[str(number)]["identifier"]
+            ),
         })
     return {
         "sources": {
             "encounters": f"https://github.com/kwsch/PKHeX/tree/{PKHEX_REVISION}/PKHeX.Core/Legality/Encounters",
             "pokemon": f"https://github.com/PokeAPI/pokeapi/tree/{POKEAPI_REVISION}/data/v2/csv",
-            "encounterLicense": "GPL-3.0-or-later", "pokemonLicense": "BSD-3-Clause",
+            "encounterLicense": "GPL-3.0-or-later",
+            "pokemonLicense": "BSD-3-Clause",
             "scope": "Includes breeding with transferred parents, DLC, co-op encounters, and past event unlocks. Excludes Mystery Gift distributions and forced shinies.",
         },
         "pokemon": pokemon,
@@ -113,13 +119,23 @@ def build(raw, csv_dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build Savepoint's offline hunt catalog from pinned Pokémon encounter data.")
-    parser.add_argument("--pkhex", type=Path, required=True, help="PKHeX checkout at the pinned revision")
+    parser = argparse.ArgumentParser(
+        description="Build Savepoint's offline hunt catalog from pinned Pokémon encounter data."
+    )
+    parser.add_argument(
+        "--pkhex", type=Path, required=True, help="PKHeX checkout at the pinned revision"
+    )
     parser.add_argument("--dotnet", default="dotnet", help=".NET 10 SDK executable")
-    parser.add_argument("--output", type=Path, default=Path(__file__).resolve().parents[2] / "app/src/main/assets/hunt-catalog.json")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "app/src/main/assets/hunt-catalog.json",
+    )
     args = parser.parse_args()
     pkhex = args.pkhex.resolve()
-    revision = subprocess.check_output(["git", "-C", str(pkhex), "rev-parse", "HEAD"], text=True).strip()
+    revision = subprocess.check_output(
+        ["git", "-C", str(pkhex), "rev-parse", "HEAD"], text=True
+    ).strip()
     if revision != PKHEX_REVISION:
         parser.error(f"PKHeX revision must be {PKHEX_REVISION}")
     with tempfile.TemporaryDirectory(prefix="savepoint-hunts-") as directory:

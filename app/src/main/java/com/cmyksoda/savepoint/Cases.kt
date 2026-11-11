@@ -87,7 +87,8 @@ fun coverRadius(system: String, flat: Dp, width: Dp? = null): Dp =
 /** Plastic and digital art keep a pale rim of light; a carton's edge is its own printed border. */
 @Composable
 fun coverRim(system: String): Color =
-    if (LocalGameCases.current && caseKind(system) == CaseKind.CARDBOARD) Color.Black.copy(alpha = .14f)
+    if (LocalGameCases.current && caseKind(system) == CaseKind.CARDBOARD)
+        Color.Black.copy(alpha = .14f)
     else Color.White.copy(alpha = .65f)
 
 fun Modifier.caseFinish(kind: CaseKind): Modifier = drawWithContent {
@@ -116,8 +117,12 @@ fun Modifier.caseFinish(kind: CaseKind): Modifier = drawWithContent {
                 Offset(w - dp(5f), 0f),
                 Size(dp(5f), h),
             )
+
             drawRect(
-                Brush.verticalGradient(listOf(Color.White.copy(alpha = .2f), Color.Transparent), endY = dp(3f)),
+                Brush.verticalGradient(
+                    listOf(Color.White.copy(alpha = .2f), Color.Transparent),
+                    endY = dp(3f),
+                ),
                 size = Size(w, dp(3f)),
             )
             drawRect(
@@ -133,16 +138,42 @@ fun Modifier.caseFinish(kind: CaseKind): Modifier = drawWithContent {
         CaseKind.CARDBOARD -> {
             drawRect(
                 Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = .08f), Color.Transparent, Color.Black.copy(alpha = .1f))
+                    listOf(
+                        Color.White.copy(alpha = .08f),
+                        Color.Transparent,
+                        Color.Black.copy(alpha = .1f),
+                    )
                 )
             )
-            // Folded edges catch the light along the top and left and fall into shade on the others.
+            // Folded edges catch the light along the top and left and
+            // fall into shade on the others.
             val line = maxOf(1f, dp(1f))
-            drawLine(Color.White.copy(alpha = .38f), Offset(0f, line / 2), Offset(w, line / 2), line)
-            drawLine(Color.White.copy(alpha = .24f), Offset(line / 2, 0f), Offset(line / 2, h), line)
-            drawLine(Color.Black.copy(alpha = .26f), Offset(w - line / 2, 0f), Offset(w - line / 2, h), line)
-            drawLine(Color.Black.copy(alpha = .3f), Offset(0f, h - line / 2), Offset(w, h - line / 2), line)
+            drawLine(
+                Color.White.copy(alpha = .38f),
+                Offset(0f, line / 2),
+                Offset(w, line / 2),
+                line,
+            )
+            drawLine(
+                Color.White.copy(alpha = .24f),
+                Offset(line / 2, 0f),
+                Offset(line / 2, h),
+                line,
+            )
+            drawLine(
+                Color.Black.copy(alpha = .26f),
+                Offset(w - line / 2, 0f),
+                Offset(w - line / 2, h),
+                line,
+            )
+            drawLine(
+                Color.Black.copy(alpha = .3f),
+                Offset(0f, h - line / 2),
+                Offset(w, h - line / 2),
+                line,
+            )
         }
+
         CaseKind.DIGITAL -> Unit
     }
 }

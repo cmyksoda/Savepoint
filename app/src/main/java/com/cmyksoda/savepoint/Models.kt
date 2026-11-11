@@ -129,7 +129,10 @@ val systems = systemFamilies.flatMap { it.systems } + "Other"
 fun systemFamily(system: String): String? =
     systemFamilies.firstOrNull { system in it.systems }?.key
 
-/** The systems someone plays on, plus any they already used, so an existing game never loses its system. */
+/**
+ * The systems someone plays on, plus any they already used,
+ * so an existing game never loses its system.
+ */
 fun playableSystems(platforms: Set<String>, keep: Collection<String> = emptyList()): List<String> =
     systems.filter { it == "Other" || systemFamily(it) in platforms || it in keep }
 

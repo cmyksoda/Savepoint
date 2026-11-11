@@ -46,10 +46,16 @@ fun fetchBytes(url: String, redirects: Int = 3): ByteArray {
         try {
             val status = connection.responseCode
             if (status == 200) return connection.inputStream.use { it.readBytes() }
-            // LaunchBox moves bare and renamed game addresses to their current page; follow only within the same site.
+            // LaunchBox moves bare and renamed game addresses to their current page;
+            // follow only within the same site.
             connection.getHeaderField("Location")
                 ?.let { runCatching { address.resolve(it) }.getOrNull() }
-                ?.takeIf { status in 300..399 && redirects > 0 && it.scheme == "https" && it.host == address.host }
+                ?.takeIf {
+                    status in 300..399 &&
+                        redirects > 0 &&
+                        it.scheme == "https" &&
+                        it.host == address.host
+                }
                 ?: throw SourceUnavailable(status)
         } finally {
             connection.disconnect()
@@ -73,7 +79,8 @@ fun preferredCoverUrl(url: String): String {
 
 class Artwork(private val context: Context) {
     val directory = File(context.filesDir, "artwork").apply { mkdirs() }
-    // A quarter of the app's memory, as image libraries like Coil use, keeps a long backlog decoded.
+    // A quarter of the app's memory, as image libraries like Coil use, keeps a long
+    // backlog decoded.
     private val decoded =
         object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 4 / 1024).toInt()) {
             override fun sizeOf(key: String, value: Bitmap): Int =
@@ -94,7 +101,8 @@ class Artwork(private val context: Context) {
         longest[url] = maxOf(width, height)
     }
 
-    // The decoder's own halving keeps art sharp, so each view takes the most halving that still covers it.
+    // The decoder's own halving keeps art sharp, so each view takes the most halving
+    // that still covers it.
     private fun sampleFor(url: String, size: Int): Int {
         val full = longest[url] ?: return 1
         val target = if (size > 0) size else coverPixels
@@ -119,14 +127,20 @@ class Artwork(private val context: Context) {
             }
             val density = context.resources.displayMetrics.density
             val playing =
-                games.filter { it.place == Place.ACTIVE && it.shelf == Shelf.PLAY_THROUGH }.minByOrNull { it.position }
+                games
+                    .filter { it.place == Place.ACTIVE && it.shelf == Shelf.PLAY_THROUGH }
+                    .minByOrNull { it.position }
             for (game in games.filter { it.place == Place.ACTIVE }) {
                 if (game.shelf == Shelf.HUNTS) {
                     if (game.sprite.isNotBlank() && fileFor(game.sprite).isFile)
                         spriteBitmap(game.sprite)
                 } else if (game.cover.isNotBlank()) {
-                    val bounds = if (game.id == playing?.id) PlayingCoverBounds else ShelfCoverBounds
-                    cachedCoverBitmap(game.cover, (maxOf(bounds.width, bounds.height) * density).roundToInt())
+                    val bounds =
+                        if (game.id == playing?.id) PlayingCoverBounds else ShelfCoverBounds
+                    cachedCoverBitmap(
+                        game.cover,
+                        (maxOf(bounds.width, bounds.height) * density).roundToInt(),
+                    )
                 }
             }
         }
@@ -143,7 +157,9 @@ class Artwork(private val context: Context) {
             }
         }
 
-    /** A decoded cover at least [size] pixels on its long side; a larger copy in memory serves too. */
+    /**
+     * A decoded cover at least [size] pixels on its long side; a larger copy in memory serves too.
+     */
     fun memoryBitmap(url: String, sprite: Boolean = false, size: Int = 0): Bitmap? {
         if (sprite) return decoded.get("sprite:$url")
         for (candidate in listOf(preferredCoverUrl(url), url).distinct()) {
@@ -165,7 +181,8 @@ class Artwork(private val context: Context) {
     // Search lists show many sprites the player may never pick, so they use the expiring cache.
     suspend fun previewSprite(url: String): Bitmap? =
         withContext(Dispatchers.IO) {
-            decoded.get("sprite:$url") ?: previewBitmap(url)?.let { trimmed(it) }?.also { decoded.put("sprite:$url", it) }
+            decoded.get("sprite:$url")
+                ?: previewBitmap(url)?.let { trimmed(it) }?.also { decoded.put("sprite:$url", it) }
         }
 
     private fun trimmed(original: Bitmap): Bitmap {
@@ -198,8 +215,12 @@ class Artwork(private val context: Context) {
             measured(url, bounds.outWidth, bounds.outHeight)
         }
         val sample = sampleFor(url, size)
-        // Only the decoder's own halving: resizing again on top of the screen's scaling softens the art.
-        return BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })
+        // Only the decoder's own halving: resizing again on top of the screen's scaling
+        // softens the art.
+        return BitmapFactory.decodeFile(
+                file.path,
+                BitmapFactory.Options().apply { inSampleSize = sample },
+            )
             ?.also { decoded.put(key(url, sample), it) }
     }
 
@@ -263,7 +284,10 @@ class Artwork(private val context: Context) {
             measured(url, bounds.outWidth, bounds.outHeight)
             var sample = 1
             while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 240) sample *= 2
-            BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })
+            BitmapFactory.decodeFile(
+                    file.path,
+                    BitmapFactory.Options().apply { inSampleSize = sample },
+                )
                 ?.also { decoded.put("preview:$url", it) }
         }
 
@@ -289,7 +313,9 @@ class Artwork(private val context: Context) {
         withContext(Dispatchers.IO) {
             val icon = appIconBitmap(context, packageName) ?: return@withContext null
             val name = filename("app:$packageName")
-            File(directory, name).outputStream().use { icon.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            File(directory, name).outputStream().use {
+                icon.compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
             "local:$name"
         }
 }
@@ -299,9 +325,11 @@ class Catalog(private val context: Context) {
     // Result thumbnails and the cover screen read the same LaunchBox pages.
     private val coverPages = LruCache<String, List<CoverCandidate>>(200)
 
-    private fun launchBoxSearch(query: String) = parseLaunchBoxResults(String(fetchBytes(launchBoxSearchUrl(query))))
+    private fun launchBoxSearch(query: String) =
+        parseLaunchBoxResults(String(fetchBytes(launchBoxSearchUrl(query))))
 
-    private fun steamSearch(query: String) = parseSteamResults(String(fetchBytes(steamSearchUrl(query))))
+    private fun steamSearch(query: String) =
+        parseSteamResults(String(fetchBytes(steamSearchUrl(query))))
 
     private fun appStoreSearch(query: String, system: String) =
         parseAppStoreResults(String(fetchBytes(appStoreSearchUrl(query))), system)
@@ -318,23 +346,34 @@ class Catalog(private val context: Context) {
                 systemFamily(game.system).let { it == null || it in families }
         val sources = buildList<Pair<String, () -> List<Game>>> {
             add("LaunchBox" to { launchBoxSearch(query) })
-            // Store searches pad their answers with loosely related titles, so keep only real matches.
+            // Store searches pad their answers with loosely related titles, so keep only
+            // real matches.
             if ("pc" in families && (system.isEmpty() || system == "PC"))
-                add("Steam" to { steamSearch(query).filter { searchMatchScore(it.title, query) != null } })
+                add("Steam" to {
+                    steamSearch(query).filter { searchMatchScore(it.title, query) != null }
+                })
             if ("mobile" in families && (system.isEmpty() || system in mobileSystems))
                 add("The App Store" to {
-                    appStoreSearch(query, system.ifEmpty { "Android" }).filter { searchMatchScore(it.title, query) != null }
+                    appStoreSearch(query, system.ifEmpty { "Android" })
+                        .filter { searchMatchScore(it.title, query) != null }
                 })
         }
         val pages =
             sources.map { (name, search) ->
                 flow {
                         val games = search().filter(::wanted)
-                        games.forEachIndexed { index, game -> rank[game.source + game.sourceId] = index }
+                        games.forEachIndexed { index, game ->
+                            rank[game.source + game.sourceId] = index
+                        }
                         emit(CatalogPage(games, null))
                     }
                     .catch {
-                        emit(CatalogPage(emptyList(), "$name is unavailable right now, so some games may be missing."))
+                        emit(
+                            CatalogPage(
+                                emptyList(),
+                                "$name is unavailable right now, so some games may be missing.",
+                            )
+                        )
                     }
                     .flowOn(Dispatchers.IO)
             }
@@ -347,7 +386,8 @@ class Catalog(private val context: Context) {
                             .sortedWith(
                                 compareBy<Game> { !it.title.equals(query, true) }
                                     .thenBy { searchMatchScore(it.title, query) ?: Int.MAX_VALUE }
-                                    // Stray database entries rarely carry a release date; real games do.
+                                    // Stray database entries rarely carry a release date;
+                                    // real games do.
                                     .thenBy { it.release == null }
                                     .thenBy { rank[it.source + it.sourceId] ?: Int.MAX_VALUE }
                             )
@@ -356,7 +396,10 @@ class Catalog(private val context: Context) {
             .flowOn(Dispatchers.IO)
     }
 
-    private suspend fun launchBoxCovers(slug: String, refresh: Boolean = false): List<CoverCandidate> =
+    private suspend fun launchBoxCovers(
+        slug: String,
+        refresh: Boolean = false,
+    ): List<CoverCandidate> =
         coverPages.get(slug)?.takeUnless { refresh }
             ?: withContext(Dispatchers.IO) {
                     parseLaunchBoxCovers(String(fetchBytes("$launchBoxRoot/games/images/$slug")))
@@ -365,9 +408,14 @@ class Catalog(private val context: Context) {
 
     suspend fun resultCover(game: Game): String? =
         game.cover.ifBlank { null }
-            ?: if (game.source == "launchbox") launchBoxCovers(game.sourceId).firstOrNull()?.url else null
+            ?: if (game.source == "launchbox") launchBoxCovers(game.sourceId).firstOrNull()?.url
+            else null
 
-    suspend fun covers(game: Game, provider: String, refresh: Boolean = false): List<CoverCandidate> =
+    suspend fun covers(
+        game: Game,
+        provider: String,
+        refresh: Boolean = false,
+    ): List<CoverCandidate> =
         withContext(Dispatchers.IO) {
             val key = catalogTitleKey(game.title)
             when (provider) {
@@ -380,7 +428,9 @@ class Catalog(private val context: Context) {
                                     it.system == catalogSystemName(game.system)
                                 }
                             (found.firstOrNull { catalogTitleKey(it.title) == key }
-                                    ?: found.firstOrNull { catalogTitleKey(it.title).startsWith(key) })
+                                    ?: found.firstOrNull {
+                                        catalogTitleKey(it.title).startsWith(key)
+                                    })
                                 ?.sourceId ?: return@withContext emptyList()
                         }
                     launchBoxCovers(slug, refresh)
@@ -389,7 +439,9 @@ class Catalog(private val context: Context) {
                     val id =
                         if (game.source == "steam") game.sourceId
                         else
-                            steamSearch(game.title).firstOrNull { catalogTitleKey(it.title) == key }?.sourceId
+                            steamSearch(game.title)
+                                .firstOrNull { catalogTitleKey(it.title) == key }
+                                ?.sourceId
                                 ?: return@withContext emptyList()
                     listOf("library_600x900_2x.jpg", "library_600x900.jpg")
                         .map { steamArt(id, it) }

@@ -7,7 +7,10 @@ import org.junit.Test
 
 class CatalogSourcesTest {
     private fun day(year: Int, month: Int, date: Int) =
-        LocalDate.of(year, month, date).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        LocalDate.of(year, month, date)
+            .atStartOfDay(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
 
     private fun card(slug: String, title: String, platform: String, released: String) =
         """
@@ -24,11 +27,24 @@ class CatalogSourcesTest {
     @Test
     fun launchBoxCardsBecomeGamesOnKnownSystems() {
         val html =
-            card("18848-kururin-paradise", "Kururin Paradise", "Nintendo Game Boy Advance", "December 6, 2002") +
+            card(
+                "18848-kururin-paradise",
+                "Kururin Paradise",
+                "Nintendo Game Boy Advance",
+                "December 6, 2002",
+            ) +
                 card("5-a-home-computer-game", "A Home Computer Game", "Commodore 64", "1985") +
-                card("7-pokemon-crystal", "Pok&#233;mon Crystal &amp; Friends", "Nintendo Game Boy Color", "July 29, 2001")
+                card(
+                    "7-pokemon-crystal",
+                    "Pok&#233;mon Crystal &amp; Friends",
+                    "Nintendo Game Boy Color",
+                    "July 29, 2001",
+                )
         val games = parseLaunchBoxResults(html)
-        assertEquals(listOf("Kururin Paradise", "Pokémon Crystal & Friends"), games.map { it.title })
+        assertEquals(
+            listOf("Kururin Paradise", "Pokémon Crystal & Friends"),
+            games.map { it.title },
+        )
         assertEquals(listOf("Game Boy Advance", "Game Boy Color"), games.map { it.system })
         assertEquals("18848-kururin-paradise", games.first().sourceId)
         assertEquals("launchbox", games.first().source)
@@ -38,7 +54,10 @@ class CatalogSourcesTest {
     @Test
     fun launchBoxSearchesUseTheLowercaseAddress() {
         assertEquals("$launchBoxRoot/games/results/mother%203", launchBoxSearchUrl("Mother 3"))
-        assertEquals("$launchBoxRoot/games/results/pok%C3%A9mon%20emerald", launchBoxSearchUrl("Pokémon Emerald"))
+        assertEquals(
+            "$launchBoxRoot/games/results/pok%C3%A9mon%20emerald",
+            launchBoxSearchUrl("Pokémon Emerald"),
+        )
     }
 
     @Test

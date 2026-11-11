@@ -34,6 +34,7 @@ fun PokemonPicker(catalog: PokemonCatalog, artwork: Artwork, onChoose: (PokemonC
             error = "Couldn’t load Pokémon. Try again when connected."
         }
     }
+
     LaunchedEffect(all, query) {
         results = withContext(Dispatchers.Default) { searchPokemon(all, query) }
     }
@@ -74,7 +75,10 @@ fun PokemonPicker(catalog: PokemonCatalog, artwork: Artwork, onChoose: (PokemonC
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Box(Modifier.size(44.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier.size(44.dp).clearAndSetSemantics {},
+                            contentAlignment = Alignment.Center,
+                        ) {
                             pokemon.spriteUrl?.let { url ->
                                 Art(
                                     url,

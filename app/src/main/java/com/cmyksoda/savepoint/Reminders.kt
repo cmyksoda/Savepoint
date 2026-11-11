@@ -128,7 +128,12 @@ object Reminders {
     fun invitationNotification(context: Context, timeout: Long, allowLater: Boolean): Notification {
         val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         val open =
-            PendingIntent.getActivity(context, 1, Intent(context, SavepointActivity::class.java), flags)
+            PendingIntent.getActivity(
+                context,
+                1,
+                Intent(context, SavepointActivity::class.java),
+                flags,
+            )
         fun action(name: String, code: Int) =
             PendingIntent.getBroadcast(
                 context,
@@ -207,6 +212,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     Reminders.schedule(context, changed)
                     return@launch
                 }
+
                 val now = System.currentTimeMillis()
                 val s = store.read()
                 val followup = intent.getBooleanExtra("followup", false)
@@ -234,6 +240,7 @@ class ReminderReceiver : BroadcastReceiver() {
                                 else current.copy(sentDate = today)
                             }
                         }
+
                     if (!didClaim) {
                         Reminders.schedule(context, claimed)
                         return@launch
@@ -254,6 +261,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         ),
                     )
                 }
+
                 Reminders.schedule(context, store.read())
             } finally {
                 pending.finish()

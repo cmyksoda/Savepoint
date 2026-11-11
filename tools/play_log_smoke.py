@@ -22,8 +22,10 @@ def adb(*arguments):
 
 def nodes():
     adb("shell", "rm", "-f", "/sdcard/savepoint-ui.xml")
-    subprocess.run(["adb", "-s", args.serial, "shell", "uiautomator", "dump", "/sdcard/savepoint-ui.xml"],
-                   capture_output=True, timeout=20)
+    subprocess.run(
+        ["adb", "-s", args.serial, "shell", "uiautomator", "dump", "/sdcard/savepoint-ui.xml"],
+        capture_output=True, timeout=20,
+    )
     result = subprocess.run(
         ["adb", "-s", args.serial, "exec-out", "cat", "/sdcard/savepoint-ui.xml"],
         capture_output=True, timeout=20,
@@ -57,9 +59,13 @@ def enter(label, text):
     deadline = time.monotonic() + 25
     while time.monotonic() < deadline:
         for node in nodes():
-            if node.get("class") == "android.widget.EditText" and (node.get("content-desc") == label or any(
-                child.get("text") == label or child.get("content-desc") == label for child in node.iter("node")
-            )):
+            if node.get("class") == "android.widget.EditText" and (
+                node.get("content-desc") == label
+                or any(
+                    child.get("text") == label or child.get("content-desc") == label
+                    for child in node.iter("node")
+                )
+            ):
                 tap_node(node)
                 adb("shell", "input", "text", text)
                 adb("shell", "input", "keyevent", "KEYCODE_BACK")

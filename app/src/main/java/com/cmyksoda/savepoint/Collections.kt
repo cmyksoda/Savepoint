@@ -157,6 +157,7 @@ fun CollectionsScreen(
             )
         onReorder(selected, id, direction) { changed -> if (!changed) pendingMove = null }
     }
+
     val order = row.map { it.id }
     SideEffect {
         pendingMove?.let { anchor ->
@@ -166,6 +167,7 @@ fun CollectionsScreen(
             }
         }
     }
+
     Column(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -206,6 +208,7 @@ fun CollectionsScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+
                             AeroIcon(AeroSymbol.NEXT, Modifier.size(17.dp))
                         }
                     }
@@ -239,6 +242,7 @@ fun CollectionsScreen(
                     Text("Choose games")
                 }
             }
+
             LazyColumn(
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -252,7 +256,8 @@ fun CollectionsScreen(
                     }
                 items(row, key = { it.id }) { game ->
                     ArrangeCard(
-                        Modifier.fillMaxWidth().animateItem(placementSpec = spring(stiffness = 350f)),
+                        Modifier.fillMaxWidth()
+                            .animateItem(placementSpec = spring(stiffness = 350f)),
                         canMoveUp = pendingMove == null && row.first().id != game.id,
                         canMoveDown = pendingMove == null && row.last().id != game.id,
                         onOpen = { onOpen(game.id) },
@@ -276,6 +281,7 @@ fun CollectionsScreen(
             }
         }
     }
+
     if (creating)
         AeroDialog(
             onDismissRequest = { creating = false },
@@ -305,6 +311,7 @@ fun CollectionsScreen(
             },
             dismissButton = { AeroButton(onClick = { creating = false }) { Text("Cancel") } },
         )
+
     if (renaming)
         AeroDialog(
             onDismissRequest = { if (!renameBusy) renaming = false },
@@ -345,6 +352,7 @@ fun CollectionsScreen(
                 AeroButton(onClick = { renaming = false }, enabled = !renameBusy) { Text("Cancel") }
             },
         )
+
     if (picking)
         AeroDialog(
             onDismissRequest = { picking = false },
@@ -434,6 +442,7 @@ fun FindGames(
                 compareBy<Pair<Int, Game>> { it.first }.thenBy { it.second.title.lowercase() }
             )
             .map { it.second }
+
     Column(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -459,6 +468,7 @@ fun FindGames(
         ) {
             Text("Manage collections")
         }
+
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(bottom = 20.dp),

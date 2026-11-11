@@ -1,6 +1,9 @@
 using PKHeX.Core;
 using System.Text.Json;
-EncounterMovesetGenerator.PriorityList = [EncounterTypeGroup.Slot, EncounterTypeGroup.Static, EncounterTypeGroup.Egg];
+
+EncounterMovesetGenerator.PriorityList =
+    [EncounterTypeGroup.Slot, EncounterTypeGroup.Static, EncounterTypeGroup.Egg];
+
 var versions = new Dictionary<string, GameVersion>
 {
     ["gold"] = GameVersion.GD,
@@ -39,6 +42,7 @@ var versions = new Dictionary<string, GameVersion>
     ["violet"] = GameVersion.VL,
     ["legends-z-a"] = GameVersion.ZA
 };
+
 IPersonalTable Table(GameVersion v) => v switch
 {
     GameVersion.GD or GameVersion.SI or GameVersion.C => PersonalTable.C,
@@ -63,8 +67,10 @@ IPersonalTable Table(GameVersion v) => v switch
     GameVersion.ZA => PersonalTable.ZA,
     _ => throw new ArgumentException()
 };
+
 var strings = GameInfo.GetStrings("en");
 var data = new List<object>();
+
 foreach (var (key, v) in versions)
 {
     var table = Table(v);
@@ -81,20 +87,29 @@ foreach (var (key, v) in versions)
             p.Species = s;
             p.Form = f;
             p.CurrentLevel = 100;
-            var encounters = EncounterMovesetGenerator.GenerateEncounters(p, ReadOnlyMemory<ushort>.Empty, v)
-             .Where(e => e.Shiny == Shiny.Random && e.Version.Contains(v)).ToList();
+
+            var encounters = EncounterMovesetGenerator
+                .GenerateEncounters(p, ReadOnlyMemory<ushort>.Empty, v)
+                .Where(e => e.Shiny == Shiny.Random && e.Version.Contains(v))
+                .ToList();
             if (encounters.Count == 0 && f > 0 && FormInfo.IsBattleOnlyForm(s, f, v.Generation))
             {
                 p.Form = FormInfo.GetOutOfBattleForm(s, f, v.Generation);
-                encounters = EncounterMovesetGenerator.GenerateEncounters(p, ReadOnlyMemory<ushort>.Empty, v).Where(e => e.Shiny == Shiny.Random && e.Version.Contains(v)).ToList();
+                encounters = EncounterMovesetGenerator
+                    .GenerateEncounters(p, ReadOnlyMemory<ushort>.Empty, v)
+                    .Where(e => e.Shiny == Shiny.Random && e.Version.Contains(v))
+                    .ToList();
             }
             if (encounters.Count == 0) continue;
+
             var methods = new SortedDictionary<string, SortedSet<string>>();
             void Add(string method, IEncounterable e)
             {
-                if (!methods.TryGetValue(method, out var targets)) methods[method] = targets = new();
+                if (!methods.TryGetValue(method, out var targets))
+                    methods[method] = targets = new();
                 targets.Add($"{e.Species}:{e.Form}");
             }
+
             foreach (var e in encounters)
             {
                 if (e.IsEgg)
@@ -125,7 +140,11 @@ foreach (var (key, v) in versions)
                 }
                 if (e is EncounterSlot9a za)
                 {
-                    Add(za.Type == SlotType9a.Hyperspace ? "Hyperspace encounters" : "Random encounters", e);
+                    Add(
+                        za.Type == SlotType9a.Hyperspace
+                            ? "Hyperspace encounters"
+                            : "Random encounters",
+                        e);
                     continue;
                 }
                 if (e is EncounterStatic9a)
@@ -157,25 +176,30 @@ foreach (var (key, v) in versions)
                 bool wild = type.StartsWith("EncounterSlot");
                 bool gift = !wild && e.FixedBall != Ball.None;
                 Add(wild ? "Random encounters" : gift ? "Gift Pokémon" : "Soft resets", e);
-                if (!gift && v.Context is not EntityContext.Gen8a and not EntityContext.Gen9a) Add("Runaways", e);
-                if (e is EncounterSlot4 dpp && dpp.CanUseRadar || e is EncounterSlot8b bdsp && bdsp.CanUseRadar) Add("Poké Radar", e);
+                if (!gift && v.Context is not EntityContext.Gen8a and not EntityContext.Gen9a)
+                    Add("Runaways", e);
+                if (e is EncounterSlot4 dpp && dpp.CanUseRadar
+                    || e is EncounterSlot8b bdsp && bdsp.CanUseRadar)
+                    Add("Poké Radar", e);
                 if (e is EncounterSlot8b ug && ug.IsUnderground) Add("Grand Underground", e);
                 if (e is EncounterSlot6XY xy)
                 {
                     if (xy.Type == SlotType6.Grass) Add("Poké Radar", e);
                     if (xy.IsFriendSafari) Add("Friend Safari", e);
-                    if (xy.Type is SlotType6.Old_Rod or SlotType6.Good_Rod or SlotType6.Super_Rod) Add("Chain fishing", e);
+                    if (xy.Type is SlotType6.Old_Rod or SlotType6.Good_Rod or SlotType6.Super_Rod)
+                        Add("Chain fishing", e);
                 }
                 if (e is EncounterSlot6AO ao)
                 {
                     if (ao.CanDexNav) Add("DexNav", e);
-                    if (ao.Type is SlotType6.Old_Rod or SlotType6.Good_Rod or SlotType6.Super_Rod) Add("Chain fishing", e);
+                    if (ao.Type is SlotType6.Old_Rod or SlotType6.Good_Rod or SlotType6.Super_Rod)
+                        Add("Chain fishing", e);
                 }
                 if (e is EncounterSlot7 sos && sos.IsSOS) Add("SOS calls", e);
                 if (e is EncounterSlot7b) Add("Catch combo", e);
                 if (e is EncounterSlot8) Add("Brilliant encounters", e);
-
             }
+
             data.Add(new
             {
                 game = key,

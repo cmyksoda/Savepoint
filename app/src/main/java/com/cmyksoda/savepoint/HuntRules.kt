@@ -238,6 +238,7 @@ fun calculatedOdds(game: Game): Pair<Double?, String> {
             "research + encounter bonuses",
         )
     }
+
     if (family == "legends-z-a") {
         if (method == "Fossil revival") return 4096.0 to "fossils use base odds"
         val power =
@@ -247,6 +248,7 @@ fun calculatedOdds(game: Game): Pair<Double?, String> {
             "${1 + power + if (charm) 3 else 0} shiny rolls per spawn",
         )
     }
+
     return when (method) {
         "Masuda method" ->
             rolls(
@@ -276,6 +278,7 @@ fun calculatedOdds(game: Game): Pair<Double?, String> {
                 "per called ally",
             )
         }
+
         "Catch combo" ->
             rolls(
                 1 +
@@ -289,6 +292,7 @@ fun calculatedOdds(game: Game): Pair<Double?, String> {
                     if (config.lure) 1 else 0,
                 "next spawn of the chained species",
             )
+
         "Brilliant encounters" ->
             rolls(
                 1 +
@@ -304,6 +308,7 @@ fun calculatedOdds(game: Game): Pair<Double?, String> {
                     extra,
                 "Brilliant Aura encounters only",
             )
+
         "Mass outbreaks" ->
             rolls(
                 1 +
@@ -316,6 +321,7 @@ fun calculatedOdds(game: Game): Pair<Double?, String> {
                     config.sparklingPower.coerceIn(0, 3),
                 "current outbreak · matching meal type",
             )
+
         "Grand Underground" ->
             rolls(
                 if (config.diglett) 2 else 1,

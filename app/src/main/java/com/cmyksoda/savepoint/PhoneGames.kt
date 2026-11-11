@@ -13,7 +13,10 @@ import kotlinx.coroutines.withContext
 
 data class PhoneGame(val packageName: String, val title: String, val game: Boolean = true)
 
-/** Apps on this phone that open from the launcher; Android tells only this phone, and the list never leaves it. */
+/**
+ * Apps on this phone that open from the launcher;
+ * Android tells only this phone, and the list never leaves it.
+ */
 fun installedApps(context: Context): List<PhoneGame> {
     val packages = context.packageManager
     val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -47,7 +50,8 @@ fun phoneGameMatches(apps: List<PhoneGame>, library: List<Game>, query: String):
 
 /** The installed app a library game was added from, or else one with the same name. */
 fun phoneAppFor(game: Game, apps: List<PhoneGame>): PhoneGame? {
-    if (game.source == "phone") apps.firstOrNull { it.packageName == game.sourceId }?.let { return it }
+    if (game.source == "phone")
+        apps.firstOrNull { it.packageName == game.sourceId }?.let { return it }
     val title = catalogTitleKey(game.title)
     return apps.firstOrNull { catalogTitleKey(it.title) == title }
 }
@@ -56,16 +60,26 @@ fun phoneAppFor(game: Game, apps: List<PhoneGame>): PhoneGame? {
 suspend fun phoneCovers(context: Context, artwork: Artwork, game: Game): List<CoverCandidate> =
     withContext(Dispatchers.IO) {
         val app = phoneAppFor(game, installedApps(context)) ?: return@withContext emptyList()
-        listOfNotNull(artwork.saveAppIcon(app.packageName)?.let { CoverCandidate(it, "This phone", "App icon") })
+        listOfNotNull(
+            artwork.saveAppIcon(app.packageName)?.let {
+                CoverCandidate(it, "This phone", "App icon")
+            }
+        )
     }
 
-/** The app's icon as a full square, the same shape as App Store artwork, so it can stand on a shelf. */
+/**
+ * The app's icon as a full square, the same shape as App Store artwork,
+ * so it can stand on a shelf.
+ */
 fun appIconBitmap(context: Context, packageName: String, size: Int = 512): Bitmap? {
-    val icon = runCatching { context.packageManager.getApplicationIcon(packageName) }.getOrNull() ?: return null
+    val icon =
+        runCatching { context.packageManager.getApplicationIcon(packageName) }.getOrNull()
+            ?: return null
     val bitmap = createBitmap(size, size)
     val canvas = Canvas(bitmap)
     if (icon is AdaptiveIconDrawable) {
-        // Adaptive layers are 108 dp with the visible icon in the middle 72 dp, so they're drawn half again as large.
+        // Adaptive layers are 108 dp with the visible icon in the middle 72 dp,
+        // so they're drawn half again as large.
         val bleed = size / 4
         listOfNotNull(icon.background, icon.foreground).forEach {
             it.setBounds(-bleed, -bleed, size + bleed, size + bleed)

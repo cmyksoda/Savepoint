@@ -22,7 +22,8 @@ fun rememberActionFeedback(): (Boolean) -> Unit {
     val view = LocalView.current
     return remember(view) {
         { strong ->
-            // CLOCK_TICK is Android's faintest texture tick, which many phones barely play; this is the keyboard's click.
+            // CLOCK_TICK is Android's faintest texture tick, which many phones barely play;
+            // this is the keyboard's click.
             if (!strong) view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             else if (
                 view.isHapticFeedbackEnabled &&
@@ -55,7 +56,11 @@ fun rememberActionFeedback(): (Boolean) -> Unit {
 }
 
 /** [clickable] that answers with the same light click as every Savepoint button. */
-fun Modifier.feedbackClickable(enabled: Boolean = true, role: Role? = null, onClick: () -> Unit): Modifier =
+fun Modifier.feedbackClickable(
+    enabled: Boolean = true,
+    role: Role? = null,
+    onClick: () -> Unit,
+): Modifier =
     composed {
         val feedback = rememberActionFeedback()
         clickable(enabled = enabled, role = role) {

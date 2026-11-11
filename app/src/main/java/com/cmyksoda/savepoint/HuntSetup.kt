@@ -123,6 +123,7 @@ fun HuntModifiers(
                         onConfig(config.copy(research = researchNames.indexOf(it)))
                     }
                 }
+
                 key(version, method) {
                     if (chain)
                         HuntNumber(
@@ -146,6 +147,7 @@ fun HuntModifiers(
                             onConfig(config.copy(battled = it))
                         }
                 }
+
                 if (sparkling)
                     Choice(
                         if (family == "legends-z-a") "Sparkling Power · donut"
@@ -160,6 +162,7 @@ fun HuntModifiers(
                             )
                         )
                     }
+
                 if (family == "lets-go" && method in setOf("Random encounters", "Catch combo"))
                     HuntToggle("Lure active", config.lure) { onConfig(config.copy(lure = it)) }
                 if (method == "Grand Underground")

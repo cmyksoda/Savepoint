@@ -92,10 +92,12 @@ class EveningLogTest {
     fun olderSettingsKeepTheCheckInOnlyWhereInvitationsWereOn() {
         fun saved(reminders: Boolean, logReminder: Boolean?) =
             JsonCodec.settings(
-                org.json.JSONObject(JsonCodec.settings(Settings(reminders = reminders)).toString()).apply {
-                    remove("eveningCheckIn")
-                    if (logReminder != null) put("logReminder", logReminder)
-                }
+                org.json
+                    .JSONObject(JsonCodec.settings(Settings(reminders = reminders)).toString())
+                    .apply {
+                        remove("eveningCheckIn")
+                        if (logReminder != null) put("logReminder", logReminder)
+                    }
             )
         assertTrue(saved(reminders = true, logReminder = null).eveningCheckIn)
         assertFalse(saved(reminders = false, logReminder = true).eveningCheckIn)

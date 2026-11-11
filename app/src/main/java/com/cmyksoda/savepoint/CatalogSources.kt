@@ -93,13 +93,15 @@ internal fun htmlText(html: String): String =
         }
         .trim()
 
-internal fun pathSegment(text: String): String = URLEncoder.encode(text, "UTF-8").replace("+", "%20")
+internal fun pathSegment(text: String): String =
+    URLEncoder.encode(text, "UTF-8").replace("+", "%20")
 
 private fun startOfDay(date: LocalDate): Long =
     date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
 // LaunchBox only answers a search at its lowercase address and redirects every other spelling.
-fun launchBoxSearchUrl(query: String) = "$launchBoxRoot/games/results/${pathSegment(query.lowercase())}"
+fun launchBoxSearchUrl(query: String) =
+    "$launchBoxRoot/games/results/${pathSegment(query.lowercase())}"
 
 /** One game per card on LaunchBox's results page; [Game.sourceId] keeps its address. */
 fun parseLaunchBoxResults(html: String): List<Game> {
@@ -107,15 +109,23 @@ fun parseLaunchBoxResults(html: String): List<Game> {
     val dateFormat = DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.US)
     return links
         .mapIndexedNotNull { index, link ->
-            val card = html.substring(link.range.first, links.getOrNull(index + 1)?.range?.first ?: html.length)
-            val title = Regex("<h3[^>]*>([\\s\\S]*?)</h3>").find(card) ?: return@mapIndexedNotNull null
+            val card =
+                html.substring(
+                    link.range.first,
+                    links.getOrNull(index + 1)?.range?.first ?: html.length,
+                )
+            val title =
+                Regex("<h3[^>]*>([\\s\\S]*?)</h3>").find(card) ?: return@mapIndexedNotNull null
             val platform =
                 Regex("<p[^>]*>([\\s\\S]*?)</p>").find(card, title.range.last)
                     ?: return@mapIndexedNotNull null
-            val system = launchBoxSystems[htmlText(platform.groupValues[1])] ?: return@mapIndexedNotNull null
+            val system =
+                launchBoxSystems[htmlText(platform.groupValues[1])] ?: return@mapIndexedNotNull null
             val released =
                 Regex("class=\"releaseDate\"[\\s\\S]*?<h5[^>]*>([\\s\\S]*?)</h5>").find(card)?.let {
-                    runCatching { startOfDay(LocalDate.parse(htmlText(it.groupValues[1]), dateFormat)) }
+                    runCatching {
+                            startOfDay(LocalDate.parse(htmlText(it.groupValues[1]), dateFormat))
+                        }
                         .getOrNull()
                 }
             Game(
@@ -129,13 +139,17 @@ fun parseLaunchBoxResults(html: String): List<Game> {
         .distinctBy { it.sourceId }
 }
 
-/** Front covers from a LaunchBox images page: official ones by region, then reconstructed, then fan art. */
+/**
+ * Front covers from a LaunchBox images page: official ones by region,
+ * then reconstructed, then fan art.
+ */
 fun parseLaunchBoxCovers(html: String): List<CoverCandidate> =
     Regex("<a\\s[^>]*href=\"(https://images\\.launchbox-app\\.com/[^\"<>]+)\"[^>]*data-title=\"([^\"]+)\"")
         .findAll(html)
         .mapNotNull { match ->
             val url = match.groupValues[1]
-            if (runCatching { URI(url).host }.getOrNull() != "images.launchbox-app.com") return@mapNotNull null
+            if (runCatching { URI(url).host }.getOrNull() != "images.launchbox-app.com")
+                return@mapNotNull null
             val label = htmlText(match.groupValues[2])
             val (rank, kind) =
                 when {
@@ -145,8 +159,14 @@ fun parseLaunchBoxCovers(html: String): List<CoverCandidate> =
                     else -> return@mapNotNull null
                 }
             val region = Regex("\\(([^()]*)\\)$").find(label)?.groupValues?.get(1)
-            val order = if (rank == 1 && region in setOf(null, "North America", "United States")) 0 else rank
-            order to CoverCandidate(url, "LaunchBox", listOfNotNull(kind, region).joinToString(" · ").ifBlank { "Front cover" })
+            val order =
+                if (rank == 1 && region in setOf(null, "North America", "United States")) 0
+                else rank
+            order to CoverCandidate(
+                url,
+                "LaunchBox",
+                listOfNotNull(kind, region).joinToString(" · ").ifBlank { "Front cover" },
+            )
         }
         .distinctBy { it.second.url }
         .sortedBy { it.first }
@@ -166,17 +186,28 @@ fun parseSteamResults(json: String): List<Game> {
     val items = JSONObject(json).optJSONArray("items") ?: return emptyList()
     return (0 until items.length())
         .map { items.getJSONObject(it) }
-        .filter { it.optString("type") == "app" && !steamExtras.containsMatchIn(it.optString("name")) }
+        .filter {
+            it.optString("type") == "app" && !steamExtras.containsMatchIn(it.optString("name"))
+        }
         .map {
             val id = it.get("id").toString()
-            Game(title = it.getString("name"), system = "PC", source = "steam", sourceId = id, cover = steamArt(id))
+            Game(
+                title = it.getString("name"),
+                system = "PC",
+                source = "steam",
+                sourceId = id,
+                cover = steamArt(id),
+            )
         }
 }
 
 fun appStoreSearchUrl(query: String) =
     "https://itunes.apple.com/search?term=${pathSegment(query)}&entity=software&limit=25"
 
-/** App Store games with their icons; [system] is the phone the player chose, Android unless they say iOS. */
+/**
+ * App Store games with their icons; [system] is the phone the player chose,
+ * Android unless they say iOS.
+ */
 fun parseAppStoreResults(json: String, system: String): List<Game> {
     val results = JSONObject(json).optJSONArray("results") ?: return emptyList()
     return (0 until results.length())
@@ -190,7 +221,11 @@ fun parseAppStoreResults(json: String, system: String): List<Game> {
                 sourceId = it.get("trackId").toString(),
                 cover = it.optString("artworkUrl512"),
                 release =
-                    runCatching { startOfDay(OffsetDateTime.parse(it.getString("releaseDate")).toLocalDate()) }
+                    runCatching {
+                            startOfDay(
+                                OffsetDateTime.parse(it.getString("releaseDate")).toLocalDate()
+                            )
+                        }
                         .getOrNull(),
             )
         }

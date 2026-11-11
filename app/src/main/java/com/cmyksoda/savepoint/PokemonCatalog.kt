@@ -18,7 +18,10 @@ data class PokemonChoice(
         get() = displayPokemonName(slug)
 
     val spriteUrl: String?
-        get() = sprite?.let { "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$it.png" }
+        get() =
+            sprite?.let {
+                "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$it.png"
+            }
 }
 
 fun searchPokemon(choices: List<PokemonChoice>, query: String): List<PokemonChoice> =

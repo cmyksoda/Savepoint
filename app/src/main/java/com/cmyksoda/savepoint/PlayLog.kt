@@ -159,6 +159,7 @@ fun GameJournal(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                     }
+
                     if (!latest?.thoughts.isNullOrBlank()) Text(latest.thoughts)
                     LogExtras(game)
                 }
@@ -171,6 +172,7 @@ fun GameJournal(
                 )
             }
         }
+
         if (game.playthroughs.size > 1) {
             AeroButton(onClick = { showHistory = !showHistory }) {
                 Text(if (showHistory) "Hide earlier playthroughs" else "Earlier playthroughs")
@@ -211,6 +213,7 @@ fun GameJournal(
                     }
                 }
         }
+
         if (game.place == Place.ACTIVE) {
             AeroButton(onClick = onCurrentGame, modifier = Modifier.fillMaxWidth()) {
                 Text("Open current game")
@@ -251,6 +254,7 @@ fun PlaythroughEditor(
                 } ?: ""
             )
         }
+
     var showExtras by
         rememberSaveable(initial.id) { mutableStateOf(!isNew || initial.hours != null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -274,6 +278,7 @@ fun PlaythroughEditor(
                         }
                     }
                 }
+
                 AeroTextField(
                     thoughts,
                     { thoughts = it },
@@ -282,6 +287,7 @@ fun PlaythroughEditor(
                     maxLines = 5,
                     modifier = Modifier.fillMaxWidth(),
                 )
+
                 if (!showExtras)
                     AeroButton(
                         onClick = { showExtras = true },
@@ -292,6 +298,7 @@ fun PlaythroughEditor(
                         Spacer(Modifier.width(8.dp))
                         Text("Optional details")
                     }
+
                 if (showExtras) {
                     AeroTextField(
                         hours,
@@ -308,6 +315,7 @@ fun PlaythroughEditor(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },

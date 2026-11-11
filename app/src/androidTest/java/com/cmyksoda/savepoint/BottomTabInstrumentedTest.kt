@@ -94,6 +94,7 @@ class BottomTabInstrumentedTest {
                 )
                 bottomTabRoutes.forEach { assertSame(firstTokens[it], tokens[it]) }
             }
+
             for (page in listOf("log", "home", "paused", "backlog", "home")) {
                 instrumentation.runOnMainSync { route.value = page }
                 SystemClock.sleep(40)

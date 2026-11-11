@@ -40,7 +40,9 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 
 fun playingNow(games: List<Game>): Game? =
-    games.filter { it.place == Place.ACTIVE && it.shelf == Shelf.PLAY_THROUGH }.minByOrNull { it.position }
+    games
+        .filter { it.place == Place.ACTIVE && it.shelf == Shelf.PLAY_THROUGH }
+        .minByOrNull { it.position }
 
 private val plum = ColorProvider(day = Color(0xFF3A2341), night = Color(0xFFF7EAF6))
 private val dusk = ColorProvider(day = Color(0xFF7A5B78), night = Color(0xFFCDB7D3))
@@ -85,7 +87,8 @@ private fun openSavepoint(context: Context, logPlay: Boolean) =
         Intent(context, SavepointActivity::class.java)
             .setAction(if (logPlay) "log-play" else "open")
             .putExtra("log-play", logPlay)
-            // A fresh task, so the play log opens even when Savepoint was already on another screen.
+            // A fresh task, so the play log opens
+            // even when Savepoint was already on another screen.
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
     )
 
@@ -113,7 +116,10 @@ private fun PlayingNow(game: Game?, cover: Bitmap?) {
             )
             Spacer(GlanceModifier.width(14.dp))
         }
-        Column(GlanceModifier.defaultWeight().fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            GlanceModifier.defaultWeight().fillMaxHeight(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 if (game == null) "Nothing playing yet" else "Playing now",
                 style = TextStyle(color = berry, fontSize = 12.sp, fontWeight = FontWeight.Medium),

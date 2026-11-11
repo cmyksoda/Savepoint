@@ -53,6 +53,7 @@ fun CoverSelection(
                     }
             )
         }
+
     var loading by remember(game.id) { mutableStateOf(emptySet<String>()) }
     var unavailable by remember(game.id) { mutableStateOf(emptySet<String>()) }
     var failed by remember(game.id) { mutableStateOf(emptySet<String>()) }
@@ -60,7 +61,9 @@ fun CoverSelection(
     var imageError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     // A phone game can also take its own app icon, when that app is installed here.
-    val providers = (if (game.system in mobileSystems) listOf("This phone") else emptyList()) + coverProviders(game.system)
+    val providers =
+        (if (game.system in mobileSystems) listOf("This phone") else emptyList()) +
+            coverProviders(game.system)
     val scope = rememberCoroutineScope()
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -73,6 +76,7 @@ fun CoverSelection(
                         .onFailure { imageError = it.message ?: "Could not open this image" }
                 }
         }
+
     LaunchedEffect(game.id, game.system, attempt) {
         unavailable = emptySet()
         failed = emptySet()
@@ -89,7 +93,8 @@ fun CoverSelection(
                                 if (provider == "This phone") phoneCovers(context, artwork, game)
                                 else catalog.covers(game, provider, refresh = attempt > 0)
                             choices = (choices + found).distinctBy { it.url }
-                            if (found.isEmpty() && provider != "This phone") unavailable = unavailable + provider
+                            if (found.isEmpty() && provider != "This phone")
+                                unavailable = unavailable + provider
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
                         } catch (e: Exception) {
@@ -101,6 +106,7 @@ fun CoverSelection(
                 }
         }
     }
+
     androidx.compose.foundation.lazy.LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -138,57 +144,63 @@ fun CoverSelection(
                     }
                 }
             }
+
         // The cover you tapped leads, and later sources join below without reshuffling it.
-        (initial.map { it.provider } + providers + choices.map { it.provider }).distinct().forEach { provider ->
-            val options = choices.filter { it.provider == provider }
-            if (options.isNotEmpty() || provider in loading)
-                item(key = provider) {
-                    Glass(Modifier.fillMaxWidth()) {
-                        Column(
-                            Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Text(provider, style = MaterialTheme.typography.labelLarge)
-                            if (provider in loading)
-                                Box(
-                                    Modifier.height(166.dp).fillMaxWidth(),
-                                    contentAlignment = androidx.compose.ui.Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator(
-                                        Modifier.size(24.dp),
-                                        strokeWidth = 2.dp,
-                                    )
-                                }
-                            else
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    items(options, key = { it.url }) { cover ->
-                                        Column(
-                                            Modifier.width(116.dp).feedbackClickable { onPick(cover) },
-                                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                                        ) {
-                                            Art(
-                                                cover.url,
-                                                artwork,
-                                                "Choose $provider cover: ${cover.label}",
-                                                showPlaceholderTitle = false,
-                                                system = game.system,
-                                                coverBounds = CoverSize(116f, 146f),
-                                            )
-                                            val current = existing && cover.url == game.cover
-                                            Text(
-                                                if (current) "Current cover" else cover.label,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color =
-                                                    if (current) MaterialTheme.colorScheme.primary
-                                                    else MaterialTheme.colorScheme.onSurface,
-                                            )
+        (initial.map { it.provider } + providers + choices.map { it.provider })
+            .distinct()
+            .forEach { provider ->
+                val options = choices.filter { it.provider == provider }
+                if (options.isNotEmpty() || provider in loading)
+                    item(key = provider) {
+                        Glass(Modifier.fillMaxWidth()) {
+                            Column(
+                                Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Text(provider, style = MaterialTheme.typography.labelLarge)
+                                if (provider in loading)
+                                    Box(
+                                        Modifier.height(166.dp).fillMaxWidth(),
+                                        contentAlignment = androidx.compose.ui.Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            Modifier.size(24.dp),
+                                            strokeWidth = 2.dp,
+                                        )
+                                    }
+                                else
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        items(options, key = { it.url }) { cover ->
+                                            Column(
+                                                Modifier.width(116.dp)
+                                                    .feedbackClickable { onPick(cover) },
+                                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                            ) {
+                                                Art(
+                                                    cover.url,
+                                                    artwork,
+                                                    "Choose $provider cover: ${cover.label}",
+                                                    showPlaceholderTitle = false,
+                                                    system = game.system,
+                                                    coverBounds = CoverSize(116f, 146f),
+                                                )
+                                                val current = existing && cover.url == game.cover
+                                                Text(
+                                                    if (current) "Current cover" else cover.label,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color =
+                                                        if (current)
+                                                            MaterialTheme.colorScheme.primary
+                                                        else MaterialTheme.colorScheme.onSurface,
+                                                )
+                                            }
                                         }
                                     }
-                                }
+                            }
                         }
                     }
-                }
-        }
+            }
+
         item {
             if (unavailable.isNotEmpty() && loading.isEmpty())
                 Text(

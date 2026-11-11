@@ -76,6 +76,7 @@ fun ShelfSection(
             )
         }
     }
+
     if (style == ShelfStyle.TRAY) {
         Glass(Modifier.padding(horizontal = 12.dp).fillMaxWidth()) {
             title(Modifier.padding(start = 16.dp, end = 4.dp, top = 6.dp))
@@ -91,6 +92,7 @@ fun ShelfSection(
         }
         return
     }
+
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         title(Modifier.padding(start = 22.dp, end = 10.dp))
         when (style) {
@@ -131,10 +133,15 @@ fun ShelfSection(
                         onOpen,
                         Modifier.fillMaxSize(),
                         // Covers stand on the plank's top, a little behind its rounded front.
-                        PaddingValues(start = 20.dp, end = 20.dp, bottom = if (hunt) 34.dp else 25.dp),
+                        PaddingValues(
+                            start = 20.dp,
+                            end = 20.dp,
+                            bottom = if (hunt) 34.dp else 25.dp,
+                        ),
                         if (hunt) CoverGround.NONE else CoverGround.FOOT,
                     )
                 }
+
             ShelfStyle.MIRROR ->
                 Box(
                     Modifier.fillMaxWidth()
@@ -151,6 +158,7 @@ fun ShelfSection(
                         if (hunt) CoverGround.NONE else CoverGround.REFLECTION,
                     )
                 }
+
             ShelfStyle.TRAY -> Unit
         }
     }
@@ -224,7 +232,10 @@ fun Modifier.footShadow(dark: Boolean): Modifier = drawBehind {
     }
 }
 
-/** Runs off both edges, lit from above: covers stand on its top while the doughy front rolls into shade. */
+/**
+ * Runs off both edges, lit from above: covers stand on its top
+ * while the doughy front rolls into shade.
+ */
 fun Modifier.doughPlank(dark: Boolean, top: Dp): Modifier = drawWithCache {
     val t = top.toPx()
     val h = size.height
@@ -318,7 +329,10 @@ fun Modifier.mirrorSlab(dark: Boolean, surface: Dp): Modifier = drawWithCache {
     val y = surface.toPx()
     val glass =
         Brush.verticalGradient(
-            listOf(Color.White.copy(alpha = if (dark) .14f else .62f), Color.White.copy(alpha = 0f)),
+            listOf(
+                Color.White.copy(alpha = if (dark) .14f else .62f),
+                Color.White.copy(alpha = 0f),
+            ),
             startY = y,
             endY = size.height,
         )
@@ -339,6 +353,11 @@ fun Modifier.mirrorSlab(dark: Boolean, surface: Dp): Modifier = drawWithCache {
             Offset(size.width, y),
             1.5.dp.toPx(),
         )
-        drawLine(sheen, Offset(0f, y + 2.5.dp.toPx()), Offset(size.width, y + 2.5.dp.toPx()), 1.dp.toPx())
+        drawLine(
+            sheen,
+            Offset(0f, y + 2.5.dp.toPx()),
+            Offset(size.width, y + 2.5.dp.toPx()),
+            1.dp.toPx(),
+        )
     }
 }

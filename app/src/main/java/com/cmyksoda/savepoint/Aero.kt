@@ -116,7 +116,8 @@ val AeroTypography =
             TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp),
         labelMedium =
             TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, lineHeight = 16.sp),
-        titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium, lineHeight = 26.sp),
+        titleLarge =
+            TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium, lineHeight = 26.sp),
     )
 
 @Composable
@@ -160,7 +161,8 @@ fun rememberAeroBackdrop(dark: Boolean): Modifier {
                         dstSize =
                             IntSize(
                                 size.width.toInt(),
-                                (bounds.height * size.width / bounds.width.coerceAtLeast(1)).toInt(),
+                                (bounds.height * size.width / bounds.width.coerceAtLeast(1))
+                                    .toInt(),
                             ),
                         filterQuality = FilterQuality.High,
                     )
@@ -187,6 +189,7 @@ internal fun renderAeroBackdrop(renderWidth: Int, renderHeight: Int, dark: Boole
             center = Offset(w * 1.03f, h * .39f),
             radius = w * 1.15f,
         )
+
     val blueLight =
         Brush.radialGradient(
             listOf(
@@ -198,6 +201,7 @@ internal fun renderAeroBackdrop(renderWidth: Int, renderHeight: Int, dark: Boole
             center = Offset(-w * .18f, h * .09f),
             radius = w * 1.15f,
         )
+
     val lilacLight =
         Brush.radialGradient(
             listOf(
@@ -207,6 +211,7 @@ internal fun renderAeroBackdrop(renderWidth: Int, renderHeight: Int, dark: Boole
             center = Offset(w * .12f, h * .78f),
             radius = w * .95f,
         )
+
     val origin = Offset(-w * .55f, -h * .14f)
     val rays =
         listOf(
@@ -232,8 +237,10 @@ internal fun renderAeroBackdrop(renderWidth: Int, renderHeight: Int, dark: Boole
                         start = origin,
                         end = end,
                     )
+
                 path to light
             }
+
     val waveIndices = if (dark) listOf(1, 4, 7, 10) else (0..10).toList()
     val waves =
         waveIndices.map { index ->
@@ -255,6 +262,7 @@ internal fun renderAeroBackdrop(renderWidth: Int, renderHeight: Int, dark: Boole
                         if (step == 0) moveTo(t * w, y * h) else lineTo(t * w, y * h)
                     }
                 }
+
             val shade = Path().apply { addPath(path, Offset(0f, h * .018f)) }
             val strength = .65f + .35f * kotlin.math.sin(index * .45f)
             val light =
@@ -267,8 +275,10 @@ internal fun renderAeroBackdrop(renderWidth: Int, renderHeight: Int, dark: Boole
                     startX = -w * .2f,
                     endX = w * 1.2f,
                 )
+
             Triple(path, shade, light)
         }
+
     val glint =
         Brush.horizontalGradient(
             0f to Color.Transparent,
@@ -279,6 +289,7 @@ internal fun renderAeroBackdrop(renderWidth: Int, renderHeight: Int, dark: Boole
             startX = -w * .2f,
             endX = w * 1.2f,
         )
+
     val valley =
         Brush.horizontalGradient(
             listOf(
@@ -291,6 +302,7 @@ internal fun renderAeroBackdrop(renderWidth: Int, renderHeight: Int, dark: Boole
             startX = -w * .2f,
             endX = w * 1.2f,
         )
+
     CanvasDrawScope().draw(
         Density(1f),
         LayoutDirection.Ltr,
@@ -328,6 +340,7 @@ internal fun renderAeroBackdrop(renderWidth: Int, renderHeight: Int, dark: Boole
             if (!dark && index in 2..8 && index % 2 == 0) glow(path, glint, h * .0015f, h * .0018f)
         }
     }
+
     return bitmap
 }
 
@@ -388,6 +401,7 @@ fun Modifier.glassMaterial(
             if (strong) listOf(Color(0xFFFFFFFF), Color(0xFFFFEFF9), Color(0xFFF1E1ED))
             else listOf(Color(0xF9FFFFFF), Color(0xDFFBEAF4), Color(0xECEDDFEC))
         }
+
     return then(if (elevated) Modifier.softGlassShadow(radius.dp, elevation) else Modifier)
         .clip(shape)
         .background(Brush.verticalGradient(colors))
@@ -417,6 +431,7 @@ fun Modifier.glassMaterial(
                 size = Size(size.width - inset * 2, gloss - inset),
                 cornerRadius = CornerRadius(corner, corner * .8f),
             )
+
             val bounce = minOf(size.height * .3f, 18.dp.toPx())
             drawRect(
                 Brush.verticalGradient(
@@ -427,6 +442,7 @@ fun Modifier.glassMaterial(
                 topLeft = Offset(0f, size.height - bounce),
                 size = Size(size.width, bounce),
             )
+
             drawContent()
             drawRoundRect(
                 Brush.verticalGradient(
@@ -697,7 +713,11 @@ fun AeroCheckbox(
             .size(22.dp)
             .then(
                 if (onCheckedChange != null)
-                    Modifier.feedbackToggleable(checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+                    Modifier.feedbackToggleable(
+                        checked,
+                        role = Role.Checkbox,
+                        onValueChange = onCheckedChange,
+                    )
                 else Modifier
             )
             .glassMaterial(dark, radius = 7, elevation = 3.dp)
@@ -769,11 +789,18 @@ fun AeroSwitch(
                 .drawWithContent {
                     drawContent()
                     val corner = CornerRadius(size.height / 2)
-                    drawRoundRect(Brush.verticalGradient(pearl), cornerRadius = corner, alpha = position)
+                    drawRoundRect(
+                        Brush.verticalGradient(pearl),
+                        cornerRadius = corner,
+                        alpha = position,
+                    )
                     // A soft inner shade makes the track read as a groove the thumb sits in.
                     drawRoundRect(
                         Brush.verticalGradient(
-                            listOf(Color(0xFF3A1838).copy(alpha = if (dark) .3f else .14f), Color.Transparent),
+                            listOf(
+                                Color(0xFF3A1838).copy(alpha = if (dark) .3f else .14f),
+                                Color.Transparent,
+                            ),
                             endY = size.height * .45f,
                         ),
                         cornerRadius = corner,
@@ -843,7 +870,12 @@ fun AeroChip(
     Box(
         modifier
             .heightIn(min = 48.dp)
-            .toggleable(selected, interactionSource = interaction, indication = null, role = Role.Checkbox) {
+            .toggleable(
+                selected,
+                interactionSource = interaction,
+                indication = null,
+                role = Role.Checkbox,
+            ) {
                 feedback(false)
                 onClick()
             },
@@ -1006,6 +1038,7 @@ fun AeroIcon(
                     style = stroke,
                 )
             }
+
             when (symbol) {
                 AeroSymbol.CHECK -> path(5f, 12.5f, 10f, 17.5f, 19.5f, 7f)
                 AeroSymbol.PREVIOUS -> path(15f, 5f, 8f, 12f, 15f, 19f)
@@ -1026,6 +1059,7 @@ fun AeroIcon(
                     path(16f, 3f, 16f, 7f)
                     for (x in listOf(8f, 12f, 16f)) drawCircle(tint, .9f, Offset(x, 15f))
                 }
+
                 AeroSymbol.BACK -> {
                     path(11f, 5f, 4f, 12f, 11f, 19f)
                     path(4f, 12f, 21f, 12f)
@@ -1086,6 +1120,7 @@ fun AeroIcon(
                     )
                     path(14f, 14f, 17f, 19f)
                 }
+
                 AeroSymbol.BACKLOG -> {
                     drawRoundRect(
                         tint,
@@ -1097,6 +1132,7 @@ fun AeroIcon(
                     path(3f, 4f, 21f, 4f, 21f, 8f, 3f, 8f, 3f, 4f)
                     path(9f, 12f, 15f, 12f)
                 }
+
                 AeroSymbol.LOG -> {
                     path(
                         12f,
@@ -1125,6 +1161,7 @@ fun AeroIcon(
                         20f,
                     )
                 }
+
                 AeroSymbol.HEART ->
                     drawPath(
                         Path().apply {
@@ -1138,6 +1175,7 @@ fun AeroIcon(
                         tint,
                         style = stroke,
                     )
+
                 AeroSymbol.THUMB_UP,
                 AeroSymbol.THUMB_DOWN -> {
                     rotate(if (symbol == AeroSymbol.THUMB_DOWN) 180f else 0f, Offset(12f, 12f)) {
@@ -1174,6 +1212,7 @@ fun AeroIcon(
                         )
                     }
                 }
+
                 AeroSymbol.CLOCK -> {
                     drawCircle(tint, 9f, Offset(12f, 12f), style = stroke)
                     path(12f, 6f, 12f, 12f, 16f, 14f)
@@ -1191,6 +1230,7 @@ fun AeroIcon(
                         style = stroke,
                     )
                 }
+
                 AeroSymbol.LIST -> {
                     for (y in listOf(5f, 12f, 19f)) {
                         drawCircle(tint, 1.2f, Offset(4f, y))
@@ -1502,6 +1542,7 @@ fun GameIdentity(
                 system = game.system,
                 coverBounds = if (hunt) null else CoverSize(180f, 220f),
             )
+
             Text(
                 if (hunt) displayPokemonName(game.pokemon) else game.title,
                 fontWeight = FontWeight.Medium,

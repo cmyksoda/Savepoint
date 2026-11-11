@@ -88,6 +88,7 @@ fun DailyLogScreen(
             }
             .show()
     }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 20.dp),
@@ -150,6 +151,7 @@ fun DailyLogScreen(
                     }
                 }
             }
+
         item {
             Glass(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
@@ -171,6 +173,7 @@ fun DailyLogScreen(
                             fontWeight = FontWeight.Medium,
                             textAlign = TextAlign.Center,
                         )
+
                         if (month < YearMonth.from(today))
                             AeroIconButton(
                                 AeroSymbol.NEXT,
@@ -191,6 +194,7 @@ fun DailyLogScreen(
                             )
                         }
                     }
+
                     val offset = monthModel.firstWeekday
                     repeat(monthModel.weeks) { week ->
                         Row(Modifier.fillMaxWidth()) {
@@ -232,7 +236,10 @@ fun DailyLogScreen(
                                                     )
                                                 else Modifier
                                             )
-                                            .feedbackClickable(enabled = !future, role = Role.Button) {
+                                            .feedbackClickable(
+                                                enabled = !future,
+                                                role = Role.Button,
+                                            ) {
                                                 selectDate(cell)
                                             }
                                             .semantics {
@@ -274,6 +281,7 @@ fun DailyLogScreen(
                 }
             }
         }
+
         item {
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 48.dp),
@@ -307,6 +315,7 @@ fun DailyLogScreen(
                         },
                         compact = true,
                     )
+
                 if (entries.isNotEmpty())
                     PinkButton(onClick = onLog) {
                         AeroIcon(AeroSymbol.EDIT, Modifier.size(15.dp))
@@ -315,6 +324,7 @@ fun DailyLogScreen(
                     }
             }
         }
+
         if (entries.isEmpty())
             item {
                 Glass(Modifier.fillMaxWidth()) {
@@ -336,6 +346,7 @@ fun DailyLogScreen(
                     }
                 }
             }
+
         items(entries, key = { it.id }) { game ->
             val entry = game.dailyPlays.first { it.date == date.toString() }
             Glass(Modifier.fillMaxWidth().feedbackClickable(role = Role.Button, onClick = onLog)) {
@@ -362,6 +373,7 @@ fun DailyLogScreen(
                         )
                         entry.minutes?.let { LogMetric(AeroSymbol.CLOCK, playDuration(it)) }
                     }
+
                     AeroIcon(
                         AeroSymbol.NEXT,
                         Modifier.size(16.dp),
@@ -424,6 +436,7 @@ fun DailyPlayEditor(
                 )
                 .map { it.second }
         }
+
     Column(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.weight(1f),
@@ -456,6 +469,7 @@ fun DailyPlayEditor(
                     },
                 )
             }
+
             item {
                 Text(
                     "Choose what you played. The pencil adds time if you want.",
@@ -475,8 +489,11 @@ fun DailyPlayEditor(
                 Glass(Modifier.fillMaxWidth()) {
                     Row(
                         Modifier.fillMaxWidth()
-                            .feedbackToggleable(selected, enabled = !busy, role = Role.Checkbox) { checked
-                                ->
+                            .feedbackToggleable(
+                                selected,
+                                enabled = !busy,
+                                role = Role.Checkbox,
+                            ) { checked ->
                                 chosen = if (checked) chosen + game.id else chosen - game.id
                             }
                             .semantics {
@@ -517,6 +534,7 @@ fun DailyPlayEditor(
                                     )
                                 }
                         }
+
                         if (selected)
                             AeroIconButton(
                                 AeroSymbol.EDIT,
@@ -551,6 +569,7 @@ fun DailyPlayEditor(
             }
         }
     }
+
     editingTime?.let { id ->
         val game = games.firstOrNull { it.id == id }
         if (game != null)

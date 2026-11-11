@@ -9,10 +9,17 @@ import java.util.List;
 
 @Dao
 public abstract class GameDao {
-    @Query("SELECT * FROM games") public abstract List<GameRow> all();
-    @Insert(onConflict = OnConflictStrategy.REPLACE) public abstract void insert(List<GameRow> rows);
-    @Query("DELETE FROM games") public abstract void clear();
-    @Transaction public void replace(List<GameRow> rows) {
+    @Query("SELECT * FROM games")
+    public abstract List<GameRow> all();
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    public abstract void insert(List<GameRow> rows);
+
+    @Query("DELETE FROM games")
+    public abstract void clear();
+
+    @Transaction
+    public void replace(List<GameRow> rows) {
         clear();
         insert(rows);
     }

@@ -24,8 +24,18 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 
 enum class AppIcon(val alias: String, val label: String, val background: Int, val foreground: Int) {
-    MIDNIGHT("MainActivity", "Midnight", R.drawable.icon_background_midnight, R.drawable.icon_handheld_midnight),
-    LAVENDER("IconLavender", "Lavender", R.drawable.icon_background_lavender, R.drawable.icon_handheld_lavender),
+    MIDNIGHT(
+        "MainActivity",
+        "Midnight",
+        R.drawable.icon_background_midnight,
+        R.drawable.icon_handheld_midnight,
+    ),
+    LAVENDER(
+        "IconLavender",
+        "Lavender",
+        R.drawable.icon_background_lavender,
+        R.drawable.icon_handheld_lavender,
+    ),
     BLUSH("IconBlush", "Blush", R.drawable.icon_background_blush, R.drawable.icon_handheld_blush),
     BERRY("IconBerry", "Berry", R.drawable.icon_background_berry, R.drawable.icon_handheld_berry),
 }
@@ -102,8 +112,12 @@ fun AppIconPicker() {
                         .clip(CircleShape)
                 ) {
                     // Launchers show the middle two thirds of an adaptive icon.
-                    Image(painterResource(icon.background), null, Modifier.fillMaxSize().scale(1.5f))
-                    Image(painterResource(icon.foreground), null, Modifier.fillMaxSize().scale(1.5f))
+                    Image(
+                        painterResource(icon.background), null, Modifier.fillMaxSize().scale(1.5f)
+                    )
+                    Image(
+                        painterResource(icon.foreground), null, Modifier.fillMaxSize().scale(1.5f)
+                    )
                 }
                 Text(
                     icon.label,

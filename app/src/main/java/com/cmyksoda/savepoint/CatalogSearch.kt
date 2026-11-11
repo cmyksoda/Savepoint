@@ -17,7 +17,10 @@ internal fun mergeCatalogPages(sources: List<Flow<CatalogPage>>): Flow<CatalogPa
                 mutex.withLock {
                     pages[index] = page
                     send(
-                        CatalogPage(pages.flatMap { it.games }, pages.firstNotNullOfOrNull { it.warning })
+                        CatalogPage(
+                            pages.flatMap { it.games },
+                            pages.firstNotNullOfOrNull { it.warning },
+                        )
                     )
                 }
             }
