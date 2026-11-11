@@ -77,7 +77,11 @@ fun LogExtras(game: Game) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             game.recordedHours?.let {
-                LogMetric(AeroSymbol.CLOCK, "${formatHours(it)} hours recorded")
+                val across = game.playthroughs.count { it.hours != null } > 1
+                LogMetric(
+                    AeroSymbol.CLOCK,
+                    "${formatHours(it)} hours ${if (across) "in all" else "recorded"}",
+                )
             }
             game.replayCount?.let {
                 LogMetric(AeroSymbol.REPLAY, "$it ${if (it == 1) "replay" else "replays"}")

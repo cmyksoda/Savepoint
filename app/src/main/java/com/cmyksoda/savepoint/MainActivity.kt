@@ -3101,10 +3101,18 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                         restored = null
                         dialog = ""
                     },
-                    title = { Text("Replace this library?") },
+                    title = {
+                        Text(if (games.isEmpty()) "Restore this backup?" else "Replace this library?")
+                    },
                     text = {
+                        val incoming = restored!!.games.size
+                        val backupSize = "$incoming ${if (incoming == 1) "game" else "games"}"
+                        val current = "${games.size} ${if (games.size == 1) "game" else "games"}"
                         Text(
-                            "This backup contains ${restored!!.games.size} entries. Import replaces your current library. Rest invitations will be off."
+                            if (games.isEmpty())
+                                "This backup has $backupSize. Reminders stay off until you turn them on again."
+                            else
+                                "This backup has $backupSize. It replaces the $current on this phone, and reminders stay off until you turn them on again."
                         )
                     },
                     confirmButton = {
@@ -3143,7 +3151,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                 }
                             }
                         ) {
-                            Text("Replace & import")
+                            Text(if (games.isEmpty()) "Restore" else "Replace & import")
                         }
                     },
                     dismissButton = {
