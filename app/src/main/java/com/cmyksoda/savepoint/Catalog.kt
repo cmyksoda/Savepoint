@@ -126,10 +126,7 @@ class Artwork(private val context: Context) {
                 }
             }
             val density = context.resources.displayMetrics.density
-            val playing =
-                games
-                    .filter { it.place == Place.ACTIVE && it.shelf == Shelf.PLAY_THROUGH }
-                    .minByOrNull { it.position }
+            val playing = playingNow(games)
             for (game in games.filter { it.place == Place.ACTIVE }) {
                 if (game.shelf == Shelf.HUNTS) {
                     if (game.sprite.isNotBlank() && fileFor(game.sprite).isFile)

@@ -2580,16 +2580,7 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                                                     },
                                                     { dialog = "delete" },
                                                     { route = "cover" },
-                                                    playingNow =
-                                                        game.place == Place.ACTIVE &&
-                                                            game.shelf == Shelf.PLAY_THROUGH &&
-                                                            games
-                                                                .filter {
-                                                                    it.place == Place.ACTIVE &&
-                                                                    it.shelf == Shelf.PLAY_THROUGH
-                                                                }
-                                                                .minByOrNull { it.position }
-                                                                ?.id == game.id,
+                                                    playingNow = playingNow(games)?.id == game.id,
                                                 )
                                             }
 
