@@ -5,10 +5,9 @@ local.properties
 .env
 *.jks
 *.keystore
-design/qa/
 dist/
 project-notes/
-*.md
+project-data/
 
 **/__pycache__/
 tools/hunt-catalog/bin/
