@@ -11,33 +11,11 @@ import kotlin.math.ceil
 import kotlin.math.expm1
 import kotlin.math.ln
 import kotlin.math.ln1p
-import org.json.JSONObject
 
 fun displayPokemonName(slug: String): String =
     slug.trim().split(Regex("[-\\s]+")).joinToString(" ") { word ->
         word.replaceFirstChar { it.uppercase() }
     }
-
-fun resolvePokemon(slug: String, fetch: (String) -> JSONObject): JSONObject {
-    return try {
-        fetch("https://pokeapi.co/api/v2/pokemon/$slug")
-    } catch (e: SourceUnavailable) {
-        if (e.status != 404) throw e
-        val species = fetch("https://pokeapi.co/api/v2/pokemon-species/$slug")
-        val varieties = species.getJSONArray("varieties")
-        val name =
-            (0 until varieties.length())
-                .map { varieties.getJSONObject(it) }
-                .firstOrNull { it.optBoolean("is_default") }
-                ?.getJSONObject("pokemon")
-                ?.getString("name")
-                ?: throw IllegalArgumentException(
-                    "No default form was found. Enter a specific Pokémon form."
-                )
-        require(name.matches(Regex("[a-z0-9-]+"))) { "Invalid Pokémon form" }
-        fetch("https://pokeapi.co/api/v2/pokemon/$name")
-    }
-}
 
 fun inferHuntVersion(title: String): String? {
     val name = title.lowercase().replace("é", "e").replace(Regex("[^a-z0-9]"), "")

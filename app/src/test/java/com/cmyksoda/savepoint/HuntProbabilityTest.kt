@@ -1,6 +1,5 @@
 package com.cmyksoda.savepoint
 
-import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -35,41 +34,5 @@ class HuntProbabilityTest {
         assertEquals(0L, adjustedEncounterCount(100, Long.MIN_VALUE))
         assertEquals(Long.MAX_VALUE, adjustedEncounterCount(Long.MAX_VALUE, 1))
         assertEquals(Long.MAX_VALUE - 1, adjustedEncounterCount(Long.MAX_VALUE, -1))
-    }
-
-    @Test
-    fun speciesLookupUsesTheDeclaredDefaultAndExplicitFormsStayExact() {
-        val requests = mutableListOf<String>()
-        val pokemon = JSONObject("{\"name\":\"shaymin-land\"}")
-        val resolved =
-            resolvePokemon("shaymin") { url ->
-                requests += url
-                when {
-                    url.endsWith("pokemon/shaymin") -> throw SourceUnavailable(404)
-                    url.endsWith("pokemon-species/shaymin") ->
-                        JSONObject(
-                            "{\"varieties\":[{\"is_default\":false,\"pokemon\":{\"name\":\"shaymin-sky\"}},{\"is_default\":true,\"pokemon\":{\"name\":\"shaymin-land\"}}]}"
-                        )
-                    else -> pokemon
-                }
-            }
-        assertSame(pokemon, resolved)
-        assertTrue(requests.last().endsWith("/shaymin-land"))
-        requests.clear()
-        resolvePokemon("shaymin-sky") { url ->
-            requests += url
-            pokemon
-        }
-        assertEquals(listOf("https://pokeapi.co/api/v2/pokemon/shaymin-sky"), requests)
-    }
-
-    @Test
-    fun providerErrorsAreNotTreatedAsMissingSpecies() {
-        try {
-            resolvePokemon("shaymin") { throw SourceUnavailable(503) }
-            fail("Expected provider failure")
-        } catch (e: SourceUnavailable) {
-            assertEquals(503, e.status)
-        }
     }
 }

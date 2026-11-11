@@ -32,7 +32,7 @@ fun imageAvailable(url: String): Boolean {
     }
 }
 
-class SourceUnavailable(val status: Int) : IOException("Source unavailable ($status)")
+class SourceUnavailable(status: Int) : IOException("Source unavailable ($status)")
 
 fun fetchBytes(url: String, redirects: Int = 3): ByteArray {
     val address = URI(url)
