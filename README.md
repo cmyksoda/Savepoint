@@ -1,6 +1,6 @@
 # <img src="design/icon-256.png" height="32" alt="Savepoint icon: a pink handheld game console with a white heart on its screen, on a midnight blue and plum circle"> Savepoint
 
-Savepoint is an Android app for keeping your place in your games. The games you're playing sit on shelves with their box art, the rest wait in a backlog, and a calendar remembers the days you played. Your library stays on your phone, and there's no account to make.
+Savepoint is an Android app for keeping your place in your games. Organize your now-playing into shelves, keep games you intend to play in your backlog, and track your play history with the Play Log. Your library lives on your phone, so there's no account to make. <3
 
 <p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" width="21%" align="middle" alt="Shelves in the light theme, with Pokémon Legends: Z-A playing now and more games queued beside it">
@@ -17,7 +17,7 @@ Savepoint is an Android app for keeping your place in your games. The games you'
 - **Shelves:** Play through, Keep playing, Take it easy, With friends, and Shiny hunts. The first game on Play through is the one you're playing now, and the games after it are your near-future queue. Empty shelves stay hidden.
 - **Backlog and paused games** with search, sorting by title, date added, release date, or system, and filters for a system or collection. Finished games sort by when you finished them or by title. All three have a list and a grid view.
 - **Adding a game:** search LaunchBox's Games Database, Steam, and the App Store, then choose the box art you like. Games missing from those can be added by hand, and games installed on your phone can use their own app icon as a cover.
-- **Covers shaped like game cases,** with plastic, cardboard, or digital finishes by system, and the corners of plastic cases measured per console. Flat art is one setting away.
+- **Covers shaped like game cases,** with plastic, cardboard, or digital finishes by system. Flat art is also available if you prefer.
 - **Play log:** a calendar of the days you played, with optional time for each game. It counts your current streak and your lifetime days. Empty days stay plain, with no warnings or missed-day messages.
 - **Finished games** keep every playthrough: the date, how it felt (didn't like, liked, or loved), your thoughts, and optional hours. Each game also keeps an overall replay count.
 - **Notes** for each game, and a separate note for where you left off when you pause one.
@@ -30,8 +30,6 @@ Savepoint is an Android app for keeping your place in your games. The games you'
 ## Install
 
 Download the APK from the [latest release](../../releases/latest) and open it on your phone. The first time, Android asks you to allow installs from your browser or file manager. Savepoint needs Android 8.0 or later.
-
-Every release so far is signed with the same key, so a new APK installs over an older one and keeps your library.
 
 On first launch, Savepoint asks which systems you play on, so that search and manual entry only list those. You can change them any time in Settings.
 
@@ -75,17 +73,17 @@ The device tests change the library on the device they run on, and they uninstal
 
 ## Credits
 
-- **PKHeX** by Kaphotics and contributors, for the encounter and form data in the shiny-hunt catalog
+- **PKHeX** by **Kaphotics and contributors**, for the encounter and form data in the shiny-hunt catalog
 - **PokéAPI**, for Pokémon names, forms, and artwork
 - **Serebii.net**, for shiny sprites and shiny odds
-- **Rotom Labs**, **JS-Finder** by Lincoln-LM, and **3DSRNGTool** by wwwwwwzx, for shiny odds
+- **Rotom Labs**, **JS-Finder** by **Lincoln-LM**, and **3DSRNGTool** by **wwwwwwzx**, for shiny odds
 - **LaunchBox Games Database**, **Steam**, and the **App Store**, for game search and cover art
-- **Jetpack Compose**, **Room**, **DataStore**, **Glance**, and **WorkManager** by The Android Open Source Project, as part of Android Jetpack
-- **kotlinx.coroutines** by JetBrains
+- **Jetpack Compose**, **Room**, **DataStore**, **Glance**, and **WorkManager** by **The Android Open Source Project**, as part of Android Jetpack
+- **kotlinx.coroutines** by **JetBrains**
 
 ## License
 
-Savepoint is free software under the [GNU General Public License, version 3](LICENSE). Some parts use other licenses: the shiny-hunt catalog includes data from PKHeX (GPL-3.0-or-later) and PokéAPI (BSD-3-Clause), and the Android Jetpack and kotlinx.coroutines libraries use the Apache License 2.0. Game artwork and Pokémon sprites belong to their owners. Savepoint downloads them when you ask, and they are not covered by the GPL. All the texts are in [`app/src/main/assets/licenses/`](app/src/main/assets/licenses/).
+Savepoint is free software under the [GNU General Public License, version 3 or later](LICENSE). Some parts use other licenses: the shiny-hunt catalog includes data from PKHeX (GPL-3.0-or-later) and PokéAPI (BSD-3-Clause), and the Android Jetpack and kotlinx.coroutines libraries use the Apache License 2.0. Game artwork and Pokémon sprites belong to their owners. Savepoint downloads them when you ask, and they are not covered by the GPL. All the texts are in [`app/src/main/assets/licenses/`](app/src/main/assets/licenses/).
 
 Savepoint isn't affiliated with Nintendo, The Pokémon Company, LaunchBox, Valve, or Apple.
 
