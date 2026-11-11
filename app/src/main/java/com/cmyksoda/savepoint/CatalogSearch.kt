@@ -6,7 +6,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-data class CatalogPage(val games: List<Game>, val warning: String?)
+data class CatalogPage(val games: List<Game>, val warning: String?, val more: Boolean = false)
 
 internal fun mergeCatalogPages(sources: List<Flow<CatalogPage>>): Flow<CatalogPage> = channelFlow {
     val pages = MutableList(sources.size) { CatalogPage(emptyList(), null) }
@@ -20,6 +20,7 @@ internal fun mergeCatalogPages(sources: List<Flow<CatalogPage>>): Flow<CatalogPa
                         CatalogPage(
                             pages.flatMap { it.games },
                             pages.firstNotNullOfOrNull { it.warning },
+                            pages.any { it.more },
                         )
                     )
                 }

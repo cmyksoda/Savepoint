@@ -100,43 +100,67 @@ private fun startOfDay(date: LocalDate): Long =
     date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
 // LaunchBox only answers a search at its lowercase address and redirects every other spelling.
-fun launchBoxSearchUrl(query: String) =
-    "$launchBoxRoot/games/results/${pathSegment(query.lowercase())}"
+fun launchBoxSearchUrl(query: String, page: Int = 1) =
+    "$launchBoxRoot/games/results/${pathSegment(query.lowercase())}" +
+        if (page > 1) "%7C$page" else ""
+
+/** How far below official releases each kind of fan-made entry sorts. */
+private val fanMadeOrder = mapOf("Homebrew" to 1, "Unlicensed" to 2, "ROM Hack" to 3)
+
+data class LaunchBoxResult(val game: Game, val fanMade: Int, val votes: Int)
+
+data class LaunchBoxPage(val results: List<LaunchBoxResult>, val pages: Int)
 
 /** One game per card on LaunchBox's results page; [Game.sourceId] keeps its address. */
-fun parseLaunchBoxResults(html: String): List<Game> {
+fun parseLaunchBoxResults(html: String): LaunchBoxPage {
     val links = Regex("href=\"/games/details/(\\d+-[^\"<>]*)\"").findAll(html).toList()
     val dateFormat = DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.US)
-    return links
-        .mapIndexedNotNull { index, link ->
-            val card =
-                html.substring(
-                    link.range.first,
-                    links.getOrNull(index + 1)?.range?.first ?: html.length,
-                )
-            val title =
-                Regex("<h3[^>]*>([\\s\\S]*?)</h3>").find(card) ?: return@mapIndexedNotNull null
-            val platform =
-                Regex("<p[^>]*>([\\s\\S]*?)</p>").find(card, title.range.last)
-                    ?: return@mapIndexedNotNull null
-            val system =
-                launchBoxSystems[htmlText(platform.groupValues[1])] ?: return@mapIndexedNotNull null
-            val released =
-                Regex("class=\"releaseDate\"[\\s\\S]*?<h5[^>]*>([\\s\\S]*?)</h5>").find(card)?.let {
-                    runCatching {
-                            startOfDay(LocalDate.parse(htmlText(it.groupValues[1]), dateFormat))
+    val results =
+        links
+            .mapIndexedNotNull { index, link ->
+                val card =
+                    html.substring(
+                        link.range.first,
+                        links.getOrNull(index + 1)?.range?.first ?: html.length,
+                    )
+                val title =
+                    Regex("<h3[^>]*>([\\s\\S]*?)</h3>").find(card) ?: return@mapIndexedNotNull null
+                val platform =
+                    Regex("<p[^>]*>([\\s\\S]*?)</p>").find(card, title.range.last)
+                        ?: return@mapIndexedNotNull null
+                val system =
+                    launchBoxSystems[htmlText(platform.groupValues[1])]
+                        ?: return@mapIndexedNotNull null
+                val released =
+                    Regex("class=\"releaseDate\"[\\s\\S]*?<h5[^>]*>([\\s\\S]*?)</h5>")
+                        .find(card)
+                        ?.let {
+                            runCatching {
+                                    startOfDay(
+                                        LocalDate.parse(htmlText(it.groupValues[1]), dateFormat)
+                                    )
+                                }
+                                .getOrNull()
                         }
-                        .getOrNull()
-                }
-            Game(
-                title = htmlText(title.groupValues[1]),
-                system = system,
-                source = "launchbox",
-                sourceId = link.groupValues[1],
-                release = released,
-            )
-        }
-        .distinctBy { it.sourceId }
+                val kind =
+                    Regex("class=\"releaseDate\"[^>]*>\\s*<span[^>]*>([\\s\\S]*?)</span>")
+                        .find(card)
+                val votes = Regex("totalVotes-\\d+\">(\\d+)<").find(card)
+                LaunchBoxResult(
+                    Game(
+                        title = htmlText(title.groupValues[1]),
+                        system = system,
+                        source = "launchbox",
+                        sourceId = link.groupValues[1],
+                        release = released,
+                    ),
+                    fanMadeOrder[kind?.let { htmlText(it.groupValues[1]) }] ?: 0,
+                    votes?.groupValues?.get(1)?.toIntOrNull() ?: 0,
+                )
+            }
+            .distinctBy { it.game.sourceId }
+    val pages = Regex("pages:\\s*(\\d+)").find(html)?.groupValues?.get(1)?.toIntOrNull() ?: 1
+    return LaunchBoxPage(results, pages)
 }
 
 /**

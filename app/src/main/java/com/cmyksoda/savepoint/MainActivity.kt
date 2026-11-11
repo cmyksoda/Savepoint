@@ -70,6 +70,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -1330,6 +1331,9 @@ fun AddScreen(
     var searchJob by remember { mutableStateOf<Job?>(null) }
     var searchGeneration by remember { mutableIntStateOf(0) }
     var activeSearch by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var nextPage by remember { mutableStateOf<Int?>(null) }
+    var loadingMore by remember { mutableStateOf(false) }
+    val shownResults by rememberUpdatedState(results)
     // Results keep arriving from slower sources; stay at the top until you scroll them yourself.
     var browsing by remember { mutableStateOf(false) }
     LaunchedEffect(listState) {
@@ -1349,6 +1353,8 @@ fun AddScreen(
         busy = true
         browsing = false
         warning = null
+        nextPage = null
+        loadingMore = false
         onResults(emptyList())
         searchJob =
             scope.launch {
@@ -1367,6 +1373,7 @@ fun AddScreen(
                         val page = groupCatalogResults(answer.games)
                         onResults(page)
                         warning = answer.warning
+                        nextPage = if (answer.more) 2 else null
                         if (!browsing && page.isNotEmpty()) listState.requestScrollToItem(0)
                     }
                 } catch (e: Exception) {
@@ -1376,6 +1383,45 @@ fun AddScreen(
                     if (generation == searchGeneration) busy = false
                 }
             }
+    }
+
+    fun loadMore() {
+        val page = nextPage ?: return
+        val (submittedQuery, submittedSystem) = activeSearch ?: return
+        if (busy || loadingMore) return
+        val generation = searchGeneration
+        loadingMore = true
+        scope.launch {
+            try {
+                val answer =
+                    catalog.searchUpdates(submittedQuery, submittedSystem, families, page).first()
+                if (generation != searchGeneration) return@launch
+                val shown = shownResults.map(::resultKey).toSet()
+                onResults(
+                    shownResults +
+                        groupCatalogResults(answer.games).filter { resultKey(it) !in shown }
+                )
+                warning = answer.warning ?: warning
+                nextPage = if (answer.more) page + 1 else null
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                nextPage = null
+            } finally {
+                if (generation == searchGeneration) loadingMore = false
+            }
+        }
+    }
+
+    // A short list shows its end at once, so it keeps filling until the screen is full.
+    val atEnd by remember {
+        derivedStateOf {
+            val layout = listState.layoutInfo
+            val last = layout.visibleItemsInfo.lastOrNull()?.index ?: -1
+            layout.totalItemsCount == 0 || last >= layout.totalItemsCount - 1
+        }
+    }
+    LaunchedEffect(atEnd, nextPage, busy, loadingMore) {
+        if (atEnd && nextPage != null && !busy && !loadingMore) loadMore()
     }
 
     val phoneGames by
@@ -1469,15 +1515,25 @@ fun AddScreen(
                         )
                     }
             }
-            items(
-                results,
-                key = { catalogTitleKey(it.game.title) + ":" + it.game.system },
-            ) { result ->
+            items(results, key = ::resultKey) { result ->
                 CatalogResultRow(result, catalog, artwork) { onChoose(result) }
             }
+            if (loadingMore)
+                item(key = "more") {
+                    Text(
+                        "Looking for more…",
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
         }
     }
 }
+
+private fun resultKey(result: CatalogResult) =
+    catalogTitleKey(result.game.title) + ":" + result.game.system
 
 @Composable
 private fun PhoneGameRow(game: PhoneGame, onClick: () -> Unit) {

@@ -324,8 +324,8 @@ class Catalog(private val context: Context) {
     // Result thumbnails and the cover screen read the same LaunchBox pages.
     private val coverPages = LruCache<String, List<CoverCandidate>>(200)
 
-    private fun launchBoxSearch(query: String) =
-        parseLaunchBoxResults(String(fetchBytes(launchBoxSearchUrl(query))))
+    private fun launchBoxSearch(query: String, page: Int) =
+        parseLaunchBoxResults(String(fetchBytes(launchBoxSearchUrl(query, page))))
 
     private fun steamSearch(query: String) =
         parseSteamResults(String(fetchBytes(steamSearchUrl(query))))
@@ -337,21 +337,29 @@ class Catalog(private val context: Context) {
         query: String,
         system: String,
         families: Set<String> = defaultPlatforms,
+        page: Int = 1,
     ): Flow<CatalogPage> {
         // Each source's own order breaks ties after match quality, so its best guesses stay on top.
         val rank = java.util.concurrent.ConcurrentHashMap<String, Int>()
+        val standing = java.util.concurrent.ConcurrentHashMap<String, LaunchBoxResult>()
+        val morePages = java.util.concurrent.atomic.AtomicBoolean(false)
         fun wanted(game: Game) =
             (system.isEmpty() || game.system == system) &&
                 systemFamily(game.system).let { it == null || it in families }
         val sources = buildList<Pair<String, () -> List<Game>>> {
-            add("LaunchBox" to { launchBoxSearch(query) })
+            add("LaunchBox" to {
+                val answer = launchBoxSearch(query, page)
+                morePages.set(page < answer.pages)
+                answer.results.forEach { standing[it.game.source + it.game.sourceId] = it }
+                answer.results.map { it.game }
+            })
             // Store searches pad their answers with loosely related titles, so keep only
-            // real matches.
-            if ("pc" in families && (system.isEmpty() || system == "PC"))
+            // real matches. They have one page, which comes with LaunchBox's first.
+            if (page == 1 && "pc" in families && (system.isEmpty() || system == "PC"))
                 add("Steam" to {
                     steamSearch(query).filter { searchMatchScore(it.title, query) != null }
                 })
-            if ("mobile" in families && (system.isEmpty() || system in mobileSystems))
+            if (page == 1 && "mobile" in families && (system.isEmpty() || system in mobileSystems))
                 add("The App Store" to {
                     appStoreSearch(query, system.ifEmpty { "Android" })
                         .filter { searchMatchScore(it.title, query) != null }
@@ -364,7 +372,7 @@ class Catalog(private val context: Context) {
                         games.forEachIndexed { index, game ->
                             rank[game.source + game.sourceId] = index
                         }
-                        emit(CatalogPage(games, null))
+                        emit(CatalogPage(games, null, morePages.get()))
                     }
                     .catch {
                         emit(
@@ -383,8 +391,13 @@ class Catalog(private val context: Context) {
                         page.games
                             .distinctBy { Triple(catalogTitleKey(it.title), it.system, it.source) }
                             .sortedWith(
-                                compareBy<Game> { !it.title.equals(query, true) }
+                                compareBy<Game> { standing[it.source + it.sourceId]?.fanMade ?: 0 }
+                                    .thenBy { !it.title.equals(query, true) }
                                     .thenBy { searchMatchScore(it.title, query) ?: Int.MAX_VALUE }
+                                    // LaunchBox players' votes put the games people know first.
+                                    .thenByDescending {
+                                        standing[it.source + it.sourceId]?.votes ?: 0
+                                    }
                                     // Stray database entries rarely carry a release date;
                                     // real games do.
                                     .thenBy { it.release == null }
@@ -423,9 +436,10 @@ class Catalog(private val context: Context) {
                         if (game.source == "launchbox") game.sourceId
                         else {
                             val found =
-                                launchBoxSearch(game.title).filter {
-                                    it.system == catalogSystemName(game.system)
-                                }
+                                launchBoxSearch(game.title, 1)
+                                    .results
+                                    .map { it.game }
+                                    .filter { it.system == catalogSystemName(game.system) }
                             (found.firstOrNull { catalogTitleKey(it.title) == key }
                                     ?: found.firstOrNull {
                                         catalogTitleKey(it.title).startsWith(key)

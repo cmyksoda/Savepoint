@@ -12,14 +12,22 @@ class CatalogSourcesTest {
             .toInstant()
             .toEpochMilli()
 
-    private fun card(slug: String, title: String, platform: String, released: String) =
+    private fun card(
+        slug: String,
+        title: String,
+        platform: String,
+        released: String,
+        kind: String = "Released",
+        votes: Int = 0,
+    ) =
         """
         <a class="list-item link-no-underline" href="/games/details/$slug">
           <div class="gameCard">
             <div class="cardImgPart"><img src="https://images.launchbox-app.com/shot.jpg" alt="$title" /></div>
             <div class="cardTitle"><h3>$title</h3><p>$platform</p></div>
             <div class="addToCollection"><a href="javascript:">Default Collection</a></div>
-            <div class="releaseDate"><span>Released</span><h5>$released</h5></div>
+            <div class="releaseDate"><span>$kind</span><h5>$released</h5></div>
+            <p class="ratings-values">Total Votes: <span id="totalVotes-1">$votes</span></p>
           </div>
         </a>
         """
@@ -40,7 +48,7 @@ class CatalogSourcesTest {
                     "Nintendo Game Boy Color",
                     "July 29, 2001",
                 )
-        val games = parseLaunchBoxResults(html)
+        val games = parseLaunchBoxResults(html).results.map { it.game }
         assertEquals(
             listOf("Kururin Paradise", "Pokémon Crystal & Friends"),
             games.map { it.title },
@@ -52,7 +60,23 @@ class CatalogSourcesTest {
     }
 
     @Test
+    fun launchBoxCardsCarryTheirKindVotesAndThePageCount() {
+        val nes = "Nintendo Entertainment System"
+        val html =
+            card("1-zelda-hack", "Zelda Hack", "Nintendo 64", "2023", "ROM Hack", 2) +
+                card("2-zelda", "The Legend of Zelda", nes, "1987", votes = 969) +
+                card("3-zelda-cart", "Zelda Cart", nes, "1990", "Unlicensed") +
+                "<script>pagination({ currentPage: 1, pages: 6 });</script>"
+        val page = parseLaunchBoxResults(html)
+        assertEquals(listOf(3, 0, 2), page.results.map { it.fanMade })
+        assertEquals(listOf(2, 969, 0), page.results.map { it.votes })
+        assertEquals(6, page.pages)
+        assertEquals(1, parseLaunchBoxResults(card("4-a", "A", "Nintendo 64", "1999")).pages)
+    }
+
+    @Test
     fun launchBoxSearchesUseTheLowercaseAddress() {
+        assertEquals("$launchBoxRoot/games/results/zelda%7C2", launchBoxSearchUrl("Zelda", 2))
         assertEquals("$launchBoxRoot/games/results/mother%203", launchBoxSearchUrl("Mother 3"))
         assertEquals(
             "$launchBoxRoot/games/results/pok%C3%A9mon%20emerald",
