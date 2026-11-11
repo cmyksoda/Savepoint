@@ -160,7 +160,7 @@ fun Art(
                     // whether or not it's decoded.
                     artwork.cachedAspectRatio(url)
                         ?: bitmap?.let { cover -> cover.width.toFloat() / cover.height }
-                        ?: coverAspectRatio(catalogSystemName(system), null, null),
+                        ?: coverAspectRatio(catalogSystemName(system)),
                     it,
                 )
         }
