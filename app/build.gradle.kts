@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// The release key lives outside the repository; without it, release builds come out unsigned.
+val signingFile =
+    file(
+        System.getenv("SAVEPOINT_SIGNING")
+            ?: "${System.getProperty("user.home")}/.local/share/savepoint-signing/keystore.properties"
+    )
+val signing = Properties().apply { if (signingFile.exists()) signingFile.inputStream().use(::load) }
 
 android {
     namespace = "com.cmyksoda.savepoint"
@@ -14,15 +24,33 @@ android {
         versionName = "0.7.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    signingConfigs {
+        if (signingFile.exists())
+            create("release") {
+                storeFile = file(signing.getProperty("storeFile"))
+                storePassword = signing.getProperty("storePassword")
+                keyAlias = signing.getProperty("keyAlias")
+                keyPassword = signing.getProperty("keyPassword")
+            }
+    }
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
+            // F-Droid rebuilds from the tag and must match the published APK byte for byte.
+            vcsInfo.include = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
     }
-    buildFeatures { compose = true }
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
