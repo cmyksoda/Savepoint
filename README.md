@@ -3,13 +3,13 @@
 Savepoint is an Android app for keeping your place in your games. The games you're playing sit on shelves with their box art, the rest wait in a backlog, and a calendar remembers the days you played. Your library stays on your phone, and there's no account to make.
 
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" width="23%" align="middle" alt="Shelves in the light theme, with Pokémon Legends: Z-A playing now and more games queued beside it">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" width="21%" align="middle" alt="Shelves in the light theme, with Pokémon Legends: Z-A playing now and more games queued beside it">
   &nbsp;
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" width="23%" align="middle" alt="The play log calendar for November, with a nine-day streak and hearts on the played days">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" width="21%" align="middle" alt="The play log calendar for November, with a nine-day streak and hearts on the played days">
   &nbsp;
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" width="23%" align="middle" alt="Finished games, each with how it felt, a short thought and the hours recorded">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" width="21%" align="middle" alt="Finished games, each with how it felt, a short thought and the hours recorded">
   &nbsp;
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" width="23%" align="middle" alt="A shiny hunt for Shaymin in Platinum, with its sprite, 4,210 encounters and the odds">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" width="21%" align="middle" alt="A shiny hunt for Shaymin in Platinum, with its sprite, 4,210 encounters and the odds">
 </p>
 
 ## Features
