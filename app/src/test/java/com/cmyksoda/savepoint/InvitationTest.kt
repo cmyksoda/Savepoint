@@ -9,21 +9,36 @@ class InvitationTest {
     @Test
     fun deliveryRejectsExpiredWindowAndDuplicateNotification() {
         val invitation = Invitation(at(hour = 19), at(hour = 21), false)
-        assertTrue(canDeliver(settings, invitation, at(hour = 20), zone))
-        assertFalse(canDeliver(settings, invitation, at(hour = 21), zone))
+        val eight = at(hour = 20)
+        assertTrue(canDeliver(settings, invitation, none, eight, zone))
+        assertFalse(canDeliver(settings, invitation, none, at(hour = 21), zone))
         assertFalse(
-            canDeliver(settings.copy(sentDate = today.toString()), invitation, at(hour = 20), zone)
+            canDeliver(settings.copy(sentDate = today.toString()), invitation, none, eight, zone)
         )
     }
 
     @Test
     fun deliveryRespectsChangedDaysAndPausedState() {
         val invitation = Invitation(at(hour = 19), at(hour = 21), false)
-        assertFalse(canDeliver(settings.copy(reminders = false), invitation, at(hour = 20), zone))
-        assertFalse(canDeliver(settings.copy(days = setOf(2)), invitation, at(hour = 20), zone))
+        val eight = at(hour = 20)
+        assertFalse(canDeliver(settings.copy(reminders = false), invitation, none, eight, zone))
+        assertFalse(canDeliver(settings.copy(days = setOf(2)), invitation, none, eight, zone))
         assertFalse(
-            canDeliver(settings.copy(startMinute = 20 * 60 + 30), invitation, at(hour = 20), zone)
+            canDeliver(settings.copy(startMinute = 20 * 60 + 30), invitation, none, eight, zone)
         )
+    }
+
+    @Test
+    fun loggingPlayTodayStopsInvitationsIncludingLater() {
+        val invitation = Invitation(at(hour = 19), at(hour = 21), false)
+        assertFalse(canDeliver(settings, invitation, setOf(today), at(hour = 20), zone))
+        assertTrue(
+            canDeliver(settings, invitation, setOf(today.minusDays(1)), at(hour = 20), zone)
+        )
+        val later = Invitation(at(hour = 20), at(hour = 21), true)
+        val s = settings.copy(sentDate = today.toString(), laterAt = later.at)
+        assertTrue(canDeliver(s, later, none, at(hour = 20, minute = 5), zone))
+        assertFalse(canDeliver(s, later, setOf(today), at(hour = 20, minute = 5), zone))
     }
 
     @Test
@@ -38,6 +53,7 @@ class InvitationTest {
 
     private val zone = ZoneId.of("America/New_York")
     private val today = LocalDate.of(2026, 10, 12)
+    private val none = emptySet<LocalDate>()
 
     private fun at(day: LocalDate = today, hour: Int, minute: Int = 0) =
         day.atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()

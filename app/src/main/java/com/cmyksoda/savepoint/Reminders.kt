@@ -31,11 +31,18 @@ fun reminderSettingsChanged(previous: Settings, updated: Settings): Boolean =
 
 data class Invitation(val at: Long, val expires: Long, val requested: Boolean)
 
-fun canDeliver(settings: Settings, invitation: Invitation, now: Long, zone: ZoneId): Boolean {
+fun canDeliver(
+    settings: Settings,
+    invitation: Invitation,
+    dates: Set<LocalDate>,
+    now: Long,
+    zone: ZoneId,
+): Boolean {
     val local = Instant.ofEpochMilli(now).atZone(zone)
     val date = local.toLocalDate().toString()
     if (
         !settings.reminders ||
+            local.toLocalDate() in dates ||
             settings.skipDate == date ||
             now < invitation.at ||
             now >= invitation.expires
@@ -215,6 +222,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
 
                 val now = System.currentTimeMillis()
+                val zone = ZoneId.systemDefault()
                 val s = store.read()
                 val requested = intent.getBooleanExtra("followup", false)
                 val invitation =
@@ -223,7 +231,12 @@ class ReminderReceiver : BroadcastReceiver() {
                         intent.getLongExtra("expires", 0),
                         requested,
                     )
-                val valid = canDeliver(s, invitation, now, ZoneId.systemDefault())
+                val dates =
+                    Library(context).use { library ->
+                        library.load()
+                        playedDates(library.games.value)
+                    }
+                val valid = canDeliver(s, invitation, dates, now, zone)
                 val notifications = context.getSystemService(NotificationManager::class.java)
                 val permitted =
                     Build.VERSION.SDK_INT < 33 ||
@@ -233,8 +246,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     var didClaim = false
                     val claimed =
                         store.change { current ->
-                            if (!canDeliver(current, invitation, now, ZoneId.systemDefault()))
-                                current
+                            if (!canDeliver(current, invitation, dates, now, zone)) current
                             else {
                                 didClaim = true
                                 if (requested) current.copy(requestedDate = today, laterAt = 0)

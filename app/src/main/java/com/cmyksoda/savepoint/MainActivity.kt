@@ -2079,7 +2079,10 @@ fun Savepoint(openLater: Boolean, openDailyLog: Boolean = false, openSettings: B
                 celebration =
                     (fresh.lastOrNull { it.key.startsWith("streak:") } ?: fresh.lastOrNull())
                         ?.message
-                if (dailyDate == LocalDate.now().toString()) LogReminders.clear(context)
+                if (dailyDate == LocalDate.now().toString()) {
+                    LogReminders.clear(context)
+                    Reminders.clear(context)
+                }
                 screenStates.removeState("daily:$dailyDate")
                 dailyPreselected = null
                 route = "log"
