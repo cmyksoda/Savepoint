@@ -20,8 +20,8 @@ android {
         applicationId = "com.cmyksoda.savepoint"
         minSdk = 26
         targetSdk = 37
-        versionCode = 36
-        versionName = "0.7.0"
+        versionCode = 37
+        versionName = "0.7.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {
